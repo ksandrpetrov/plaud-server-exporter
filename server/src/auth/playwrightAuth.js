@@ -151,7 +151,7 @@ export async function runInteractiveLogin(options = {}) {
         "This CLI will detect the session automatically. If Google blocks " +
         "the sign-in with \"this browser may not be secure\", sign into " +
         "Plaud with your email/password (not Google), or follow " +
-        "docs/troubleshooting.md → \"Google blocks sign-in\"."
+        "docs/troubleshooting.md → «Google блокирует вход»."
     );
 
     const deadline = Date.now() + loginTimeoutMs;
@@ -240,80 +240,6 @@ export async function runInteractiveLogin(options = {}) {
       cookieCount: plaudCookies.length,
     });
 
-    return snapshot;
-  } finally {
-    await context.close().catch(() => {});
-  }
-}
-
-/**
- * Headless refresh against an existing persistent profile. Used when the user
- * profile cookies are still valid; we just need to re-export `localStorage`.
- */
-export async function refreshSessionFromProfile() {
-  const { chromium } = await import("playwright");
-  await ensureSecureDir(config.playwrightProfileDir);
-
-  const launchOptions = browserLaunchOptions({ headless: true });
-  let context;
-  try {
-    context = await chromium.launchPersistentContext(
-      config.playwrightProfileDir,
-      launchOptions
-    );
-  } catch (error) {
-    const hint = explainLaunchFailure(error);
-    if (hint) {
-      logger.error(hint);
-    }
-    throw error;
-  }
-  await applyStealth(context);
-  try {
-    const page = await context.newPage();
-    await page.goto(config.plaudWebOrigin, { waitUntil: "networkidle" });
-    const snapshotKeys = await page.evaluate(() => {
-      const out = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!k) continue;
-        out[k] = localStorage.getItem(k) || "";
-      }
-      return out;
-    });
-    const readiness = isLocalStorageSessionReady(snapshotKeys);
-    if (!readiness.ready) {
-      if (!(snapshotKeys["pld_tokenstr"] || snapshotKeys["tokenstr"])) {
-        throw new Error(
-          "Headless refresh did not find a Plaud session. Re-run server:auth interactively."
-        );
-      }
-      throw new Error(
-        "Headless refresh found a login token but workspace keys are missing. " +
-          "Re-run `npm run server:auth` interactively and wait for the recordings list. " +
-          "Missing keys: " +
-          readiness.missing.join(", ")
-      );
-    }
-    const filtered = Object.fromEntries(
-      Object.entries(snapshotKeys).filter(([k]) => shouldKeepKey(k))
-    );
-    const cookies = (await context.cookies())
-      .filter((c) => /plaud\.ai$/.test(c.domain || ""))
-      .map((c) => ({
-        name: c.name,
-        value: c.value,
-        domain: c.domain,
-        path: c.path,
-        expires: c.expires,
-      }));
-    const snapshot = {
-      version: 1,
-      savedAt: new Date().toISOString(),
-      localStorage: filtered,
-      cookies,
-    };
-    await saveSessionSnapshot(snapshot);
     return snapshot;
   } finally {
     await context.close().catch(() => {});

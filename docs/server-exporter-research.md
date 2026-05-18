@@ -1,228 +1,181 @@
-# Plaud Server Exporter Research
+# Исследование Plaud Server Exporter
 
-## Summary
+> Справочник для разработки. Инструкция по эксплуатации: [getting-started.md](./getting-started.md).
 
-This server exporter ports the working logic of the existing
-[`plaud-exporter`](../plaud-exporter/README.md) Chrome extension (Manifest V3)
-into a headless Node.js runtime. The goal is to download Plaud.ai recordings
-and AI summaries on a server, write Obsidian-friendly Markdown, and avoid
-re-downloading unchanged items — without the user having to open a browser
-popup every time.
+## Резюме
 
-The extension does not browse the Plaud DOM for primary data. It reads a small
-set of `localStorage` keys, calls a handful of internal HTTPS endpoints under
-`*.plaud.ai`, and persists a deduplicating sync index. Almost all of that
-behavior is portable to a server. The remaining browser-specific pieces are:
-(1) reading `localStorage` for the JWT/workspace tokens, (2) using
-`chrome.downloads` to write files, and (3) a DOM click fallback used only when
-the JSON list endpoint fails.
+Server exporter переносит рабочую логику Chrome-расширения
+[`plaud-exporter`](../plaud-exporter/README.md) (Manifest V3) в headless Node.js:
+скачивание записей и AI-саммари Plaud на сервере, запись Markdown для Obsidian и
+пропуск неизменённого — без открытия попапа в браузере каждый раз.
 
-We therefore recommend a **Hybrid** architecture: a direct internal API client
-for every regular sync, and Playwright only when we need a one-time login or a
-refresh of the session snapshot.
+Расширение для основных данных не обходит DOM Plaud. Оно читает несколько ключей
+`localStorage`, вызывает внутренние HTTPS-эндпоинты под `*.plaud.ai` и ведёт
+дедуплицирующий индекс sync. Почти всё переносимо на сервер. Браузерно-специфично:
+(1) чтение `localStorage` для JWT/workspace, (2) `chrome.downloads` для записи
+файлов, (3) DOM-fallback при сбое JSON-списка.
 
-## Existing extension architecture
+Рекомендуется **гибридная** архитектура: прямой внутренний API-клиент для
+обычного sync и Playwright только для однократного входа или обновления снимка
+сессии.
 
-The extension is Manifest V3 with three runtime layers.
+## Архитектура расширения
 
-| Layer | Files | Responsibility |
-|-------|-------|----------------|
-| Service worker | `background.js` | Notifications, `chrome.downloads`, message routing, background sync runner |
-| Content script | `content.js`, `features/audioExport/*` | Runs on `web.plaud.ai`/`app.plaud.ai`, reads `localStorage`, calls Plaud API, parses summaries |
-| Popup UI | `popup/*` | Triggers exports, configures sync subfolder |
+Manifest V3, три слоя runtime.
 
-The relevant pure logic — stable IDs, sync action decisions, filenames, title
-extraction — already lives in two browser-agnostic modules:
+| Слой | Файлы | Задача |
+|------|-------|--------|
+| Service worker | `background.js` | Уведомления, `chrome.downloads`, маршрутизация сообщений, фоновый sync |
+| Content script | `content.js`, `features/audioExport/*` | На `web.plaud.ai` / `app.plaud.ai`, `localStorage`, API Plaud, разбор саммари |
+| Popup | `popup/*` | Запуск экспорта, настройка подпапки sync |
+
+Чистая логика — stable id, решения sync, имена, извлечение заголовков — в
+модулях без браузера:
 
 - [`plaud-exporter/common/syncCore.js`](../plaud-exporter/common/syncCore.js)
 - [`plaud-exporter/common/exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js)
 
-The server consumes these directly via a git submodule, so the extension and
-the server share one source of truth.
+Сервер импортирует их через git submodule — единый источник правды.
 
-## Current export flow
+## Текущий поток экспорта
 
 ```mermaid
 flowchart TD
-    Popup[Popup buttons] -->|message| BG[background.js service worker]
-    Popup -->|message| CS[content.js on Plaud tab]
+    Popup[Кнопки попапа] -->|message| BG[background.js service worker]
+    Popup -->|message| CS[content.js на вкладке Plaud]
     BG -->|tabs.sendMessage| CS
     CS --> AE[features/audioExport/audioExport.js]
-    AE -->|getPlaudSession| LS[Plaud tab localStorage]
+    AE -->|getPlaudSession| LS[localStorage вкладки Plaud]
     AE -->|fetch| API[api.plaud.ai]
     AE -->|downloadPlaudFile| BG
-    BG -->|chrome.downloads| Disk[Downloads folder]
-    AE -.->|fallback if list API fails| DOM[domExportFallback.js]
+    BG -->|chrome.downloads| Disk[Папка Downloads]
+    AE -.->|fallback при сбое list API| DOM[domExportFallback.js]
 ```
 
-`runSmartSync` ([`features/audioExport/audioExport.js`](../plaud-exporter/features/audioExport/audioExport.js))
-is the closest existing analogue to what the server needs. It:
+`runSmartSync` в [`audioExport.js`](../plaud-exporter/features/audioExport/audioExport.js)
+— ближайший аналог server sync:
 
-1. Loads the sync index from `chrome.storage.local`.
-2. Lists recordings via the internal API.
-3. For each recording, fetches summary notes, computes a stable id and
-   summary/audio hashes, decides `new` / `updated` / `already_synced` /
-   `skipped`, and writes only when needed.
+1. Индекс из `chrome.storage.local`.
+2. Список записей через внутренний API.
+3. На запись: саммари, stable id, hash, решение `new` / `updated` /
+   `already_synced` / `skipped`, запись только при необходимости.
 
-The server replaces (1) with a JSON file and (3)'s download calls with
-`fs.writeFile`, but reuses the decision logic verbatim.
+Сервер заменяет (1) JSON-файлом, (3) — `fs.writeFile`, логику решений берёт из
+submodule без изменений.
 
-## Auth/session model
+## Модель auth / сессии
 
-The extension does **not** read any cookies in code. The full session is
-recovered from `localStorage` on the Plaud tab.
+Расширение **не** читает cookies в коде. Сессия — из `localStorage` вкладки Plaud.
 
-| Key (Plaud Web `localStorage`) | Purpose | Notes |
-|--------------------------------|---------|-------|
-| `pld_tokenstr` (or `tokenstr`) | User JWT | Base auth |
-| JWT `sub` claim | `userId` | Used to build other keys |
-| `pld_{userId}:currentWorkspaceId` | Active workspace | Used for `workspace-id` header |
-| `pld_{userId}:workspaceList` | `[{ workspaceId, workspaceToken, expiresAt }]` | Workspace JWT; preferred over user JWT |
-| `pld_{userId}:plaud_user_api_domain` | Per-user API host | Must end with `.plaud.ai` |
-| `plaud_user_api_domain` | Global API host fallback | |
-| `pld_{userId}_{workspaceId}:sort_by` | List sort field | Defaults to `start_time` |
+| Ключ (`localStorage` Plaud Web) | Назначение |
+|---------------------------------|------------|
+| `pld_tokenstr` (или `tokenstr`) | JWT пользователя |
+| claim `sub` в JWT | `userId` для других ключей |
+| `pld_{userId}:currentWorkspaceId` | активный workspace → заголовок `workspace-id` |
+| `pld_{userId}:workspaceList` | `[{ workspaceId, workspaceToken, expiresAt }]` |
+| `pld_{userId}:plaud_user_api_domain` | API-хост пользователя (должен быть `*.plaud.ai`) |
+| `plaud_user_api_domain` | глобальный fallback |
+| `pld_{userId}_{workspaceId}:sort_by` | сортировка списка, по умолчанию `start_time` |
 
-`getPlaudSession()` builds the effective `Authorization` header as
-**workspaceToken if not expired, else userToken**, with `Bearer ` prepended.
-Headers used on every internal request:
+`getPlaudSession()` выставляет `Authorization`: **workspaceToken**, если не истёк,
+иначе userToken, с префиксом `Bearer `. Заголовки запросов:
 
 ```
 Authorization: Bearer …
 edit-from: web
 app-platform: web
 Content-Type: application/json
-workspace-id: <workspaceId>      (if set)
-file-id: <id>                    (only on /ai/query_note)
+workspace-id: <workspaceId>      (если есть)
+file-id: <id>                    (только на /ai/query_note)
 ```
 
-There is **no explicit refresh** in the extension. It relies on Plaud Web
-itself to keep `localStorage` current while the tab is open. Retries are
-limited to network errors, 429, and 5xx; `401`/`403` are deliberately not
-retried.
+Явного refresh в расширении нет — Plaud Web обновляет `localStorage`, пока вкладка
+открыта. Повторы: сеть, 429, 5xx; 401/403 не повторяются.
 
-## Plaud internal API findings
+## Внутренний API Plaud
 
-All endpoints are relative to `session.apiBase` (default
-`https://api.plaud.ai`, can be overridden per-user via the `plaud_user_api_domain`
-keys; sanity-checked to `*.plaud.ai`).
+База: `session.apiBase` (по умолчанию `https://api.plaud.ai`, переопределение через
+`plaud_user_api_domain`, проверка `*.plaud.ai`).
 
-| Method | Path | Used for | Extra headers |
-|--------|------|----------|---------------|
-| GET | `/file/simple/web?skip&limit&sort_by&is_desc&r&is_trash&…` | Paginated recording list (with `is_trash` and per-tag/folder variants) | – |
-| GET | `/filetag/` (with `/filetag` fallback) | Virtual folders/tags | None (called with user and workspace tokens, merged by id) |
-| GET | `/file/temp-url/{fileId}` | Presigned audio URL + readable title hints | – |
-| GET | `/ai/query_note` | Summary notes (`summary`, `auto_sum_note`, `sum_multi_note`) | `file-id: <id>` |
-| GET | `<note.data_link>` (external presigned S3-like URL) | Markdown body of a summary | None (no Plaud auth) |
+| Метод | Путь | Назначение | Доп. заголовки |
+|-------|------|------------|----------------|
+| GET | `/file/simple/web?…` | Пагинированный список | — |
+| GET | `/filetag/` (fallback `/filetag`) | Виртуальные папки/теги | — |
+| GET | `/file/temp-url/{fileId}` | Presigned URL аудио | — |
+| GET | `/ai/query_note` | Заметки саммари | `file-id` |
+| GET | `<note.data_link>` | Тело markdown (внешний URL) | без auth Plaud |
 
-Three additional behaviors are worth porting:
+Дополнительно:
 
-- **Region redirect.** If the JSON body contains `status === -302` with
-  `data.domains.api`, the client switches `apiBase` once and retries.
-- **Backoff.** Up to 3 attempts with exponential delay (500ms → 8s) on
-  timeouts, 429, 502–504, and generic network errors. 401/403 are not retried.
-- **Per-request timeout.** 45 seconds with `AbortController`.
+- **Редирект региона:** `status === -302`, `data.domains.api` — смена `apiBase` и один
+  повтор.
+- **Backoff:** до 3 попыток, 500 ms → 8 s; таймауты, 429, 502–504, сеть; не 401/403.
+- **Таймаут запроса:** 45 с, `AbortController`.
 
-Recording identity comes from a small set of keys on each row of
-`/file/simple/web`:
+Идентификаторы записи в строке `/file/simple/web`: `file_id`, `fileId`, `id`,
+`recording_id`, … `uuid`. Заголовки: `file_name`, `filename`, `title`, …
 
-```
-file_id, fileId, id, recording_id, recordingId,
-audio_id, audioId, resource_id, resourceId, uuid
-```
+## Гипотеза срока жизни токена
 
-Titles are searched in `file_name`, `filename`, `fileName`, `file_title`,
-`fileTitle`, `display_name`, `displayName`, `audio_name`, `recording_name`,
-`recordingTitle`, `topic`, `name`, `title`.
+Структурированный сигнал — `workspaceList[*].expiresAt` (секунды или мс, `<1e12` →
+секунды). Истёкший workspace → user JWT. Срок user JWT в коде расширения не
+отслеживается; 401/403 без retry → практически только re-auth на Plaud Web. На
+сервере: `server:auth` или свежий импорт DevTools.
 
-## Token lifetime / refresh hypothesis
+Политика для сервера:
 
-The extension treats workspace token expiry as the only structured signal:
-`workspaceList[*].expiresAt`, interpreted as either seconds or milliseconds
-(`<1e12` → seconds). If `expiresAt` is missing or in the past, the user JWT is
-used.
+- workspace token, пока `expiresAt` в будущем, иначе user token (как в расширении);
+- любой 401/403 → `auth_expired`, без retry, явно в `server:status`;
+- опционально (фаза 2): `server:auth --refresh` headless по профилю Playwright.
 
-User-token expiry is **not** observed anywhere in extension code. The fact
-that 401/403 are not retried suggests the only practical recovery is to
-re-authenticate on the Plaud Web page. On a server this means re-running
-`server:auth` (Playwright) or re-importing a fresh DevTools snapshot.
+## Что переиспользовать на сервере
 
-A reasonable conservative policy for the server:
+Из submodule напрямую:
 
-- Use the workspace token when `expiresAt` is in the future, else fall back to
-  the user token (same logic as the extension).
-- Treat any 401/403 as `auth_expired`; do not retry, surface clearly in
-  `server:status`, and instruct the user to refresh.
-- Optionally — phase 2 — let `server:auth --refresh` open the persistent
-  Playwright profile headlessly, re-export the snapshot, and exit. The DOM
-  is not parsed; we only need `localStorage` after the auto-login.
+- `syncCore.js` — stable id, отпечатки, решения sync, нормализация индекса, пути
+  артефактов.
+- `exportPathUtils.js` — безопасные имена, заголовки из markdown.
 
-## What can be reused server-side
+Портировать в `server/src/plaud/` один в один по смыслу:
 
-These modules from the extension submodule are pure JS without browser APIs
-and are imported directly by the server:
+- `getPlaudSession` (из снимка, не `localStorage`);
+- `buildPlaudHeaders`, `fetchPlaudApi`, retry, `-302`;
+- `fetchPlaudFilesFromApi`, саммари, аудио URL, нормализация записей, sync-кандидаты.
 
-- `common/syncCore.js` — stable ids, fingerprints, sync action decisions,
-  index normalization, relative artifact paths.
-- `common/exportPathUtils.js` — safe filename rules, title extraction from
-  markdown.
+## Что нельзя использовать напрямую
 
-These functions can be ported one-to-one into `server/src/plaud/`:
+- `getPlaudSession()` — нет `localStorage` в Node; JSON-снимок Playwright/DevTools.
+- `chrome.*` / data-URL → `node:fs/promises`.
+- `mergeDomRecordingIdsIntoFiles`, `mergeLocalStorageRecordingIdsIntoFiles` — живая
+  вкладка; на сервере только JSON API (фаза 2 — скан ключей снимка).
+- `runDomExportFallback` — только браузер.
+- Маршрутизация popup/background.
 
-- `getPlaudSession` (read from snapshot instead of `localStorage`).
-- `buildPlaudHeaders`, `fetchPlaudApi`, retry/backoff, `-302` switch.
-- `fetchPlaudFilesFromApi` (in MVP we can start with `is_trash=0` +
-  pagination; folder/tag variants are an optional second pass).
-- `fetchPlaudSummaryExports`, `parseSummaryContent`, `findSummaryNotes`,
-  `getNoteRawContent` (with the same external `data_link` fetch).
-- `fetchPlaudAudioUrl`, `extractTitleForFileFromPayload`, `preferApiTitle`.
-- `normalizePlaudFile`, `extractRawRecordingId`.
-- `buildSyncCandidate`, `buildAudioSignature`, `buildSummaryBundle`.
+## Риски
 
-## What cannot be reused directly
+| Риск | Вероятность | Смягчение |
+|------|-------------|-----------|
+| Неожиданное истечение JWT | Средняя | `server:auth`, `auth_expired` в status, без retry 401/403 |
+| Смена полей/кодов Plaud | Низкая/средняя | Версионированный клиент; диагностика статусов без тел |
+| Список API короче DOM-merge | Низкая | Лог расхождения; фаза 2 — теги и скан снимка |
+| Headless без UI для login | Высокая при деплое | X11, auth на Mac + scp, `--import` DevTools |
+| Утечка секретов в логах | Средняя | Центральная редакция; запрет печати токенов |
+| Дрейф submodule | Низкая | `npm run verify` |
 
-- `getPlaudSession()` itself — no `localStorage` in Node; replaced by a JSON
-  snapshot produced by Playwright or DevTools import.
-- `chrome.runtime`/`chrome.storage`/`chrome.downloads` paths and the
-  data-URL trick — replaced by `node:fs/promises`.
-- `mergeDomRecordingIdsIntoFiles` and `mergeLocalStorageRecordingIdsIntoFiles`
-  — both depend on a live Plaud page. On the server we rely on the JSON API
-  alone for the file list; the storage-key scan can be approximated against
-  the saved snapshot in a phase 2 if pagination misses something.
-- `runDomExportFallback` — DOM click loop, browser-only.
-- Popup/background message routing.
+## Рекомендуемый путь реализации
 
-## Risks
+**Вариант C — гибрид:**
 
-| Risk | Likelihood | Mitigation |
-|------|------------|------------|
-| User/workspace JWT expires unexpectedly | Medium | Hybrid `server:auth` refresh; `server:status` exposes `auth_expired`; never retry 401/403 |
-| Plaud changes a field name or status code | Low/Medium | Versioned client module; diagnostic snapshot of HTTP statuses (no payloads, no headers) on unexpected failures |
-| API list misses items the extension would surface via DOM merge | Low | MVP logs the count gap; phase 2 reads tag variants and storage-key scan from the snapshot |
-| Headless server cannot run Playwright UI for login | High at deploy time | Document three paths: SSH X11, run `server:auth` on the Mac and `scp` the snapshot, or `--import` from DevTools |
-| Secrets leak via logs or crash reports | Medium | Central redaction helper; logger forbids printing `Authorization`, `Cookie`, JWT-looking strings, `pld_*` values |
-| Submodule drifts from extension | Low | `npm run verify` checks both submodule presence and that every server import path resolves |
+1. **Playwright (редко).** `server:auth`: Chromium, `https://web.plaud.ai`, вход,
+   проверка `GET /file/simple/web?limit=1`, снимок в `session.json` (`0600`).
+2. **Прямой API.** `server:sync`: снимок → те же заголовки, что в расширении,
+   четыре эндпоинта, `syncCore` + `exportPathUtils` из submodule.
+3. **Индекс.** `sync-index.json` — схема `plaudExporterSyncIndexV1`, те же
+   `determineSyncAction`.
+4. **Вывод.** `{vault}/Plaud/{YYYY}/{YYYY-MM-DD} - {title}.md`; аудио опционально в
+   `_attachments/`.
+5. **Refresh.** При 401/403 — остановка, пометка снимка устаревшим, подсказка
+   `server:auth`.
 
-## Recommended implementation path
-
-Adopt **Variant C — Hybrid**:
-
-1. **Playwright (one-time / on refresh).** `server:auth` launches Chromium
-   with a persistent profile, navigates to `https://web.plaud.ai`, waits
-   for the user to sign in, validates with a `GET /file/simple/web?limit=1`,
-   and writes a redacted session snapshot to `server/.data/session.json`
-   (mode `0600`).
-2. **Direct internal API client.** `server:sync` reads the snapshot, builds
-   the same `Authorization`/`workspace-id` headers as the extension, calls
-   the four endpoints above, and reuses `syncCore` and `exportPathUtils`
-   from the submodule.
-3. **Sync state.** A JSON file at `server/.data/sync-index.json` mirrors the
-   extension's `plaudExporterSyncIndexV1` schema. The same `determineSyncAction`
-   produces `new` / `updated` / `already_synced` / `skipped`.
-4. **Output.** Markdown files in `{vault}/Plaud/{YYYY}/{YYYY-MM-DD} - {title}.md`
-   with YAML frontmatter. Audio (optional) under `{vault}/Plaud/_attachments/`.
-5. **Refresh policy.** On 401/403 the runner stops, marks the snapshot as
-   stale, and `server:status` instructs the user to re-run `server:auth`.
-
-This keeps the fast path identical to what the extension does today — pure
-HTTP — and only depends on a browser for the rare events where Plaud's
-session actually changes.
+Быстрый путь совпадает с расширением (чистый HTTP); браузер — только при смене
+сессии Plaud.

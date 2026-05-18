@@ -27,7 +27,6 @@ import { recordingsService } from "../plaud/recordingsService.js";
 import { loadSyncIndex, saveSyncIndex } from "./serverSyncIndex.js";
 import {
   buildMarkdownDocument,
-  planAudioPath,
   resolveMeetingTitle,
 } from "./obsidianWriter.js";
 import {
@@ -93,13 +92,6 @@ function buildSummaryBundle(summaries) {
     .map((s) => String(s?.markdown || "").trim())
     .filter(Boolean)
     .join("\n\n---\n\n");
-}
-
-function resolveIncludeAudio(args) {
-  if (args.summaryOnly) return false;
-  if (args.includeAudio === true) return true;
-  if (args.includeAudio === false) return false;
-  return config.exportAudio === true;
 }
 
 async function buildCandidate(file, summaries) {
@@ -174,15 +166,12 @@ function emptyStats() {
  * @param {{
  *   session: import("../auth/plaudSessionExtractor.js").PlaudSession;
  *   dryRun?: boolean;
- *   includeAudio?: boolean;
- *   summaryOnly?: boolean;
  *   onProgress?: (stats: object) => void;
  * }} args
  */
 export async function runSync(args) {
   const { session, onProgress } = args;
   const dryRun = !!args.dryRun;
-  const includeAudio = resolveIncludeAudio(args);
   const runId = randomUUID();
 
   const stats = emptyStats();
@@ -192,14 +181,7 @@ export async function runSync(args) {
   // Dry-run does not write anything mutable, so it does not need the lock.
   const release = dryRun ? async () => {} : await acquireSyncLock();
   try {
-    return await runSyncCore({
-      session,
-      onProgress,
-      dryRun,
-      includeAudio,
-      runId,
-      stats,
-    });
+    return await runSyncCore({ session, onProgress, dryRun, runId, stats });
   } finally {
     try {
       await release();
@@ -209,7 +191,7 @@ export async function runSync(args) {
   }
 }
 
-async function runSyncCore({ session, onProgress, dryRun, includeAudio, runId, stats }) {
+async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
   const syncIndex = await loadSyncIndex();
   let files;
 
@@ -236,7 +218,7 @@ async function runSyncCore({ session, onProgress, dryRun, includeAudio, runId, s
   }
 
   stats.total = files.length;
-  logger.info("Discovered Plaud recordings.", { count: files.length, includeAudio, dryRun });
+  logger.info("Discovered Plaud recordings.", { count: files.length, dryRun });
 
   for (const file of files) {
     try {
@@ -349,39 +331,7 @@ async function runSyncCore({ session, onProgress, dryRun, includeAudio, runId, s
         continue;
       }
 
-      let audioPath = existingRecord?.audioPath || "";
-
-      if (includeAudio && dryRun) {
-        const plannedAudio = planAudioPath({
-          title: candidate.title,
-          extension: "mp3",
-          folderSegment: file.folderSegment || "",
-        });
-        audioPath = plannedAudio.absolutePath;
-        stats.audioDownloaded++;
-      } else if (includeAudio) {
-        try {
-          const { url, titleHint } = await recordingsService.audioUrl(session, file.id);
-          const audioTitle = titleHint || candidate.title;
-          const plannedAudio = planAudioPath({
-            title: audioTitle,
-            extension: extOf(url),
-            folderSegment: file.folderSegment || "",
-          });
-          await writeAudioFile({ absolutePath: plannedAudio.absolutePath, url });
-          audioPath = plannedAudio.absolutePath;
-          stats.audioDownloaded++;
-        } catch (audioError) {
-          logger.warn(`Audio download failed for ${file.id}.`, redactError(audioError));
-          await reportError(audioError, {
-            stage: "fetch-audio",
-            runId,
-            endpoint: `/file/temp-url/${file.id}`,
-            dryRun,
-          });
-          stats.errors++;
-        }
-      }
+      const audioPath = existingRecord?.audioPath || "";
 
       if (!dryRun) {
         const document = buildMarkdownDocument({ file, summaries, candidate });
@@ -471,25 +421,9 @@ async function runSyncCore({ session, onProgress, dryRun, includeAudio, runId, s
   return stats;
 }
 
-function extOf(url) {
-  try {
-    const u = new URL(url);
-    const m = u.pathname.match(/\.([a-z0-9]{2,5})$/i);
-    if (m) return m[1].toLowerCase();
-  } catch {
-    // ignore
-  }
-  return "mp3";
-}
-
 async function writeMarkdownFile(args) {
   const { writeMarkdownFile: writeMd } = await import("./obsidianWriter.js");
   return writeMd(args);
-}
-
-async function writeAudioFile(args) {
-  const { writeAudioFile: writeAu } = await import("./obsidianWriter.js");
-  return writeAu(args);
 }
 
 async function writeStatusFile({ stats, lastAuthError } = {}) {

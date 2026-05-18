@@ -1,128 +1,128 @@
-# Troubleshooting
+# Устранение неполадок
 
-## Google blocks sign-in ("this browser may not be secure")
+## Google блокирует вход при `server:auth`
 
-**Symptoms:** During `npm run server:auth`, after you click *Sign in with
-Google* on Plaud, Google shows:
+Войдите в Plaud **email/паролем**, не через Google. Должен быть установлен **Google Chrome** (экспортёр запускает его по умолчанию).
 
-> Couldn't sign you in
-> This browser or app may not be secure.
-
-**Why:** Google blocks OAuth from browsers it identifies as automated, even
-when you drive them yourself. Playwright's bundled Chromium ships with the
-`--enable-automation` flag and `navigator.webdriver === true`, both of which
-trip Google's detector.
-
-**Fix — in order of effort:**
-
-1. **Sign in with email/password on Plaud** (not via Google). This bypasses
-   Google entirely. If you don't have a password, set one at
-   `https://web.plaud.ai` → *Account* first.
-2. **Use installed Google Chrome.** This is the new default: the exporter now
-   launches your local Chrome (`channel: "chrome"`), which Google trusts. If
-   Chrome is not installed, install it from `https://www.google.com/chrome/`
-   and re-run `npm run server:auth`.
-3. **Override the browser channel.** Set in `.env`:
-
-   ```env
-   PLAUD_PLAYWRIGHT_CHANNEL=chrome      # default
-   PLAUD_PLAYWRIGHT_CHANNEL=msedge      # try Microsoft Edge
-   PLAUD_PLAYWRIGHT_EXECUTABLE=/Applications/Google Chrome.app/Contents/MacOS/Google Chrome
-   ```
-
-4. **Headless server or still blocked? Import a snapshot from your real
-   Chrome via DevTools.** See [devtools-data-needed.md](./devtools-data-needed.md)
-   and:
-
-   ```bash
-   npm run server:auth -- --import /path/to/plaud-session.json
-   ```
-
-If you previously ran `server:auth` and a stale Playwright profile is
-confusing Google, wipe it and retry:
+Если мешает старый профиль:
 
 ```bash
 rm -rf server/.data/playwright-profile
 npm run server:auth
 ```
 
-## Plaud logged me out / auth errors
+## Сессия (exit code 2)
 
-**Symptoms:** `server:sync` exits with code `2`, logs mention auth, `_errors/` may contain `auth_error`.
+На Mac: `npm run server:auth`, затем `scp session.json` на сервер — [getting-started.md](getting-started.md).
 
-**Fix:**
+На сервере **не** запускайте `server:auth` (1 GB RAM, OOM).
 
-```bash
-npm run server:auth
-npm run server:status    # confirm session.present
-npm run server:sync -- --dry-run
+## scp: Permission denied
+
+`scp ... YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json` возвращает `Permission denied, please try again.` — это **SSH-уровень**, а не права на файлы. Чек-лист:
+
+1. Проверьте логин/пароль через обычный `ssh`. Если он тоже не пускает — пароль ошибочный или провайдер сменил его.
+
+   ```bash
+   ssh YOUR_SSH_USER@YOUR_SERVER_HOST 'echo ok'
+   ```
+
+2. Если в `ssh` сразу пишет `root@host: Permission denied (publickey)` без запроса пароля — в `/etc/ssh/sshd_config` стоит `PermitRootLogin prohibit-password` или `PasswordAuthentication no`. Войдите через панель провайдера, поправьте на `PermitRootLogin yes` + `PasswordAuthentication yes` и `sudo systemctl reload ssh`. Безопаснее — настроить ключ (ниже).
+
+3. Чтобы перестать вводить пароль и не упираться в эти ошибки — один раз положите свой публичный ключ на сервер:
+
+   ```bash
+   ssh-copy-id YOUR_SSH_USER@YOUR_SERVER_HOST
+   ```
+
+   После этого `ssh`/`scp` пускают по ключу `~/.ssh/id_rsa` без пароля.
+
+4. Угловые скобки (`<user>`, `<host>`) в команде дают `zsh: no such file or directory: …` — это перенаправление ввода, а не плейсхолдер. Подставляйте логин/хост напрямую (например `YOUR_SSH_USER@YOUR_SERVER_HOST`).
+
+## Plaud изменил API (exit code 3)
+
+Смотрите `{export}/_errors/*.md` и логи. Нужно обновить `server/src/plaud/plaudApiClient.js` под новый API.
+
+## EACCES sync.lock на сервере
+
+**Симптом:** `npm run server:status` от `plaud` показывает сессию (`session.snapshot.present: true`), а `npm run server:sync` падает:
+
+```text
+EACCES: permission denied, open '/srv/plaud-exporter/server/.data/sync.lock'
 ```
 
-On a headless server, import a snapshot from your Mac — see [devtools-data-needed.md](./devtools-data-needed.md).
+В `_errors/` может быть отчёт с `kind: write_error`, `stage: sync`.
 
-## Plaud changed API / `plaud_changed`
+**Причина:** каталог `server/.data` создан или принадлежит **root** (часто после `sudo mkdir` + `chown` только на `session.json`), либо sync когда-то запускали не от `plaud`. Пользователь `plaud` читает `session.json`, но не может создавать в каталоге `sync.lock` и `sync-index.json`.
 
-**Symptoms:** exit code `3`, log says manual review required, error kind `plaud_changed` in `_errors/`.
+### Пошагово
 
-**What it means:** The exporter expected a known JSON shape (file list or summary notes) and did not find it.
+1. Подключитесь к серверу по SSH.
 
-**Fix:** Open the newest `_errors/*.md`, check logs, compare with Plaud Web Network tab, update `plaudApiClient.js` if endpoints changed. Report upstream or patch locally.
+2. Проверьте владельца каталога и файлов:
 
-## Summary not exporting
+   ```bash
+   ls -la /srv/plaud-exporter/server/.data
+   ```
 
-1. `npm run server:status` — is session valid?
-2. `npm run server:sync -- --dry-run` — are recordings listed (`total > 0`)?
-3. Check `_errors/` for per-file `fetch-summary` failures.
-4. If `skipped` count is high, stable id may be unreliable — inspect `sync-index.json`.
+   Ожидается: каталог `drwx------ plaud plaud`, `session.json` — `-rw------- plaud plaud`.  
+   Если у `.data` владелец `root` — это и есть ошибка.
 
-## Files not created
+3. Исправьте права на служебный каталог:
 
-- Verify `PLAUD_EXPORT_ROOT` or `PLAUD_OBSIDIAN_VAULT_PATH` exists and is writable.
-- Look for `write_error` in `_errors/`.
-- Run as the same user as systemd/cron.
+   ```bash
+   sudo chown -R plaud:plaud /srv/plaud-exporter/server/.data
+   sudo chmod 700 /srv/plaud-exporter/server/.data
+   sudo chmod 600 /srv/plaud-exporter/server/.data/session.json
+   ```
 
-## Strange file names
+4. Удалите зависший lock, если он остался от запуска под root:
 
-- Names come from Plaud `file_name` or the first real markdown heading.
-- Boilerplate (`Plaud`, `Untitled`) is ignored.
-- Very long titles are truncated (~242 chars max filename).
-- Duplicate titles get a short stable-id suffix.
+   ```bash
+   sudo rm -f /srv/plaud-exporter/server/.data/sync.lock
+   ```
 
-## Error markdown files appeared
+5. Убедитесь, что каталог выгрузки тоже доступен `plaud`:
 
-This is intentional. Read `_errors/*.md` — they are redacted and safe to skim. Fix the root cause (auth, API, disk), then re-run sync. Duplicate identical errors are not recreated.
+   ```bash
+   sudo chown -R plaud:plaud /srv/plaud-exporter/exports
+   ls -la /srv/plaud-exporter/exports
+   ```
 
-## I deleted a summary `.md` file manually
+6. Повторите проверку **только от пользователя plaud** (не `npm run server:sync` от root):
 
-The next `server:sync` **restores** the file when `sync-index.json` still has the same `summaryHash` (content unchanged). You will see `updated: 1` in stats, not a duplicate.
+   ```bash
+   sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
+   sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:sync'
+   ```
 
-If you deleted both the file **and** the index entry, the next run treats the recording as new.
+7. После успешного sync снова посмотрите `.data` — должны появиться `sync-index.json` и при необходимости `sync.lock` (кратко на время sync), все с владельцем `plaud`:
 
-## Re-run creates duplicates
+   ```bash
+   ls -la /srv/plaud-exporter/server/.data
+   ```
 
-Should not happen if `sync-index.json` is intact. If you deleted the index but kept Markdown files, the exporter may create new files with the same title — merge manually or restore `.bak` index from `server/.data/sync-index.json.bak`.
+**Чтобы не повторилось:** на сервере `git`, `npm`, `server:sync` — только `sudo -u plaud …`. Не запускайте sync в `/srv/plaud-exporter` от root. При переносе сессии с Mac — `chown -R plaud:plaud` на весь `server/.data`, см. [getting-started.md](getting-started.md).
 
-## Audio downloading unexpectedly
-
-Audio runs only when at least one of these is true:
-
-- `--audio-too` was passed on the CLI, **or**
-- `.env` has `PLAUD_EXPORT_SUMMARY_ONLY=false` **and** `PLAUD_EXPORT_AUDIO=true`.
-
-To force summary-only even when env opts in, pass `--no-audio` (or `--summary-only`).
-Confirm `.env` and systemd unit do not flip both env flags. `server:status`
-prints the effective settings under `config.exportSummaryOnly` /
-`config.exportAudio`.
-
-## Sync says it's already running (exit code 4)
-
-A lock file `server/.data/sync.lock` is held by another `server:sync`
-process. Real concurrent runs (cron + manual run) hit this on purpose. If the
-lock looks stuck (no other process running), check that the file's pid is
-gone (`ps -p <pid>`); the exporter auto-reclaims locks older than 2 hours or
-with a dead pid, but you can delete the file manually if needed.
+## Файлы не появляются
 
 ```bash
-sudo -u plaud cat /srv/plaud-exporter/server/.data/sync.lock
-sudo -u plaud rm /srv/plaud-exporter/server/.data/sync.lock   # only if stale
+npm run server:status    # session.present, exportRoot
 ```
+
+Права на `PLAUD_EXPORT_ROOT` у пользователя `plaud`. Ошибки — в `_errors/`.
+
+## Sync уже идёт (exit code 4)
+
+Не запускайте `server:sync` вручную одновременно с systemd timer. Подождите или проверьте `server/.data/sync.lock`.
+
+## `npm: command not found` на сервере
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+## `dubious ownership` в git
+
+Команды только от `plaud`: `sudo -u plaud git -C /srv/plaud-exporter …`. При необходимости: `sudo chown -R plaud:plaud /srv/plaud-exporter`.

@@ -70,12 +70,6 @@ const staticConfig = {
   get mirrorFolders() {
     return asBool(process.env.PLAUD_MIRROR_FOLDERS, true);
   },
-  get exportSummaryOnly() {
-    return asBool(process.env.PLAUD_EXPORT_SUMMARY_ONLY, true);
-  },
-  get exportAudio() {
-    return asBool(process.env.PLAUD_EXPORT_AUDIO, false);
-  },
   get timezone() {
     return (process.env.PLAUD_TIMEZONE || "UTC").trim();
   },

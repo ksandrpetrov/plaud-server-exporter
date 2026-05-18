@@ -7,7 +7,6 @@ import { logger } from "../logger.js";
 import { redactError } from "../security/redact.js";
 import {
   loadSessionSnapshot,
-  saveSessionSnapshot,
   sessionFileInfo,
   removeSessionSnapshot,
 } from "../auth/sessionStore.js";
@@ -22,8 +21,6 @@ import { syncIndexInfo } from "../sync/serverSyncIndex.js";
 import { reportError } from "../errors/errorReporter.js";
 import { errorsDirectoryInfo } from "../errors/errorReporter.js";
 import { classifyError } from "../errors/errorClassifier.js";
-import { resolveAudioMode } from "./audioMode.js";
-
 function parseArgs(argv) {
   const args = { _: [], flags: {} };
   for (let i = 0; i < argv.length; i++) {
@@ -55,15 +52,9 @@ function printUsage() {
       "",
       "Commands:",
       "  auth                Interactive Plaud login via Playwright; saves a session snapshot.",
-      "    --headless          Run Chromium headless (only useful for refresh against existing profile).",
-      "    --import <path>     Import a JSON session snapshot prepared from DevTools.",
-      "    --refresh           Headless refresh against the existing Playwright profile.",
       "",
-      "  sync                Pull recordings + summaries from Plaud and write Markdown.",
-      "    --dry-run           Do not write Markdown, audio, index, or error files.",
-      "    --summary-only      Force summaries-only (default; disables audio).",
-      "    --audio-too         Opt-in: also download audio (disabled by default).",
-      "    --no-audio          Force summary-only even if PLAUD_EXPORT_AUDIO=true.",
+      "  sync                Pull summaries from Plaud and write Markdown.",
+      "    --dry-run           Do not write files or update the sync index.",
       "",
       "  status              Print configuration, session presence, and last sync stats.",
       "",
@@ -75,30 +66,9 @@ function printUsage() {
   );
 }
 
-async function commandAuth(flags) {
-  if (flags.import) {
-    const text = await readFile(String(flags.import), "utf8");
-    const parsed = JSON.parse(text);
-    if (!parsed || typeof parsed !== "object" || !parsed.localStorage) {
-      throw new Error(
-        "Imported snapshot must be an object with a `localStorage` map. See docs/devtools-data-needed.md."
-      );
-    }
-    await saveSessionSnapshot({
-      version: 1,
-      savedAt: new Date().toISOString(),
-      apiBase: parsed.apiBase,
-      localStorage: parsed.localStorage,
-      cookies: Array.isArray(parsed.cookies) ? parsed.cookies : [],
-    });
-    logger.info("Imported session snapshot.", { sessionPath: config.sessionPath });
-  } else if (flags.refresh) {
-    const { refreshSessionFromProfile } = await import("../auth/playwrightAuth.js");
-    await refreshSessionFromProfile();
-  } else {
-    const { runInteractiveLogin } = await import("../auth/playwrightAuth.js");
-    await runInteractiveLogin({ headless: !!flags.headless });
-  }
+async function commandAuth() {
+  const { runInteractiveLogin } = await import("../auth/playwrightAuth.js");
+  await runInteractiveLogin({ headless: false });
 
   const snapshot = await loadSessionSnapshot();
   assertSnapshotReadyForApi(snapshot);
@@ -124,15 +94,9 @@ async function commandSync(flags) {
   }
 
   const dryRun = !!flags["dry-run"];
-  const audioMode = resolveAudioMode(flags);
 
   try {
-    const stats = await runSync({
-      session,
-      dryRun,
-      summaryOnly: audioMode.summaryOnly,
-      includeAudio: audioMode.includeAudio,
-    });
+    const stats = await runSync({ session, dryRun });
     logger.info("Sync complete.", stats);
   } catch (error) {
     if (error instanceof SyncLockError) {
@@ -188,9 +152,7 @@ async function commandStatus() {
       errorsDir: errorsDir.path,
       playwrightProfileDir: config.playwrightProfileDir,
       timezone: config.timezone,
-      exportSummaryOnly: config.exportSummaryOnly,
-      exportAudio: config.exportAudio,
-      defaultMode: "summary-only (use --audio-too to enable audio)",
+      mode: "summary-only",
     },
     session: { fileInfo: session, snapshot: sessionDescription },
     syncIndex: index,
@@ -208,7 +170,7 @@ async function main() {
   try {
     switch (cmd) {
       case "auth":
-        await commandAuth(args.flags);
+        await commandAuth();
         break;
       case "sync":
         await commandSync(args.flags);

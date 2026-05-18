@@ -1,93 +1,37 @@
-# Security notes
+# Безопасность
 
-This exporter handles the Plaud session of a real user. Treat the files
-listed below as **secrets**.
+## Секреты
 
-## Where secrets live
+| Файл | Содержимое |
+|------|------------|
+| `server/.data/session.json` | JWT и cookies Plaud |
+| `server/.data/sync-index.json` | Индекс выгрузки |
+| `.env` | Пути (без паролей Plaud) |
 
-| Path (default) | Contents | Permissions |
-|----------------|----------|-------------|
-| `server/.data/session.json` | Plaud `localStorage` snapshot (JWTs, workspace tokens) and cookies | `0600` (file), `0700` (parent dir) |
-| `server/.data/playwright-profile/` | Persistent Chromium profile with auto-login cookies | `0700` |
-| `server/.data/sync-index.json` | Index of synced records (titles, hashes, stable ids, paths). Not as sensitive but still personal. | `0600` |
-| `{export}/_errors/*.md` | Redacted failure reports for operators. No tokens by design — still check before sharing. | `0644` typical |
-| `.env` | Local configuration. Should not contain raw tokens — only paths. | `0600` recommended |
+Права: `session.json` и `.env` — `600`, каталог `.data` — `700`. Не коммитьте в git.
 
-The repository ships a `.gitignore` that excludes `server/.data/`, `.env`,
-`exports/`, logs, and any `session*.json` / `*-tokens.json`. **Never** commit
-those files.
+## Обновить сессию
 
-## How to refresh the Plaud session
+На Mac (логин в `scp` тот же, что в `ssh` — `YOUR_SSH_USER`; хост — `YOUR_SERVER_HOST`):
 
-The most common reason for `server:sync` to fail with `auth_expired` is that
-the user JWT or workspace token has expired or has been invalidated.
+```bash
+npm run server:auth
+ssh YOUR_SSH_USER@YOUR_SERVER_HOST 'echo ok'                            # проверка пароля
+scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
+```
 
-Three supported paths, in order of preference:
+`Permission denied` при `scp` — раздел «scp: Permission denied» в [troubleshooting.md](troubleshooting.md).  
+`EACCES` на `sync.lock` при рабочем `status` — [troubleshooting.md](troubleshooting.md#eacces-synclock-на-сервере).  
+Перенос `session.json` на сервере (`sudo mv`, `chown -R plaud:plaud` на `server/.data`, `chmod 700` / `600`) — [getting-started.md](getting-started.md) (блок «Сессия с Mac»).
 
-1. **Interactive Playwright login.** On a machine with a display (your Mac):
-
-   ```bash
-   npm run server:auth
-   ```
-
-   Chromium opens at `https://web.plaud.ai`, you sign in, and the CLI writes
-   a new snapshot. The persistent profile under `playwright-profile/` lets
-   subsequent runs use cached cookies.
-
-2. **Headless refresh** against an existing profile (useful on the server if
-   the cookies are still valid but the snapshot is stale):
-
-   ```bash
-   npm run server:auth -- --refresh
-   ```
-
-3. **DevTools import.** Use this when the server has no display and you do
-   not want to scp the profile:
-
-   ```bash
-   npm run server:auth -- --import ~/Downloads/plaud-session.json
-   ```
-
-   The JSON format is described in
-   [`docs/devtools-data-needed.md`](./devtools-data-needed.md).
-
-## How to delete the session
+## Удалить сессию
 
 ```bash
 node server/src/cli/index.js logout
-# also remove the Playwright profile if you want a full reset:
-rm -rf server/.data/playwright-profile
 ```
 
-## What to do if a session is compromised
+## Компрометация
 
-1. Log out of every Plaud Web session from the Plaud account settings — this
-   is the only way to revoke the JWTs that the snapshot contained.
-2. Delete `server/.data/session.json` and `playwright-profile/` on every
-   machine where they were stored. Rotate any shell history that recorded
-   the file content.
-3. Run `server:auth` again with a fresh login to create a new snapshot.
-
-## What logs are safe to share
-
-The logger and `redactError` helper redact the obvious offenders before
-anything is written:
-
-- `Authorization`, `Cookie`, `Set-Cookie` headers (entire value masked).
-- `Bearer …` tokens anywhere in strings.
-- JWT-shaped strings (`xxx.yyy.zzz`).
-- Long hex strings (≥ 64 chars).
-- Keys named `pld_*`, `workspaceToken`, `workspace-id`, `token`, `password`,
-  `secret`, etc. in object values.
-
-It is still your responsibility to **not paste raw `.json` files or HAR
-exports into public chats or issue trackers**. The redaction protects logs,
-not arbitrary attachments.
-
-## What never leaves the server
-
-- Plaud API request bodies (the client logs only HTTP statuses).
-- The contents of `session.json`, `playwright-profile/`, and the cookies
-  from `runInteractiveLogin`.
-- The bearer token values themselves; only the existence/absence and a short
-  user-id prefix are reported by `server:status`.
+1. `logout` или удалить `server/.data/session.json`
+2. Сменить пароль Plaud в веб-интерфейсе
+3. `server:auth` на Mac и новый `scp`

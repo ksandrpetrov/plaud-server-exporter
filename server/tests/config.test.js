@@ -21,19 +21,6 @@ function withEnv(overrides, fn) {
   }
 }
 
-test("config defaults to summary-only export flags", () => {
-  withEnv(
-    {
-      PLAUD_EXPORT_SUMMARY_ONLY: undefined,
-      PLAUD_EXPORT_AUDIO: undefined,
-    },
-    () => {
-      assert.equal(config.exportSummaryOnly, true);
-      assert.equal(config.exportAudio, false);
-    }
-  );
-});
-
 test("effectiveVaultRoot prefers obsidian vault over export root", () => {
   withEnv(
     {
