@@ -1,0 +1,22 @@
+{
+  "name": "plaud-server-exporter",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Server-side Plaud.ai exporter: direct internal API client + Playwright auth, writes Obsidian-friendly Markdown.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "workspaces": [
+    "server"
+  ],
+  "scripts": {
+    "server:auth": "node server/src/cli/index.js auth",
+    "server:sync": "node server/src/cli/index.js sync",
+    "server:status": "node server/src/cli/index.js status",
+    "test": "node --test server/tests/**/*.test.js",
+    "test:submodule": "cd plaud-exporter && npm test",
+    "lint": "npm run lint --workspace=@plaud-server-exporter/server",
+    "verify": "node scripts/verify-submodule.js"
+  }
+}

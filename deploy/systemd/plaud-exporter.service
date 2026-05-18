@@ -1,0 +1,30 @@
+[Unit]
+Description=Plaud Server Exporter — one-shot sync of Plaud recordings into Markdown
+Documentation=file:///srv/plaud-exporter/docs/server-deploy.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=plaud
+Group=plaud
+WorkingDirectory=/srv/plaud-exporter
+EnvironmentFile=/srv/plaud-exporter/.env
+ExecStart=/usr/bin/env npm run --silent server:sync
+StandardOutput=append:/var/log/plaud-exporter/sync.log
+StandardError=append:/var/log/plaud-exporter/sync.log
+TimeoutStartSec=30min
+Nice=10
+
+# Hardening
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/srv/plaud-exporter /var/log/plaud-exporter
+NoNewPrivileges=true
+LockPersonality=true
+RestrictRealtime=true
+RestrictNamespaces=true
+
+[Install]
+WantedBy=multi-user.target

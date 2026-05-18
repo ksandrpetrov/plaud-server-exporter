@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "Экспорт аудио Plaud.ai",
+    "description": "Название расширения"
+  },
+  "extensionDescription": {
+    "message": "Экспорт аудио и саммари из Plaud.ai в один клик",
+    "description": "Краткое описание расширения"
+  }
+}

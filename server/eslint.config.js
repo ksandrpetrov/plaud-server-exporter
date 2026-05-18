@@ -1,0 +1,34 @@
+import js from "@eslint/js";
+import globals from "globals";
+
+export default [
+  js.configs.recommended,
+  {
+    languageOptions: {
+      ecmaVersion: 2024,
+      sourceType: "module",
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      "no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
+  {
+    // page.evaluate() runs inside the browser; allow browser globals there.
+    files: ["src/auth/playwrightAuth.js"],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+      },
+    },
+  },
+  {
+    ignores: ["node_modules/", ".data/", "../plaud-exporter/"],
+  },
+];

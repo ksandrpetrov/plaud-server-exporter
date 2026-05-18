@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Runtime data (sessions, sync index, playwright profile, exports, logs)
+server/.data/
+.data/
+exports/
+logs/
+*.log
+
+# Session snapshots and tokens (never commit)
+session*.json
+*-session.json
+*-tokens.json
+
+# Playwright profile (browser state with cookies/localStorage)
+playwright-profile/
+.playwright/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo

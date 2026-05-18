@@ -1,0 +1,6 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="10 Logout (drop session)" type="NodeJSConfigurationType" application-parameters="logout" path-to-js-file="server/src/cli/index.js" working-dir="$PROJECT_DIR$">
+    <envs />
+    <method v="2" />
+  </configuration>
+</component>

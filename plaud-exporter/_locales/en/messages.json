@@ -1,0 +1,10 @@
+{
+  "extensionName": {
+    "message": "Plaud.ai audio export",
+    "description": "Extension name"
+  },
+  "extensionDescription": {
+    "message": "Export audio and summaries from Plaud.ai in one click",
+    "description": "Short extension description"
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "@plaud-server-exporter/server",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Plaud server exporter runtime (CLI, Plaud API client, Playwright auth, Obsidian writer).",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "main": "src/cli/index.js",
+  "bin": {
+    "plaud-server-exporter": "src/cli/index.js"
+  },
+  "scripts": {
+    "start": "node src/cli/index.js",
+    "test": "node --test tests/**/*.test.js",
+    "lint": "eslint src/ tests/"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "playwright": "^1.49.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "eslint": "^9.15.0",
+    "globals": "^15.12.0"
+  }
+}
