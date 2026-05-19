@@ -4,6 +4,10 @@
  */
 import { sanitizePathSegment } from "../../../plaud-exporter/common/exportPathUtils.js";
 
+/** Vault subfolder names aligned with Plaud sidebar groups. */
+export const PLAUD_FOLDER_UNFILED = "Unfiled";
+export const PLAUD_FOLDER_TRASH = "Trash";
+
 const FILETAG_ID_KEYS = [
   "filetag_id_list",
   "filetag_ids",
@@ -259,6 +263,16 @@ function isTrashSidebarTag(tag) {
   return /\btrash\b|\brecycle\b|корзина/i.test(name);
 }
 
+/**
+ * @param {object} raw
+ * @returns {boolean}
+ */
+export function isRecordingInTrash(raw) {
+  if (!raw || typeof raw !== "object") return false;
+  const v = raw.is_trash ?? raw.isTrash ?? raw.in_trash ?? raw.trashed;
+  return v === true || v === 1 || v === "1";
+}
+
 export function parseFiletagListPayload(payload) {
   return findFiletagArray(payload);
 }
@@ -271,19 +285,36 @@ export function parseFiletagListPayload(payload) {
  */
 export function resolveFolderPathSegment(folderIds, tagById, unfiledIds) {
   const ids = (folderIds || []).map((id) => String(id).trim()).filter(Boolean);
-  if (!ids.length) return "";
+  if (!ids.length) return PLAUD_FOLDER_UNFILED;
 
   const nonUnfiled = ids.filter((id) => !unfiledIds.has(id));
   const chosen = nonUnfiled[0] || ids[0];
   const tag = tagById.get(chosen);
   const rawName = extractTagName(tag);
-  if (!rawName) return "";
 
   if (unfiledIds.has(chosen)) {
-    return sanitizePathSegment(rawName, { fallback: "Unfiled", maxLength: 80 });
+    return PLAUD_FOLDER_UNFILED;
   }
 
+  if (!rawName) return PLAUD_FOLDER_UNFILED;
+
   return sanitizePathSegment(rawName, { fallback: "Folder", maxLength: 80 });
+}
+
+/**
+ * Plaud virtual folder for export / sync-index (Trash → Unfiled → user folder).
+ *
+ * @param {{
+ *   folderIds?: string[];
+ *   raw?: object;
+ *   tagById: Map<string, object>;
+ *   unfiledIds: Set<string>;
+ * }} input
+ * @returns {string}
+ */
+export function resolveFileFolderSegment({ folderIds, raw, tagById, unfiledIds }) {
+  if (isRecordingInTrash(raw)) return PLAUD_FOLDER_TRASH;
+  return resolveFolderPathSegment(folderIds, tagById, unfiledIds);
 }
 
 /**

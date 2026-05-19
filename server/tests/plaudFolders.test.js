@@ -4,6 +4,10 @@ import {
   buildTagByIdMap,
   collectUnfiledFiletagIds,
   extractFiletagIdsFromRaw,
+  isRecordingInTrash,
+  PLAUD_FOLDER_TRASH,
+  PLAUD_FOLDER_UNFILED,
+  resolveFileFolderSegment,
   resolveFolderPathSegment,
 } from "../src/plaud/plaudFolders.js";
 
@@ -46,5 +50,43 @@ test("resolveFolderPathSegment uses unfiled label when only unfiled tags", () =>
   assert.equal(
     resolveFolderPathSegment(["t-inbox"], tagById, unfiledIds),
     "Unfiled"
+  );
+});
+
+test("resolveFolderPathSegment defaults to Unfiled without tags", () => {
+  const tagById = buildTagByIdMap([]);
+  assert.equal(
+    resolveFolderPathSegment([], tagById, new Set()),
+    PLAUD_FOLDER_UNFILED
+  );
+});
+
+test("resolveFileFolderSegment maps trash recordings to Trash", () => {
+  const tagById = buildTagByIdMap([{ id: "t-work", name: "SocServ QA" }]);
+  assert.ok(isRecordingInTrash({ is_trash: 1 }));
+  assert.equal(
+    resolveFileFolderSegment({
+      folderIds: ["t-work"],
+      raw: { is_trash: "1" },
+      tagById,
+      unfiledIds: new Set(),
+    }),
+    PLAUD_FOLDER_TRASH
+  );
+});
+
+test("resolveFileFolderSegment maps user folders by tag name", () => {
+  const tagById = buildTagByIdMap([
+    { id: "t-dev", name: "SocServ Dev" },
+    { id: "t-qa", name: "SocServ QA" },
+  ]);
+  assert.equal(
+    resolveFileFolderSegment({
+      folderIds: ["t-qa"],
+      raw: { is_trash: "0" },
+      tagById,
+      unfiledIds: new Set(),
+    }),
+    "SocServ QA"
   );
 });

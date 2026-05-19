@@ -1,12 +1,17 @@
 /**
  * Read-only helpers for the Telegram bot "Files" screens:
- * - buildSyncIndexTree: group sync-index records by year (no I/O)
+ * - buildSyncIndexTree: group sync-index records by their on-disk folder
+ *   (no I/O — derived from `summaryPath` relative to the vault root)
  * - scanVaultSummary: walk the export vault and count .md files
  */
 
 import { readdir, stat } from "node:fs/promises";
-import { basename, join, relative } from "node:path";
+import { basename, dirname, join, relative } from "node:path";
 import { logger } from "../logger.js";
+import {
+  PLAUD_FOLDER_TRASH,
+  PLAUD_FOLDER_UNFILED,
+} from "../plaud/plaudFolders.js";
 
 export const MAX_TREE_ROWS = 30;
 export const MAX_VAULT_DEPTH = 4;
@@ -14,6 +19,7 @@ export const MAX_VAULT_FILES_SCANNED = 5000;
 export const MAX_RECENT_FILES = 10;
 
 const DATED_FILENAME_RE = /^(\d{4}-\d{2}-\d{2})\s*-\s*(.+?)\.md$/i;
+const YEAR_ONLY_SEGMENT_RE = /^\d{4}$/;
 
 /**
  * @typedef {{
@@ -21,12 +27,13 @@ const DATED_FILENAME_RE = /^(\d{4}-\d{2}-\d{2})\s*-\s*(.+?)\.md$/i;
  *   title: string;
  *   status: string;
  *   lastSyncedAt: string;
+ *   folder: string;
  * }} TreeItem
  */
 
 /**
  * @typedef {{
- *   year: string;
+ *   folder: string;
  *   count: number;
  *   items: TreeItem[];
  *   hiddenInGroup: number;
@@ -38,8 +45,13 @@ const DATED_FILENAME_RE = /^(\d{4}-\d{2}-\d{2})\s*-\s*(.+?)\.md$/i;
  *   total: number;
  *   groups: TreeGroup[];
  *   truncated: boolean;
+ *   page: number;
+ *   pageSize: number;
+ *   totalPages: number;
  * }} SyncIndexTree
  */
+
+export const DEFAULT_TREE_PAGE_SIZE = MAX_TREE_ROWS;
 
 /**
  * @param {string} pathOrName
@@ -58,17 +70,6 @@ export function parseSummaryFilename(pathOrName) {
  * @param {string} isoLike
  * @returns {string}
  */
-function yearFromIso(isoLike) {
-  if (!isoLike) return "";
-  const d = new Date(isoLike);
-  if (Number.isNaN(d.getTime())) return "";
-  return String(d.getUTCFullYear());
-}
-
-/**
- * @param {string} isoLike
- * @returns {string}
- */
 function dateFromIso(isoLike) {
   if (!isoLike) return "";
   const d = new Date(isoLike);
@@ -78,10 +79,83 @@ function dateFromIso(isoLike) {
 }
 
 /**
+ * Display label for a Plaud folder group (user folder, Unfiled, or Trash).
+ *
+ * @param {string} vaultRelativeDir e.g. `Plaud/SocServ QA` or `Plaud/2026`
+ * @param {string} subfolder e.g. `Plaud`
+ * @returns {string}
+ */
+export function plaudFolderLabelFromVaultPath(vaultRelativeDir, subfolder) {
+  const sub = String(subfolder || "Plaud").replace(/\\/g, "/");
+  let dir = String(vaultRelativeDir || "").replace(/\\/g, "/").trim();
+
+  if (!dir || dir === sub) return PLAUD_FOLDER_UNFILED;
+  if (dir.startsWith(`${sub}/`)) dir = dir.slice(sub.length + 1);
+
+  const parts = dir.split("/").filter(Boolean);
+  if (!parts.length) return PLAUD_FOLDER_UNFILED;
+
+  if (parts.length === 1 && YEAR_ONLY_SEGMENT_RE.test(parts[0])) {
+    return PLAUD_FOLDER_UNFILED;
+  }
+  if (parts.length > 1 && YEAR_ONLY_SEGMENT_RE.test(parts[0])) {
+    return parts.slice(1).join("/") || PLAUD_FOLDER_UNFILED;
+  }
+
+  return dir;
+}
+
+/**
  * @param {object} record
+ * @param {{ vaultRoot?: string; subfolder?: string }} ctx
+ * @returns {string}
+ */
+function folderLabelFromRecord(record, ctx) {
+  const stored = String(record?.folderSegment || "").trim();
+  if (stored) return stored;
+
+  const subfolder = String(ctx.subfolder || "Plaud").replace(/\\/g, "/");
+  const summaryPath = String(record?.summaryPath || "");
+  const vaultRoot = String(ctx.vaultRoot || "");
+
+  if (summaryPath && vaultRoot) {
+    const rel = relative(vaultRoot, summaryPath).replace(/\\/g, "/");
+    if (rel && !rel.startsWith("..") && rel !== ".") {
+      const dir = dirname(rel);
+      if (dir && dir !== ".") {
+        return plaudFolderLabelFromVaultPath(dir, subfolder);
+      }
+      return PLAUD_FOLDER_UNFILED;
+    }
+  }
+
+  return PLAUD_FOLDER_UNFILED;
+}
+
+/**
+ * Sort: user folders A–Z, then Unfiled, then Trash.
+ *
+ * @param {string} a
+ * @param {string} b
+ */
+export function comparePlaudFolderLabels(a, b) {
+  const rank = (label) => {
+    if (label === PLAUD_FOLDER_UNFILED) return 1;
+    if (label === PLAUD_FOLDER_TRASH) return 2;
+    return 0;
+  };
+  const ra = rank(a);
+  const rb = rank(b);
+  if (ra !== rb) return ra - rb;
+  return a.localeCompare(b);
+}
+
+/**
+ * @param {object} record
+ * @param {{ vaultRoot?: string; subfolder?: string }} ctx
  * @returns {TreeItem | null}
  */
-function recordToTreeItem(record) {
+function recordToTreeItem(record, ctx) {
   if (!record || typeof record !== "object") return null;
   const pathHint = record.summaryPath || record.normalizedFilename || "";
   const parsed = parseSummaryFilename(pathHint);
@@ -93,25 +167,54 @@ function recordToTreeItem(record) {
     basename(pathHint) ||
     "Без названия";
   const status = String(record.status || "");
-  return { date, title, status, lastSyncedAt };
+  const folder = folderLabelFromRecord(record, ctx);
+  return { date, title, status, lastSyncedAt, folder };
 }
 
 /**
+ * Build a paginated, folder-grouped view of the sync-index records.
+ *
+ * Items are sorted by `lastSyncedAt` descending across all folders, then sliced
+ * into pages of `pageSize` rows. Only the slice for the requested `page` is
+ * regrouped by folder for display, so each page is at most `pageSize` rows
+ * regardless of how the items distribute across folders.
+ *
+ * The legacy `maxRows` option keeps working as an alias for `pageSize` so older
+ * callers and tests don't need updates.
+ *
  * @param {object | null | undefined} syncIndex
- * @param {{ maxRows?: number }} [options]
+ * @param {{
+ *   maxRows?: number;
+ *   pageSize?: number;
+ *   page?: number;
+ *   vaultRoot?: string;
+ *   subfolder?: string;
+ * }} [options]
  * @returns {SyncIndexTree}
  */
 export function buildSyncIndexTree(syncIndex, options = {}) {
-  const maxRows = options.maxRows ?? MAX_TREE_ROWS;
+  const rawPageSize = options.pageSize ?? options.maxRows ?? DEFAULT_TREE_PAGE_SIZE;
+  const pageSize = Math.max(1, Math.floor(Number(rawPageSize) || DEFAULT_TREE_PAGE_SIZE));
+  const ctx = {
+    vaultRoot: options.vaultRoot || "",
+    subfolder: options.subfolder || "Plaud",
+  };
   const records = syncIndex?.records;
   if (!records || typeof records !== "object") {
-    return { total: 0, groups: [], truncated: false };
+    return {
+      total: 0,
+      groups: [],
+      truncated: false,
+      page: 1,
+      pageSize,
+      totalPages: 1,
+    };
   }
 
   /** @type {TreeItem[]} */
   const items = [];
   for (const record of Object.values(records)) {
-    const item = recordToTreeItem(record);
+    const item = recordToTreeItem(record, ctx);
     if (item) items.push(item);
   }
 
@@ -122,36 +225,31 @@ export function buildSyncIndexTree(syncIndex, options = {}) {
   });
 
   const total = items.length;
-  const truncated = total > maxRows;
-  const visible = truncated ? items.slice(0, maxRows) : items;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const requestedPage = Number.isFinite(options.page) ? Math.floor(Number(options.page)) : 1;
+  const page = Math.min(Math.max(1, requestedPage), totalPages);
+  const startIdx = (page - 1) * pageSize;
+  const visible = items.slice(startIdx, startIdx + pageSize);
+  const truncated = total > pageSize;
 
   /** @type {Map<string, TreeItem[]>} */
-  const byYear = new Map();
+  const byFolder = new Map();
   for (const item of visible) {
-    const parsed = parseSummaryFilename(`${item.date} - ${item.title}.md`);
-    const year =
-      parsed?.year ||
-      (item.date.startsWith("—") ? "" : item.date.slice(0, 4)) ||
-      yearFromIso(item.lastSyncedAt) ||
-      "—";
-    if (!byYear.has(year)) byYear.set(year, []);
-    byYear.get(year).push(item);
+    const folder = item.folder || PLAUD_FOLDER_UNFILED;
+    if (!byFolder.has(folder)) byFolder.set(folder, []);
+    byFolder.get(folder).push(item);
   }
 
-  const groups = [...byYear.entries()]
-    .sort(([a], [b]) => {
-      if (a === "—") return 1;
-      if (b === "—") return -1;
-      return b.localeCompare(a);
-    })
-    .map(([year, groupItems]) => ({
-      year,
+  const groups = [...byFolder.entries()]
+    .sort(([a], [b]) => comparePlaudFolderLabels(a, b))
+    .map(([folder, groupItems]) => ({
+      folder,
       count: groupItems.length,
       items: groupItems,
       hiddenInGroup: 0,
     }));
 
-  return { total, groups, truncated };
+  return { total, groups, truncated, page, pageSize, totalPages };
 }
 
 /**

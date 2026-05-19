@@ -13,11 +13,11 @@ import { config } from "../config/config.js";
 import {
   buildTagByIdMap,
   collectUnfiledFiletagIds,
+  resolveFileFolderSegment,
   extractFiletagIdsFromRaw,
   mergeFiletagIds,
   mergeFiletagsById,
   parseFiletagListPayload,
-  resolveFolderPathSegment,
 } from "./plaudFolders.js";
 
 const PLAUD_API_FALLBACK = "https://api.plaud.ai";
@@ -436,11 +436,12 @@ async function fetchRecordingsVariant(session, fixedParams, opts = {}) {
 function attachFolderSegments(files, tagById, unfiledIds) {
   if (!config.mirrorFolders) return files;
   for (const file of files) {
-    file.folderSegment = resolveFolderPathSegment(
-      file.folderIds,
+    file.folderSegment = resolveFileFolderSegment({
+      folderIds: file.folderIds,
+      raw: file.raw,
       tagById,
-      unfiledIds
-    );
+      unfiledIds,
+    });
   }
   return files;
 }
@@ -473,7 +474,9 @@ async function listAllRecordingsSimple(session, options = {}) {
  * When PLAUD_MIRROR_FOLDERS=false, only the global non-trash list is fetched.
  */
 export async function listAllRecordings(session, options = {}) {
-  const { includeTrash = false, sortBy = session.sortBy } = options;
+  const includeTrash =
+    options.includeTrash ?? (config.mirrorFolders ? true : false);
+  const { sortBy = session.sortBy } = options;
 
   if (!config.mirrorFolders) {
     return listAllRecordingsSimple(session, options);

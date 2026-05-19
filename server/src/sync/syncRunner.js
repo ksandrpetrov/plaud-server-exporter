@@ -136,6 +136,7 @@ async function buildCandidate(file, summaries) {
     createdAt: getRawField(file.raw, ["created_at", "createdAt", "create_time", "createTime", "start_time", "startTime"]),
     updatedAt: getRawField(file.raw, ["updated_at", "updatedAt", "update_time", "updateTime", "modified_at", "modifiedAt"]),
     normalizedFilename: "",
+    folderSegment: String(file.folderSegment || "").trim(),
   };
 }
 

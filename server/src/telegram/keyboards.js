@@ -24,6 +24,7 @@ import {
   CB_SETTINGS_INTERVAL_60,
   CB_STATUS,
   INTERVAL_PRESETS_MIN,
+  filesTreePageCallback,
 } from "./messages.js";
 
 export function buildMainMenuKeyboard() {
@@ -54,6 +55,38 @@ export function buildFilesMenuKeyboard() {
       [{ text: "⬅️ В меню", callback_data: CB_BACK }],
     ],
   };
+}
+
+/**
+ * Tree pagination keyboard: prev/next on top, back to menu below.
+ *
+ * The "page X/Y" indicator is rendered in the message header (not as a button)
+ * so we don't need a noop callback; we just hide prev/next at the edges.
+ *
+ * @param {{ page?: number; totalPages?: number }} tree
+ */
+export function buildFilesTreeKeyboard(tree) {
+  const totalPages = Math.max(1, Number(tree?.totalPages) || 1);
+  const page = Math.min(Math.max(1, Number(tree?.page) || 1), totalPages);
+  const rows = [];
+  if (totalPages > 1) {
+    const navRow = [];
+    if (page > 1) {
+      navRow.push({
+        text: "◀️ Пред.",
+        callback_data: filesTreePageCallback(page - 1),
+      });
+    }
+    if (page < totalPages) {
+      navRow.push({
+        text: "След. ▶️",
+        callback_data: filesTreePageCallback(page + 1),
+      });
+    }
+    if (navRow.length > 0) rows.push(navRow);
+  }
+  rows.push([{ text: "⬅️ В меню", callback_data: CB_BACK }]);
+  return { inline_keyboard: rows };
 }
 
 export function buildSyncFinishedKeyboard() {

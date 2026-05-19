@@ -26,6 +26,7 @@ import {
 import {
   buildBackToMenuKeyboard,
   buildFilesMenuKeyboard,
+  buildFilesTreeKeyboard,
   buildMainMenuKeyboard,
   buildSettingsKeyboard,
 } from "./keyboards.js";
@@ -53,6 +54,7 @@ import {
   filesStatsHtml,
   filesTreeHtml,
   lastSyncSummaryLine,
+  parseFilesTreePageCallback,
   settingsScreenHtml,
   statusScreenHtml,
 } from "./messages.js";
@@ -182,13 +184,12 @@ async function routeCallback(ctx, { chatId, messageId, data }) {
     return;
   }
   if (data === CB_FILES_TREE) {
-    const idx = await loadSyncIndex();
-    await editToMenuScreen(ctx, {
-      chatId,
-      messageId,
-      text: filesTreeHtml(buildSyncIndexTree(idx)),
-      keyboard: buildBackToMenuKeyboard(),
-    });
+    await showFilesTreePage(ctx, { chatId, messageId, page: 1 });
+    return;
+  }
+  const treePage = parseFilesTreePageCallback(data);
+  if (treePage !== null) {
+    await showFilesTreePage(ctx, { chatId, messageId, page: treePage });
     return;
   }
   if (data === CB_FILES_STATS) {
@@ -291,6 +292,21 @@ async function sendStatusMessage(ctx, chatId) {
   const status = await readStatus();
   await safeSend(ctx, chatId, statusScreenHtml(status), {
     replyMarkup: buildBackToMenuKeyboard(),
+  });
+}
+
+async function showFilesTreePage(ctx, { chatId, messageId, page }) {
+  const idx = await loadSyncIndex();
+  const tree = buildSyncIndexTree(idx, {
+    page,
+    vaultRoot: effectiveVaultRoot(),
+    subfolder: config.obsidianSubfolder,
+  });
+  await editToMenuScreen(ctx, {
+    chatId,
+    messageId,
+    text: filesTreeHtml(tree),
+    keyboard: buildFilesTreeKeyboard(tree),
   });
 }
 

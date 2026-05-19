@@ -18,10 +18,39 @@ export const CB_SETTINGS_INTERVAL_240 = "settings_interval_240";
 export const CB_SETTINGS_INTERVAL_480 = "settings_interval_480";
 export const CB_FILES = "files";
 export const CB_FILES_TREE = "files_tree";
+export const CB_FILES_TREE_PAGE_PREFIX = "ftp:";
 export const CB_FILES_STATS = "files_stats";
 export const CB_BACK = "back";
 export const CB_HELP = "help";
 export const CB_CLOSE = "close";
+
+/**
+ * Build the callback_data payload for a tree pagination button.
+ * Telegram limits callback_data to 64 bytes — `ftp:<N>` is well under that.
+ *
+ * @param {number} page
+ * @returns {string}
+ */
+export function filesTreePageCallback(page) {
+  const n = Math.max(1, Math.floor(Number(page) || 1));
+  return `${CB_FILES_TREE_PAGE_PREFIX}${n}`;
+}
+
+/**
+ * Parse a tree pagination callback_data payload back into a page number.
+ *
+ * @param {string} data
+ * @returns {number | null} 1-based page number, or null if not a tree-page callback
+ */
+export function parseFilesTreePageCallback(data) {
+  const s = String(data || "");
+  if (!s.startsWith(CB_FILES_TREE_PAGE_PREFIX)) return null;
+  const rest = s.slice(CB_FILES_TREE_PAGE_PREFIX.length);
+  if (!/^\d+$/.test(rest)) return null;
+  const n = Number.parseInt(rest, 10);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return n;
+}
 
 export const INTERVAL_PRESETS_MIN = [60, 120, 240, 480];
 
@@ -303,30 +332,36 @@ export function filesTreeHtml(tree) {
   if (!tree?.total) {
     return FILES_TREE_EMPTY;
   }
-  const lines = [`🌳 <b>Дерево синка</b> (всего ${tree.total})`, ""];
-  let rowsUsed = 0;
-  const maxRows = 30;
+  const totalPages = Math.max(1, Number(tree.totalPages) || 1);
+  const page = Math.min(Math.max(1, Number(tree.page) || 1), totalPages);
+  const pageSize = Math.max(1, Number(tree.pageSize) || 30);
+  const pageSuffix = totalPages > 1 ? ` — стр. ${page} из ${totalPages}` : "";
+  const lines = [`🌳 <b>Дерево синка</b> (всего ${tree.total})${pageSuffix}`, ""];
 
+  let rowsUsed = 0;
   for (const group of tree.groups || []) {
-    const yearLabel = escapeHtml(group.year);
-    lines.push(`<b>${yearLabel}</b> — ${group.count} записей`);
+    const folderLabel = escapeHtml(group.folder || "");
+    lines.push(`📁 <b>${folderLabel}</b> — ${group.count} записей`);
     for (const item of group.items || []) {
-      if (rowsUsed >= maxRows) break;
+      if (rowsUsed >= pageSize) break;
       const status = escapeHtml(describeRecordStatus(item.status));
       const date = escapeHtml(item.date);
       const title = escapeHtml(item.title);
       lines.push(`  • ${date} — ${title} [${status}]`);
       rowsUsed++;
     }
-    if (rowsUsed >= maxRows) break;
+    if (rowsUsed >= pageSize) break;
     lines.push("");
   }
 
-  if (tree.truncated) {
-    const hidden = Math.max(0, tree.total - rowsUsed);
-    if (hidden > 0) {
-      lines.push(`… ещё ${hidden} (показано ${rowsUsed} из ${tree.total})`);
-    }
+  const startIdx = (page - 1) * pageSize;
+  const shownTo = startIdx + rowsUsed;
+  const hidden = Math.max(0, tree.total - shownTo);
+  if (tree.truncated && hidden > 0) {
+    const rangeFrom = rowsUsed > 0 ? startIdx + 1 : startIdx;
+    lines.push(
+      `… ещё ${hidden} (показано ${rangeFrom}–${shownTo} из ${tree.total})`
+    );
   }
 
   return truncateTelegramHtml(lines.join("\n").trimEnd());
