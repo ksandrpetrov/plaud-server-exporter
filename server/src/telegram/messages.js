@@ -18,38 +18,45 @@ export const CB_SETTINGS_INTERVAL_240 = "settings_interval_240";
 export const CB_SETTINGS_INTERVAL_480 = "settings_interval_480";
 export const CB_FILES = "files";
 export const CB_FILES_TREE = "files_tree";
-export const CB_FILES_TREE_PAGE_PREFIX = "ftp:";
+export const CB_FILES_TREE_FOLDER_PREFIX = "tf:";
 export const CB_FILES_STATS = "files_stats";
 export const CB_BACK = "back";
 export const CB_HELP = "help";
 export const CB_CLOSE = "close";
 
 /**
- * Build the callback_data payload for a tree pagination button.
- * Telegram limits callback_data to 64 bytes — `ftp:<N>` is well under that.
+ * Build the callback_data payload for opening a folder page in the tree.
+ * Encodes folder by its 0-based index in the canonical sorted folder list so
+ * the payload stays short (e.g. `tf:5:2` for folder 5 / page 2). Well under
+ * Telegram's 64-byte callback_data limit.
  *
+ * @param {number} folderIndex
  * @param {number} page
  * @returns {string}
  */
-export function filesTreePageCallback(page) {
-  const n = Math.max(1, Math.floor(Number(page) || 1));
-  return `${CB_FILES_TREE_PAGE_PREFIX}${n}`;
+export function filesTreeFolderCallback(folderIndex, page) {
+  const idx = Math.max(0, Math.floor(Number(folderIndex) || 0));
+  const p = Math.max(1, Math.floor(Number(page) || 1));
+  return `${CB_FILES_TREE_FOLDER_PREFIX}${idx}:${p}`;
 }
 
 /**
- * Parse a tree pagination callback_data payload back into a page number.
+ * Parse a `tf:<folderIndex>:<page>` callback_data payload.
  *
  * @param {string} data
- * @returns {number | null} 1-based page number, or null if not a tree-page callback
+ * @returns {{ folderIndex: number; page: number } | null}
  */
-export function parseFilesTreePageCallback(data) {
+export function parseFilesTreeFolderCallback(data) {
   const s = String(data || "");
-  if (!s.startsWith(CB_FILES_TREE_PAGE_PREFIX)) return null;
-  const rest = s.slice(CB_FILES_TREE_PAGE_PREFIX.length);
-  if (!/^\d+$/.test(rest)) return null;
-  const n = Number.parseInt(rest, 10);
-  if (!Number.isFinite(n) || n < 1) return null;
-  return n;
+  if (!s.startsWith(CB_FILES_TREE_FOLDER_PREFIX)) return null;
+  const rest = s.slice(CB_FILES_TREE_FOLDER_PREFIX.length);
+  const m = /^(\d+):(\d+)$/.exec(rest);
+  if (!m) return null;
+  const folderIndex = Number.parseInt(m[1], 10);
+  const page = Number.parseInt(m[2], 10);
+  if (!Number.isFinite(folderIndex) || folderIndex < 0) return null;
+  if (!Number.isFinite(page) || page < 1) return null;
+  return { folderIndex, page };
 }
 
 export const INTERVAL_PRESETS_MIN = [60, 120, 240, 480];
@@ -326,45 +333,75 @@ export function filesMenuHtml() {
 }
 
 /**
- * @param {import("./vaultTree.js").SyncIndexTree} tree
+ * Root view of the tree: folder list with counts. Each folder is rendered as
+ * a `📁 <name> — N записей` line; the navigation buttons (one per folder) are
+ * built separately in `buildFilesTreeRootKeyboard`.
+ *
+ * @param {import("./vaultTree.js").SyncIndexTreeRoot} root
  */
-export function filesTreeHtml(tree) {
-  if (!tree?.total) {
+export function filesTreeRootHtml(root) {
+  if (!root?.total) {
     return FILES_TREE_EMPTY;
   }
-  const totalPages = Math.max(1, Number(tree.totalPages) || 1);
-  const page = Math.min(Math.max(1, Number(tree.page) || 1), totalPages);
-  const pageSize = Math.max(1, Number(tree.pageSize) || 30);
-  const pageSuffix = totalPages > 1 ? ` — стр. ${page} из ${totalPages}` : "";
-  const lines = [`🌳 <b>Дерево синка</b> (всего ${tree.total})${pageSuffix}`, ""];
+  const folderCount = (root.folders || []).length;
+  const lines = [
+    `🌳 <b>Дерево синка</b>`,
+    `Всего файлов: ${root.total}, папок: ${folderCount}.`,
+    "",
+  ];
+  for (const f of root.folders || []) {
+    const label = escapeHtml(f.folder || "");
+    lines.push(`📁 <b>${label}</b> — ${f.count} записей`);
+  }
+  lines.push("", "Выбери папку, чтобы открыть список файлов.");
+  return truncateTelegramHtml(lines.join("\n"));
+}
 
-  let rowsUsed = 0;
-  for (const group of tree.groups || []) {
-    const folderLabel = escapeHtml(group.folder || "");
-    lines.push(`📁 <b>${folderLabel}</b> — ${group.count} записей`);
-    for (const item of group.items || []) {
-      if (rowsUsed >= pageSize) break;
-      const status = escapeHtml(describeRecordStatus(item.status));
-      const date = escapeHtml(item.date);
-      const title = escapeHtml(item.title);
-      lines.push(`  • ${date} — ${title} [${status}]`);
-      rowsUsed++;
-    }
-    if (rowsUsed >= pageSize) break;
-    lines.push("");
+/**
+ * Drill-down view: paginated file listing inside one folder. The "ещё X"
+ * hint shows how many records remain past the current page so the user knows
+ * the prev/next buttons still have somewhere to go.
+ *
+ * @param {import("./vaultTree.js").SyncIndexFolderPage} folderPage
+ */
+export function filesTreeFolderHtml(folderPage) {
+  const folderLabel = escapeHtml(folderPage?.folder || "");
+  if (!folderPage?.exists) {
+    return [
+      `📁 <b>${folderLabel || "Папка"}</b>`,
+      "",
+      "В этой папке пока нет файлов.",
+    ].join("\n");
+  }
+  const totalPages = Math.max(1, Number(folderPage.totalPages) || 1);
+  const curPage = Math.min(Math.max(1, Number(folderPage.page) || 1), totalPages);
+  const pageSize = Math.max(1, Number(folderPage.pageSize) || 30);
+  const pageSuffix = totalPages > 1 ? ` — стр. ${curPage} из ${totalPages}` : "";
+
+  const lines = [
+    `📁 <b>${folderLabel}</b> (всего ${folderPage.total})${pageSuffix}`,
+    "",
+  ];
+
+  for (const item of folderPage.items || []) {
+    const status = escapeHtml(describeRecordStatus(item.status));
+    const date = escapeHtml(item.date);
+    const title = escapeHtml(item.title);
+    lines.push(`  • ${date} — ${title} [${status}]`);
   }
 
-  const startIdx = (page - 1) * pageSize;
-  const shownTo = startIdx + rowsUsed;
-  const hidden = Math.max(0, tree.total - shownTo);
-  if (tree.truncated && hidden > 0) {
-    const rangeFrom = rowsUsed > 0 ? startIdx + 1 : startIdx;
+  const startIdx = (curPage - 1) * pageSize;
+  const shownTo = startIdx + (folderPage.items?.length || 0);
+  const hidden = Math.max(0, folderPage.total - shownTo);
+  if (hidden > 0) {
+    const rangeFrom = startIdx + 1;
     lines.push(
-      `… ещё ${hidden} (показано ${rangeFrom}–${shownTo} из ${tree.total})`
+      "",
+      `… ещё ${hidden} (показано ${rangeFrom}–${shownTo} из ${folderPage.total})`
     );
   }
 
-  return truncateTelegramHtml(lines.join("\n").trimEnd());
+  return truncateTelegramHtml(lines.join("\n"));
 }
 
 /**

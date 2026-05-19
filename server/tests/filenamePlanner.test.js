@@ -131,6 +131,16 @@ test("planSummaryPath nests under folder segment when provided", () => {
   assert.match(planned.filename, /^2026-05-17 - Weekly review\.md$/);
 });
 
+test("planSummaryPath nests Unfiled recordings under Plaud/Unfiled/", () => {
+  const planned = planSummaryPath({
+    title: "Inbox note",
+    createdAt: "2026-05-17T12:00:00.000Z",
+    folderSegment: "Unfiled",
+  });
+  assert.match(planned.relativePath, /Plaud[\\/]Unfiled[\\/]/);
+  assert.match(planned.filename, /^2026-05-17 - Inbox note\.md$/);
+});
+
 test("planSummaryPath preserves emoji/unicode title and ends with .md", () => {
   const planned = planSummaryPath({
     title: "Команда 🎧 Retrospective — Q2 ✅",

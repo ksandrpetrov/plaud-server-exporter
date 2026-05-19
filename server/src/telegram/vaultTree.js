@@ -1,8 +1,13 @@
 /**
  * Read-only helpers for the Telegram bot "Files" screens:
- * - buildSyncIndexTree: group sync-index records by their on-disk folder
- *   (no I/O — derived from `summaryPath` relative to the vault root)
+ * - buildSyncIndexTreeRoot: list folders with file counts (root navigation)
+ * - buildSyncIndexFolderPage: paginate files inside one folder (drill-down)
  * - scanVaultSummary: walk the export vault and count .md files
+ *
+ * The tree is hierarchical: the root view is a list of folder buttons; clicking
+ * a folder drills into a paginated listing of its files. Folders are addressed
+ * by their 0-based index in the sorted root listing so callback_data stays
+ * short and stable for the duration of a screen.
  */
 
 import { readdir, stat } from "node:fs/promises";
@@ -32,23 +37,27 @@ const YEAR_ONLY_SEGMENT_RE = /^\d{4}$/;
  */
 
 /**
- * @typedef {{
- *   folder: string;
- *   count: number;
- *   items: TreeItem[];
- *   hiddenInGroup: number;
- * }} TreeGroup
+ * @typedef {{ folder: string; count: number }} TreeFolderSummary
  */
 
 /**
  * @typedef {{
  *   total: number;
- *   groups: TreeGroup[];
- *   truncated: boolean;
+ *   folders: TreeFolderSummary[];
+ * }} SyncIndexTreeRoot
+ */
+
+/**
+ * @typedef {{
+ *   folder: string;
+ *   folderIndex: number;
+ *   exists: boolean;
+ *   total: number;
+ *   items: TreeItem[];
  *   page: number;
  *   pageSize: number;
  *   totalPages: number;
- * }} SyncIndexTree
+ * }} SyncIndexFolderPage
  */
 
 export const DEFAULT_TREE_PAGE_SIZE = MAX_TREE_ROWS;
@@ -172,84 +181,147 @@ function recordToTreeItem(record, ctx) {
 }
 
 /**
- * Build a paginated, folder-grouped view of the sync-index records.
- *
- * Items are sorted by `lastSyncedAt` descending across all folders, then sliced
- * into pages of `pageSize` rows. Only the slice for the requested `page` is
- * regrouped by folder for display, so each page is at most `pageSize` rows
- * regardless of how the items distribute across folders.
- *
- * The legacy `maxRows` option keeps working as an alias for `pageSize` so older
- * callers and tests don't need updates.
+ * Iterate sync-index records once, bucketing items by folder label and sorting
+ * each bucket by `lastSyncedAt` descending. Items missing/invalid records are
+ * silently dropped. Empty index → empty map.
  *
  * @param {object | null | undefined} syncIndex
- * @param {{
- *   maxRows?: number;
- *   pageSize?: number;
- *   page?: number;
- *   vaultRoot?: string;
- *   subfolder?: string;
- * }} [options]
- * @returns {SyncIndexTree}
+ * @param {{ vaultRoot?: string; subfolder?: string }} ctx
+ * @returns {Map<string, TreeItem[]>}
  */
-export function buildSyncIndexTree(syncIndex, options = {}) {
-  const rawPageSize = options.pageSize ?? options.maxRows ?? DEFAULT_TREE_PAGE_SIZE;
-  const pageSize = Math.max(1, Math.floor(Number(rawPageSize) || DEFAULT_TREE_PAGE_SIZE));
+function collectItemsByFolder(syncIndex, ctx) {
+  /** @type {Map<string, TreeItem[]>} */
+  const byFolder = new Map();
+  const records = syncIndex?.records;
+  if (!records || typeof records !== "object") return byFolder;
+
+  for (const record of Object.values(records)) {
+    const item = recordToTreeItem(record, ctx);
+    if (!item) continue;
+    const label = item.folder || PLAUD_FOLDER_UNFILED;
+    if (!byFolder.has(label)) byFolder.set(label, []);
+    byFolder.get(label).push(item);
+  }
+
+  for (const items of byFolder.values()) {
+    items.sort((a, b) => {
+      const ta = Date.parse(a.lastSyncedAt) || 0;
+      const tb = Date.parse(b.lastSyncedAt) || 0;
+      return tb - ta;
+    });
+  }
+
+  return byFolder;
+}
+
+/**
+ * Stable folder ordering used everywhere the tree is rendered (user folders
+ * A–Z, then Unfiled, then Trash). The same comparator is exposed for tests.
+ *
+ * @param {Map<string, unknown>} byFolder
+ * @returns {string[]}
+ */
+function sortedFolderLabels(byFolder) {
+  return [...byFolder.keys()].sort(comparePlaudFolderLabels);
+}
+
+/**
+ * Root view of the tree: a list of folder labels with file counts, in the
+ * canonical sort order. Used to render the folder-list screen and to resolve
+ * `folderIndex` → folder label for drill-down navigation.
+ *
+ * @param {object | null | undefined} syncIndex
+ * @param {{ vaultRoot?: string; subfolder?: string }} [options]
+ * @returns {SyncIndexTreeRoot}
+ */
+export function buildSyncIndexTreeRoot(syncIndex, options = {}) {
   const ctx = {
     vaultRoot: options.vaultRoot || "",
     subfolder: options.subfolder || "Plaud",
   };
-  const records = syncIndex?.records;
-  if (!records || typeof records !== "object") {
+  const byFolder = collectItemsByFolder(syncIndex, ctx);
+  const labels = sortedFolderLabels(byFolder);
+  const folders = labels.map((folder) => ({
+    folder,
+    count: byFolder.get(folder).length,
+  }));
+  const total = folders.reduce((n, g) => n + g.count, 0);
+  return { total, folders };
+}
+
+/**
+ * Paginated drill-down view into a single folder. The folder can be addressed
+ * either by its label (`folder`) or by its 0-based index in the canonical
+ * sorted folder list (`folderIndex`); the index form is what navigation
+ * callbacks use so payloads fit comfortably in Telegram's 64-byte limit.
+ *
+ * Returns `exists: false` (with an empty `items` slice) when the requested
+ * folder isn't found — callers should fall back to the root view in that case.
+ *
+ * @param {object | null | undefined} syncIndex
+ * @param {{
+ *   folder?: string;
+ *   folderIndex?: number;
+ *   page?: number;
+ *   pageSize?: number;
+ *   vaultRoot?: string;
+ *   subfolder?: string;
+ * }} [options]
+ * @returns {SyncIndexFolderPage}
+ */
+export function buildSyncIndexFolderPage(syncIndex, options = {}) {
+  const ctx = {
+    vaultRoot: options.vaultRoot || "",
+    subfolder: options.subfolder || "Plaud",
+  };
+  const rawPageSize = options.pageSize ?? DEFAULT_TREE_PAGE_SIZE;
+  const pageSize = Math.max(1, Math.floor(Number(rawPageSize) || DEFAULT_TREE_PAGE_SIZE));
+
+  const byFolder = collectItemsByFolder(syncIndex, ctx);
+  const labels = sortedFolderLabels(byFolder);
+
+  let folderName = String(options.folder || "");
+  let folderIndex = Number.isFinite(options.folderIndex)
+    ? Math.floor(Number(options.folderIndex))
+    : -1;
+
+  if (folderName) {
+    folderIndex = labels.indexOf(folderName);
+  } else if (folderIndex >= 0 && folderIndex < labels.length) {
+    folderName = labels[folderIndex];
+  }
+
+  if (!folderName || folderIndex < 0 || folderIndex >= labels.length) {
     return {
+      folder: folderName,
+      folderIndex: -1,
+      exists: false,
       total: 0,
-      groups: [],
-      truncated: false,
+      items: [],
       page: 1,
       pageSize,
       totalPages: 1,
     };
   }
 
-  /** @type {TreeItem[]} */
-  const items = [];
-  for (const record of Object.values(records)) {
-    const item = recordToTreeItem(record, ctx);
-    if (item) items.push(item);
-  }
-
-  items.sort((a, b) => {
-    const ta = Date.parse(a.lastSyncedAt) || 0;
-    const tb = Date.parse(b.lastSyncedAt) || 0;
-    return tb - ta;
-  });
-
+  const items = byFolder.get(folderName) || [];
   const total = items.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const requestedPage = Number.isFinite(options.page) ? Math.floor(Number(options.page)) : 1;
   const page = Math.min(Math.max(1, requestedPage), totalPages);
   const startIdx = (page - 1) * pageSize;
-  const visible = items.slice(startIdx, startIdx + pageSize);
-  const truncated = total > pageSize;
+  const pageItems = items.slice(startIdx, startIdx + pageSize);
 
-  /** @type {Map<string, TreeItem[]>} */
-  const byFolder = new Map();
-  for (const item of visible) {
-    const folder = item.folder || PLAUD_FOLDER_UNFILED;
-    if (!byFolder.has(folder)) byFolder.set(folder, []);
-    byFolder.get(folder).push(item);
-  }
-
-  const groups = [...byFolder.entries()]
-    .sort(([a], [b]) => comparePlaudFolderLabels(a, b))
-    .map(([folder, groupItems]) => ({
-      folder,
-      count: groupItems.length,
-      items: groupItems,
-      hiddenInGroup: 0,
-    }));
-
-  return { total, groups, truncated, page, pageSize, totalPages };
+  return {
+    folder: folderName,
+    folderIndex,
+    exists: total > 0,
+    total,
+    items: pageItems,
+    page,
+    pageSize,
+    totalPages,
+  };
 }
 
 /**

@@ -26,7 +26,8 @@ import {
 import {
   buildBackToMenuKeyboard,
   buildFilesMenuKeyboard,
-  buildFilesTreeKeyboard,
+  buildFilesTreeFolderKeyboard,
+  buildFilesTreeRootKeyboard,
   buildMainMenuKeyboard,
   buildSettingsKeyboard,
 } from "./keyboards.js";
@@ -52,15 +53,20 @@ import {
   MENU_HEADER,
   filesMenuHtml,
   filesStatsHtml,
-  filesTreeHtml,
+  filesTreeFolderHtml,
+  filesTreeRootHtml,
   lastSyncSummaryLine,
-  parseFilesTreePageCallback,
+  parseFilesTreeFolderCallback,
   settingsScreenHtml,
   statusScreenHtml,
 } from "./messages.js";
 import { loadOwnerChat, saveOwnerChat } from "./ownerChat.js";
 import { readStatus } from "./statusReader.js";
-import { buildSyncIndexTree, scanVaultSummary } from "./vaultTree.js";
+import {
+  buildSyncIndexFolderPage,
+  buildSyncIndexTreeRoot,
+  scanVaultSummary,
+} from "./vaultTree.js";
 
 const CB_INTERVAL_VALUES = {
   [CB_SETTINGS_INTERVAL_60]: 60,
@@ -184,12 +190,17 @@ async function routeCallback(ctx, { chatId, messageId, data }) {
     return;
   }
   if (data === CB_FILES_TREE) {
-    await showFilesTreePage(ctx, { chatId, messageId, page: 1 });
+    await showFilesTreeRoot(ctx, { chatId, messageId });
     return;
   }
-  const treePage = parseFilesTreePageCallback(data);
-  if (treePage !== null) {
-    await showFilesTreePage(ctx, { chatId, messageId, page: treePage });
+  const folderHit = parseFilesTreeFolderCallback(data);
+  if (folderHit) {
+    await showFilesTreeFolder(ctx, {
+      chatId,
+      messageId,
+      folderIndex: folderHit.folderIndex,
+      page: folderHit.page,
+    });
     return;
   }
   if (data === CB_FILES_STATS) {
@@ -295,18 +306,37 @@ async function sendStatusMessage(ctx, chatId) {
   });
 }
 
-async function showFilesTreePage(ctx, { chatId, messageId, page }) {
+async function showFilesTreeRoot(ctx, { chatId, messageId }) {
   const idx = await loadSyncIndex();
-  const tree = buildSyncIndexTree(idx, {
-    page,
+  const root = buildSyncIndexTreeRoot(idx, {
     vaultRoot: effectiveVaultRoot(),
     subfolder: config.obsidianSubfolder,
   });
   await editToMenuScreen(ctx, {
     chatId,
     messageId,
-    text: filesTreeHtml(tree),
-    keyboard: buildFilesTreeKeyboard(tree),
+    text: filesTreeRootHtml(root),
+    keyboard: buildFilesTreeRootKeyboard(root),
+  });
+}
+
+async function showFilesTreeFolder(ctx, { chatId, messageId, folderIndex, page }) {
+  const idx = await loadSyncIndex();
+  const folderPage = buildSyncIndexFolderPage(idx, {
+    folderIndex,
+    page,
+    vaultRoot: effectiveVaultRoot(),
+    subfolder: config.obsidianSubfolder,
+  });
+  if (!folderPage.exists) {
+    await showFilesTreeRoot(ctx, { chatId, messageId });
+    return;
+  }
+  await editToMenuScreen(ctx, {
+    chatId,
+    messageId,
+    text: filesTreeFolderHtml(folderPage),
+    keyboard: buildFilesTreeFolderKeyboard(folderPage),
   });
 }
 

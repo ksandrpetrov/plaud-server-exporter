@@ -24,7 +24,7 @@ import {
   CB_SETTINGS_INTERVAL_60,
   CB_STATUS,
   INTERVAL_PRESETS_MIN,
-  filesTreePageCallback,
+  filesTreeFolderCallback,
 } from "./messages.js";
 
 export function buildMainMenuKeyboard() {
@@ -58,34 +58,59 @@ export function buildFilesMenuKeyboard() {
 }
 
 /**
- * Tree pagination keyboard: prev/next on top, back to menu below.
+ * Tree root keyboard: one button per folder (drills into a paginated folder
+ * view), with the main-menu back button last. Each folder button is rendered
+ * on its own row so long labels (e.g. "SocServ QA Cap…") don't wrap awkwardly.
  *
- * The "page X/Y" indicator is rendered in the message header (not as a button)
- * so we don't need a noop callback; we just hide prev/next at the edges.
- *
- * @param {{ page?: number; totalPages?: number }} tree
+ * @param {import("./vaultTree.js").SyncIndexTreeRoot} root
  */
-export function buildFilesTreeKeyboard(tree) {
-  const totalPages = Math.max(1, Number(tree?.totalPages) || 1);
-  const page = Math.min(Math.max(1, Number(tree?.page) || 1), totalPages);
+export function buildFilesTreeRootKeyboard(root) {
+  const folders = root?.folders || [];
+  const rows = folders.map((f, idx) => [
+    {
+      text: `📁 ${f.folder} (${f.count})`,
+      callback_data: filesTreeFolderCallback(idx, 1),
+    },
+  ]);
+  rows.push([{ text: "⬅️ В меню", callback_data: CB_BACK }]);
+  return { inline_keyboard: rows };
+}
+
+/**
+ * Tree folder keyboard: prev/next inside the current folder, plus a row to go
+ * back to the folder list (К папкам) or all the way out to the main menu.
+ *
+ * The page indicator is in the message header instead of a noop button.
+ *
+ * @param {{ folderIndex?: number; page?: number; totalPages?: number }} folderPage
+ */
+export function buildFilesTreeFolderKeyboard(folderPage) {
+  const totalPages = Math.max(1, Number(folderPage?.totalPages) || 1);
+  const curPage = Math.min(Math.max(1, Number(folderPage?.page) || 1), totalPages);
+  const folderIndex = Math.max(0, Math.floor(Number(folderPage?.folderIndex) || 0));
   const rows = [];
+
   if (totalPages > 1) {
     const navRow = [];
-    if (page > 1) {
+    if (curPage > 1) {
       navRow.push({
         text: "◀️ Пред.",
-        callback_data: filesTreePageCallback(page - 1),
+        callback_data: filesTreeFolderCallback(folderIndex, curPage - 1),
       });
     }
-    if (page < totalPages) {
+    if (curPage < totalPages) {
       navRow.push({
         text: "След. ▶️",
-        callback_data: filesTreePageCallback(page + 1),
+        callback_data: filesTreeFolderCallback(folderIndex, curPage + 1),
       });
     }
     if (navRow.length > 0) rows.push(navRow);
   }
-  rows.push([{ text: "⬅️ В меню", callback_data: CB_BACK }]);
+
+  rows.push([
+    { text: "📁 К папкам", callback_data: CB_FILES_TREE },
+    { text: "⬅️ В меню", callback_data: CB_BACK },
+  ]);
   return { inline_keyboard: rows };
 }
 

@@ -4,17 +4,22 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import {
-  CB_FILES_TREE_PAGE_PREFIX,
+  CB_FILES_TREE_FOLDER_PREFIX,
   describeRecordStatus,
   filesStatsHtml,
-  filesTreeHtml,
-  filesTreePageCallback,
+  filesTreeFolderCallback,
+  filesTreeFolderHtml,
+  filesTreeRootHtml,
   formatBytes,
-  parseFilesTreePageCallback,
+  parseFilesTreeFolderCallback,
 } from "../src/telegram/messages.js";
-import { buildFilesTreeKeyboard } from "../src/telegram/keyboards.js";
 import {
-  buildSyncIndexTree,
+  buildFilesTreeFolderKeyboard,
+  buildFilesTreeRootKeyboard,
+} from "../src/telegram/keyboards.js";
+import {
+  buildSyncIndexFolderPage,
+  buildSyncIndexTreeRoot,
   comparePlaudFolderLabels,
   parseSummaryFilename,
   plaudFolderLabelFromVaultPath,
@@ -47,7 +52,11 @@ test("comparePlaudFolderLabels sorts Unfiled and Trash last", () => {
   assert.deepEqual(labels, ["SocServ Dev", "SocServ QA", "Unfiled", "Trash"]);
 });
 
-test("buildSyncIndexTree groups by Plaud folder labels", () => {
+// ---------------------------------------------------------------------------
+// Tree root: folder list view
+// ---------------------------------------------------------------------------
+
+test("buildSyncIndexTreeRoot lists folders sorted with Unfiled/Trash last", () => {
   const syncIndex = {
     records: {
       a: {
@@ -80,182 +89,40 @@ test("buildSyncIndexTree groups by Plaud folder labels", () => {
     },
   };
 
-  const tree = buildSyncIndexTree(syncIndex, {
+  const root = buildSyncIndexTreeRoot(syncIndex, {
     vaultRoot: "/vault",
     subfolder: "Plaud",
   });
 
-  assert.equal(tree.total, 4);
-  assert.equal(tree.truncated, false);
+  assert.equal(root.total, 4);
+  assert.deepEqual(
+    root.folders.map((f) => f.folder),
+    ["Clients", "Work", PLAUD_FOLDER_UNFILED, PLAUD_FOLDER_TRASH]
+  );
+  assert.deepEqual(
+    root.folders.map((f) => f.count),
+    [1, 1, 1, 1]
+  );
 
-  const folders = tree.groups.map((g) => g.folder);
-  assert.deepEqual(folders, ["Clients", "Work", PLAUD_FOLDER_UNFILED, PLAUD_FOLDER_TRASH]);
-
-  const unfiledGroup = tree.groups.find((g) => g.folder === PLAUD_FOLDER_UNFILED);
-  assert.equal(unfiledGroup?.items?.[0]?.title, "Old meeting");
-
-  const workGroup = tree.groups.find((g) => g.folder === "Work");
-  assert.equal(workGroup?.items?.[0]?.title, "Work standup");
-
-  const html = filesTreeHtml(tree);
+  const html = filesTreeRootHtml(root);
   assert.match(html, /Дерево синка/);
-  assert.match(html, /всего 4/);
+  assert.match(html, /Всего файлов: 4, папок: 4/);
   assert.match(html, /<b>Work<\/b>/);
   assert.match(html, /<b>Clients<\/b>/);
   assert.match(html, /<b>Unfiled<\/b>/);
   assert.match(html, /<b>Trash<\/b>/);
-  assert.match(html, /Work standup/);
+  assert.match(html, /Выбери папку/);
 });
 
-test("buildSyncIndexTree returns empty tree for missing records", () => {
-  const tree = buildSyncIndexTree(null);
-  assert.equal(tree.total, 0);
-  assert.deepEqual(tree.groups, []);
-  assert.equal(filesTreeHtml(tree), filesTreeHtml({ total: 0, groups: [], truncated: false }));
+test("buildSyncIndexTreeRoot returns empty root for missing records", () => {
+  const root = buildSyncIndexTreeRoot(null);
+  assert.equal(root.total, 0);
+  assert.deepEqual(root.folders, []);
+  assert.equal(filesTreeRootHtml(root), filesTreeRootHtml({ total: 0, folders: [] }));
 });
 
-test("buildSyncIndexTree truncates when over maxRows", () => {
-  const records = {};
-  for (let i = 0; i < 40; i++) {
-    const day = String((i % 28) + 1).padStart(2, "0");
-    const vaultSub = i % 2 === 0 ? "Plaud" : "Plaud/Work";
-    records[`id-${i}`] = {
-      title: `Meeting ${i}`,
-      status: "success",
-      summaryPath: `/vault/${vaultSub}/2026-05-${day} - Meeting ${i}.md`,
-      normalizedFilename: `2026-05-${day} - Meeting ${i}.md`,
-      lastSyncedAt: `2026-05-${day}T12:${String(i % 60).padStart(2, "0")}:00.000Z`,
-    };
-  }
-  const tree = buildSyncIndexTree(
-    { records },
-    { maxRows: 10, vaultRoot: "/vault", subfolder: "Plaud" }
-  );
-  assert.equal(tree.total, 40);
-  assert.equal(tree.truncated, true);
-  assert.equal(tree.page, 1);
-  assert.equal(tree.pageSize, 10);
-  assert.equal(tree.totalPages, 4);
-  const shown = tree.groups.reduce((n, g) => n + g.items.length, 0);
-  assert.equal(shown, 10);
-
-  const html = filesTreeHtml(tree);
-  assert.match(html, /ещё 30/);
-});
-
-test("buildSyncIndexTree paginates and shows distinct items per page", () => {
-  const records = {};
-  // Build 25 records with strictly descending lastSyncedAt so order is stable.
-  for (let i = 0; i < 25; i++) {
-    const minute = String(i).padStart(2, "0");
-    records[`id-${i}`] = {
-      title: `Meeting ${i}`,
-      status: "success",
-      summaryPath: `/vault/Plaud/Work/2026-05-19 - Meeting ${i}.md`,
-      lastSyncedAt: `2026-05-19T12:${minute}:00.000Z`,
-    };
-  }
-
-  const page1 = buildSyncIndexTree(
-    { records },
-    { pageSize: 10, page: 1, vaultRoot: "/vault", subfolder: "Plaud" }
-  );
-  const page2 = buildSyncIndexTree(
-    { records },
-    { pageSize: 10, page: 2, vaultRoot: "/vault", subfolder: "Plaud" }
-  );
-  const page3 = buildSyncIndexTree(
-    { records },
-    { pageSize: 10, page: 3, vaultRoot: "/vault", subfolder: "Plaud" }
-  );
-
-  assert.equal(page1.totalPages, 3);
-  assert.equal(page1.page, 1);
-  assert.equal(page2.page, 2);
-  assert.equal(page3.page, 3);
-
-  const itemsOn = (tree) => tree.groups.flatMap((g) => g.items.map((it) => it.title));
-  const titles1 = itemsOn(page1);
-  const titles2 = itemsOn(page2);
-  const titles3 = itemsOn(page3);
-
-  assert.equal(titles1.length, 10);
-  assert.equal(titles2.length, 10);
-  assert.equal(titles3.length, 5);
-
-  // No overlap across pages.
-  const overlap = (a, b) => a.filter((x) => b.includes(x));
-  assert.deepEqual(overlap(titles1, titles2), []);
-  assert.deepEqual(overlap(titles2, titles3), []);
-
-  // Union of all pages equals the total item count.
-  assert.equal(new Set([...titles1, ...titles2, ...titles3]).size, 25);
-
-  // HTML shows page indicator on multi-page trees.
-  assert.match(filesTreeHtml(page1), /стр\. 1 из 3/);
-  assert.match(filesTreeHtml(page2), /стр\. 2 из 3/);
-
-  // Last page no longer advertises remaining items.
-  assert.doesNotMatch(filesTreeHtml(page3), /ещё \d+/);
-});
-
-test("buildSyncIndexTree clamps out-of-range page numbers", () => {
-  const records = {};
-  for (let i = 0; i < 15; i++) {
-    records[`id-${i}`] = {
-      title: `M ${i}`,
-      status: "success",
-      summaryPath: `/vault/Plaud/Work/2026-05-19 - M ${i}.md`,
-      lastSyncedAt: `2026-05-19T12:${String(i).padStart(2, "0")}:00.000Z`,
-    };
-  }
-  const tooLow = buildSyncIndexTree(
-    { records },
-    { pageSize: 10, page: 0, vaultRoot: "/vault", subfolder: "Plaud" }
-  );
-  const tooHigh = buildSyncIndexTree(
-    { records },
-    { pageSize: 10, page: 99, vaultRoot: "/vault", subfolder: "Plaud" }
-  );
-  assert.equal(tooLow.page, 1);
-  assert.equal(tooHigh.page, 2);
-});
-
-test("filesTreePageCallback round-trips and parseFilesTreePageCallback rejects junk", () => {
-  assert.equal(filesTreePageCallback(1), `${CB_FILES_TREE_PAGE_PREFIX}1`);
-  assert.equal(parseFilesTreePageCallback(filesTreePageCallback(7)), 7);
-  assert.equal(parseFilesTreePageCallback("files_tree"), null);
-  assert.equal(parseFilesTreePageCallback(`${CB_FILES_TREE_PAGE_PREFIX}abc`), null);
-  assert.equal(parseFilesTreePageCallback(`${CB_FILES_TREE_PAGE_PREFIX}0`), null);
-  assert.equal(parseFilesTreePageCallback(""), null);
-});
-
-test("buildFilesTreeKeyboard shows correct nav buttons per page", () => {
-  const single = buildFilesTreeKeyboard({ page: 1, totalPages: 1 });
-  assert.equal(single.inline_keyboard.length, 1);
-  assert.equal(single.inline_keyboard[0][0].callback_data, "back");
-
-  const first = buildFilesTreeKeyboard({ page: 1, totalPages: 3 });
-  const firstNav = first.inline_keyboard[0];
-  assert.equal(firstNav.length, 1);
-  assert.equal(firstNav[0].callback_data, filesTreePageCallback(2));
-  assert.match(firstNav[0].text, /След/);
-
-  const middle = buildFilesTreeKeyboard({ page: 2, totalPages: 3 });
-  const middleNav = middle.inline_keyboard[0];
-  assert.equal(middleNav.length, 2);
-  assert.equal(middleNav[0].callback_data, filesTreePageCallback(1));
-  assert.equal(middleNav[1].callback_data, filesTreePageCallback(3));
-
-  const last = buildFilesTreeKeyboard({ page: 3, totalPages: 3 });
-  const lastNav = last.inline_keyboard[0];
-  assert.equal(lastNav.length, 1);
-  assert.equal(lastNav[0].callback_data, filesTreePageCallback(2));
-  assert.match(lastNav[0].text, /Пред/);
-});
-
-test("buildSyncIndexTree falls back to Unfiled when summaryPath is missing", () => {
-  const tree = buildSyncIndexTree(
+test("buildSyncIndexTreeRoot falls back to Unfiled when summaryPath is missing", () => {
+  const root = buildSyncIndexTreeRoot(
     {
       records: {
         a: {
@@ -268,12 +135,12 @@ test("buildSyncIndexTree falls back to Unfiled when summaryPath is missing", () 
     },
     { vaultRoot: "/vault", subfolder: "Plaud" }
   );
-  assert.equal(tree.groups.length, 1);
-  assert.equal(tree.groups[0].folder, PLAUD_FOLDER_UNFILED);
+  assert.equal(root.folders.length, 1);
+  assert.equal(root.folders[0].folder, PLAUD_FOLDER_UNFILED);
 });
 
-test("buildSyncIndexTree maps legacy Plaud/2026 paths to Unfiled", () => {
-  const tree = buildSyncIndexTree(
+test("buildSyncIndexTreeRoot maps legacy Plaud/2026 paths to Unfiled", () => {
+  const root = buildSyncIndexTreeRoot(
     {
       records: {
         a: {
@@ -286,8 +153,205 @@ test("buildSyncIndexTree maps legacy Plaud/2026 paths to Unfiled", () => {
     },
     { vaultRoot: "/vault", subfolder: "Plaud" }
   );
-  assert.equal(tree.groups[0].folder, PLAUD_FOLDER_UNFILED);
+  assert.equal(root.folders[0].folder, PLAUD_FOLDER_UNFILED);
 });
+
+// ---------------------------------------------------------------------------
+// Tree folder page: drill-down view with pagination
+// ---------------------------------------------------------------------------
+
+function recordsAcrossFolders() {
+  const records = {};
+  for (let i = 0; i < 25; i++) {
+    const minute = String(i).padStart(2, "0");
+    records[`w-${i}`] = {
+      title: `Work ${i}`,
+      status: "success",
+      summaryPath: `/vault/Plaud/Work/2026-05-19 - Work ${i}.md`,
+      lastSyncedAt: `2026-05-19T12:${minute}:00.000Z`,
+    };
+  }
+  for (let i = 0; i < 3; i++) {
+    records[`c-${i}`] = {
+      title: `Client ${i}`,
+      status: "success",
+      summaryPath: `/vault/Plaud/Clients/2026-04-${String(i + 1).padStart(2, "0")} - Client ${i}.md`,
+      lastSyncedAt: `2026-04-${String(i + 1).padStart(2, "0")}T10:00:00.000Z`,
+    };
+  }
+  return records;
+}
+
+test("buildSyncIndexFolderPage paginates files inside one folder", () => {
+  const records = recordsAcrossFolders();
+  const ctx = { vaultRoot: "/vault", subfolder: "Plaud" };
+
+  const root = buildSyncIndexTreeRoot({ records }, ctx);
+  // Folder order: ["Clients", "Work"] (alphabetic). Work is index 1.
+  const workIdx = root.folders.findIndex((f) => f.folder === "Work");
+  assert.ok(workIdx >= 0);
+
+  const page1 = buildSyncIndexFolderPage(
+    { records },
+    { folderIndex: workIdx, page: 1, pageSize: 10, ...ctx }
+  );
+  const page2 = buildSyncIndexFolderPage(
+    { records },
+    { folderIndex: workIdx, page: 2, pageSize: 10, ...ctx }
+  );
+  const page3 = buildSyncIndexFolderPage(
+    { records },
+    { folderIndex: workIdx, page: 3, pageSize: 10, ...ctx }
+  );
+
+  assert.equal(page1.folder, "Work");
+  assert.equal(page1.exists, true);
+  assert.equal(page1.total, 25);
+  assert.equal(page1.totalPages, 3);
+  assert.equal(page1.items.length, 10);
+  assert.equal(page2.items.length, 10);
+  assert.equal(page3.items.length, 5);
+
+  const titles = (p) => p.items.map((it) => it.title);
+  const overlap = (a, b) => a.filter((x) => b.includes(x));
+  assert.deepEqual(overlap(titles(page1), titles(page2)), []);
+  assert.deepEqual(overlap(titles(page2), titles(page3)), []);
+  assert.equal(new Set([...titles(page1), ...titles(page2), ...titles(page3)]).size, 25);
+
+  // Other folders' items don't leak in.
+  for (const t of titles(page1).concat(titles(page2), titles(page3))) {
+    assert.ok(t.startsWith("Work "), `unexpected item in Work folder: ${t}`);
+  }
+
+  // HTML shows page indicator + остаток.
+  assert.match(filesTreeFolderHtml(page1), /стр\. 1 из 3/);
+  assert.match(filesTreeFolderHtml(page1), /ещё 15/);
+  assert.doesNotMatch(filesTreeFolderHtml(page3), /ещё \d+/);
+});
+
+test("buildSyncIndexFolderPage resolves folder by name and by index equivalently", () => {
+  const records = recordsAcrossFolders();
+  const ctx = { vaultRoot: "/vault", subfolder: "Plaud" };
+  const byName = buildSyncIndexFolderPage(
+    { records },
+    { folder: "Clients", page: 1, pageSize: 10, ...ctx }
+  );
+  const byIndex = buildSyncIndexFolderPage(
+    { records },
+    { folderIndex: 0, page: 1, pageSize: 10, ...ctx }
+  );
+  assert.equal(byName.folder, "Clients");
+  assert.equal(byIndex.folder, "Clients");
+  assert.equal(byName.total, byIndex.total);
+  assert.deepEqual(
+    byName.items.map((i) => i.title),
+    byIndex.items.map((i) => i.title)
+  );
+});
+
+test("buildSyncIndexFolderPage clamps out-of-range pages and signals missing folders", () => {
+  const records = recordsAcrossFolders();
+  const ctx = { vaultRoot: "/vault", subfolder: "Plaud" };
+
+  const tooLow = buildSyncIndexFolderPage(
+    { records },
+    { folder: "Work", page: 0, pageSize: 10, ...ctx }
+  );
+  const tooHigh = buildSyncIndexFolderPage(
+    { records },
+    { folder: "Work", page: 99, pageSize: 10, ...ctx }
+  );
+  assert.equal(tooLow.page, 1);
+  assert.equal(tooHigh.page, 3);
+
+  const missing = buildSyncIndexFolderPage(
+    { records },
+    { folder: "NoSuchFolder", page: 1, ...ctx }
+  );
+  assert.equal(missing.exists, false);
+  assert.equal(missing.folderIndex, -1);
+  assert.equal(missing.items.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Callback encoding for the drill-down keyboard
+// ---------------------------------------------------------------------------
+
+test("filesTreeFolderCallback round-trips and parseFilesTreeFolderCallback rejects junk", () => {
+  assert.equal(filesTreeFolderCallback(2, 5), `${CB_FILES_TREE_FOLDER_PREFIX}2:5`);
+  assert.deepEqual(parseFilesTreeFolderCallback(filesTreeFolderCallback(0, 1)), {
+    folderIndex: 0,
+    page: 1,
+  });
+  assert.equal(parseFilesTreeFolderCallback("files_tree"), null);
+  assert.equal(parseFilesTreeFolderCallback(`${CB_FILES_TREE_FOLDER_PREFIX}abc:1`), null);
+  assert.equal(parseFilesTreeFolderCallback(`${CB_FILES_TREE_FOLDER_PREFIX}1`), null);
+  assert.equal(parseFilesTreeFolderCallback(`${CB_FILES_TREE_FOLDER_PREFIX}1:0`), null);
+  assert.equal(parseFilesTreeFolderCallback(""), null);
+});
+
+test("buildFilesTreeRootKeyboard renders one button per folder + back to menu", () => {
+  const root = {
+    total: 3,
+    folders: [
+      { folder: "Clients", count: 2 },
+      { folder: "Work", count: 1 },
+    ],
+  };
+  const kb = buildFilesTreeRootKeyboard(root);
+  assert.equal(kb.inline_keyboard.length, 3);
+  assert.match(kb.inline_keyboard[0][0].text, /Clients \(2\)/);
+  assert.equal(kb.inline_keyboard[0][0].callback_data, filesTreeFolderCallback(0, 1));
+  assert.match(kb.inline_keyboard[1][0].text, /Work \(1\)/);
+  assert.equal(kb.inline_keyboard[1][0].callback_data, filesTreeFolderCallback(1, 1));
+  assert.equal(kb.inline_keyboard[2][0].callback_data, "back");
+});
+
+test("buildFilesTreeFolderKeyboard shows prev/next + К папкам + В меню", () => {
+  const single = buildFilesTreeFolderKeyboard({
+    folderIndex: 0,
+    page: 1,
+    totalPages: 1,
+  });
+  // Single page: just the [К папкам] [В меню] row.
+  assert.equal(single.inline_keyboard.length, 1);
+  assert.equal(single.inline_keyboard[0][0].callback_data, "files_tree");
+  assert.equal(single.inline_keyboard[0][1].callback_data, "back");
+
+  const first = buildFilesTreeFolderKeyboard({
+    folderIndex: 2,
+    page: 1,
+    totalPages: 3,
+  });
+  const firstNav = first.inline_keyboard[0];
+  assert.equal(firstNav.length, 1);
+  assert.equal(firstNav[0].callback_data, filesTreeFolderCallback(2, 2));
+  assert.match(firstNav[0].text, /След/);
+
+  const middle = buildFilesTreeFolderKeyboard({
+    folderIndex: 2,
+    page: 2,
+    totalPages: 3,
+  });
+  const middleNav = middle.inline_keyboard[0];
+  assert.equal(middleNav.length, 2);
+  assert.equal(middleNav[0].callback_data, filesTreeFolderCallback(2, 1));
+  assert.equal(middleNav[1].callback_data, filesTreeFolderCallback(2, 3));
+
+  const last = buildFilesTreeFolderKeyboard({
+    folderIndex: 2,
+    page: 3,
+    totalPages: 3,
+  });
+  const lastNav = last.inline_keyboard[0];
+  assert.equal(lastNav.length, 1);
+  assert.equal(lastNav[0].callback_data, filesTreeFolderCallback(2, 2));
+  assert.match(lastNav[0].text, /Пред/);
+});
+
+// ---------------------------------------------------------------------------
+// Vault filesystem summary (unchanged behaviour, kept for regression)
+// ---------------------------------------------------------------------------
 
 test("scanVaultSummary counts md files and lists recent by mtime", async () => {
   const root = await mkdtemp(join(tmpdir(), "plaud-vault-"));

@@ -86,6 +86,16 @@ async function needsSummaryRestore(existingRecord, plannedAbsolutePath) {
   return true;
 }
 
+/**
+ * @param {object | null | undefined} existingRecord
+ * @param {string} plannedAbsolutePath
+ */
+function summaryPathsDiffer(existingRecord, plannedAbsolutePath) {
+  const existing = String(existingRecord?.summaryPath || "");
+  const planned = String(plannedAbsolutePath || "");
+  return Boolean(existing && planned && existing !== planned);
+}
+
 function buildSummaryBundle(summaries) {
   if (!Array.isArray(summaries) || summaries.length === 0) return "";
   return summaries
@@ -269,6 +279,20 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
           downloadRequired: true,
           metadataOnly: false,
           reason: "summary_file_missing",
+        };
+      }
+
+      if (
+        action.action === SYNC_ACTION_ALREADY_SYNCED &&
+        existingRecord &&
+        summaryPathsDiffer(existingRecord, planned.absolutePath)
+      ) {
+        action = {
+          action: SYNC_ACTION_UPDATED,
+          status: SYNC_STATUS_UPDATED,
+          downloadRequired: false,
+          metadataOnly: true,
+          reason: "path_changed",
         };
       }
 

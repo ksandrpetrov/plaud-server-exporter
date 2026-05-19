@@ -434,7 +434,6 @@ async function fetchRecordingsVariant(session, fixedParams, opts = {}) {
 }
 
 function attachFolderSegments(files, tagById, unfiledIds) {
-  if (!config.mirrorFolders) return files;
   for (const file of files) {
     file.folderSegment = resolveFileFolderSegment({
       folderIds: file.folderIds,
@@ -444,6 +443,23 @@ function attachFolderSegments(files, tagById, unfiledIds) {
     });
   }
   return files;
+}
+
+/**
+ * @param {object} session
+ * @param {object[]} files
+ */
+async function enrichFilesWithFolderSegments(session, files) {
+  if (!files.length) return files;
+  let tags = [];
+  try {
+    tags = await fetchPlaudFiletagList(session);
+  } catch {
+    tags = [];
+  }
+  const tagById = buildTagByIdMap(tags);
+  const unfiledIds = new Set(collectUnfiledFiletagIds(tags));
+  return attachFolderSegments(files, tagById, unfiledIds);
 }
 
 async function listAllRecordingsSimple(session, options = {}) {
@@ -466,7 +482,9 @@ async function listAllRecordingsSimple(session, options = {}) {
     }
   }
 
-  return [...byId.values()];
+  const files = [...byId.values()];
+  if (!config.mirrorFolders) return files;
+  return enrichFilesWithFolderSegments(session, files);
 }
 
 /**
@@ -555,6 +573,11 @@ export async function listAllRecordings(session, options = {}) {
 
   await tryIngest({ is_trash: "2", filetag_id: "0" }, { maxPages: 20 });
   await tryIngest({ is_trash: "2", filetag_id: "-2" }, { maxPages: 20 });
+
+  for (const sid of ["0", "-1", "-2"]) {
+    await tryIngest({ is_trash: "2", tag_id: sid }, { maxPages: 20 });
+    await tryIngest({ is_trash: "2", folder_id: sid }, { maxPages: 20 });
+  }
 
   const folderIds = new Set(unfiledIds);
   for (const tag of tags) {
