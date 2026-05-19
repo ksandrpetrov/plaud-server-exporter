@@ -1,100 +1,70 @@
-# Безопасность
+# Security
 
-## Где лежат секреты
+## Where secrets live
 
-| Путь | Что внутри | Права |
-|------|------------|-------|
-| `server/.data/session.json` | Plaud JWT, cookies, workspace id | файл `600`, каталог `700` |
-| `server/.data/playwright-profile/` | Профиль браузера, может содержать cookies | в `.gitignore` |
-| `.env` | Пути и настройки, **без паролей Plaud** | `600` |
-| `server/.data/sync-index.json` | Пути файлов, hash, названия встреч; auth-токенов нет | желательно `600` |
+| Path | Contents | Permissions |
+|------|----------|-------------|
+| `server/.data/session.json` | Plaud JWT, cookies, workspace ids | `600`, dir `700` |
+| `server/.data/playwright-profile/` | Browser profile (may contain cookies) | gitignored |
+| `.env` | Paths and tuning only — **no Plaud passwords** | `600` |
+| `server/.data/sync-index.json` | File paths, hashes, titles — not auth tokens | `600` recommended |
 
-**Никогда не коммитьте:** `.env`, `session.json`, `playwright-profile/`, реальные export-папки с данными.
+**Never commit:** `.env`, `session.json`, `playwright-profile/`, export trees with real data.
 
-## Чего не должно быть в логах и error-файлах
+## What must not appear in logs or error files
 
-Перед записью `_errors/*.md` и structured logs сервер редактирует:
+The server redacts before writing `_errors/*.md` and structured logs:
 
-- заголовки `Authorization` и Bearer-токены;
-- cookies и `Set-Cookie`;
-- Plaud `pld_*` ключи из `localStorage`;
-- строки, похожие на JWT;
-- длинные hex-секреты.
+- `Authorization` headers and Bearer tokens
+- Cookies and `Set-Cookie`
+- `pld_*` localStorage keys
+- JWT-shaped strings and long hex secrets
 
-Если нужно отправить диагностику, берите `/var/log/plaud-exporter/sync.log` и `_errors/*.md` после сбоя. Не вставляйте в переписку сырой `session.json`.
+If you share logs, use files from `/var/log/plaud-exporter/` after a failed run — do not paste raw `session.json`.
 
-## Обновление сессии
+## Refresh session
 
-На Mac:
+On Mac:
 
 ```bash
 npm run server:auth
 scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
+# on server: mv + chown plaud (see getting-started.md)
 ```
 
-На сервере:
-
-```bash
-sudo install -d -o plaud -g plaud -m 700 /srv/plaud-exporter/server/.data
-sudo install -o plaud -g plaud -m 600 /tmp/session.json /srv/plaud-exporter/server/.data/session.json
-sudo systemctl start plaud-exporter.service
-journalctl -u plaud-exporter.service -n 100 --no-pager
-```
-
-Подробный production-flow: [server-deploy.md#обновление-plaud-сессии](./server-deploy.md#обновление-plaud-сессии).
-
-## Удаление сессии
-
-Локально:
+## Remove session
 
 ```bash
 node server/src/cli/index.js logout
 ```
 
-Профиль Playwright сохраняется для более быстрого повторного входа. Полностью удалить профиль:
+Playwright profile is kept (faster re-login). To wipe it:
 
 ```bash
 rm -rf server/.data/playwright-profile
 ```
 
-На сервере:
+## If session is compromised
 
-```bash
-sudo rm -f /srv/plaud-exporter/server/.data/session.json
-```
+1. `logout` or delete `server/.data/session.json` on Mac and server.
+2. Change Plaud password in the web UI.
+3. `server:auth` again and deploy new `session.json`.
 
-## Если сессия скомпрометирована
+## Safe operations on server
 
-1. Удалите `server/.data/session.json` на Mac и сервере.
-2. Смените пароль Plaud в веб-интерфейсе.
-3. Запустите `npm run server:auth` заново на Mac.
-4. Передайте новый `session.json` на сервер через flow выше.
+- Run sync as user `plaud`, not root.
+- `chown -R plaud:plaud /srv/plaud-exporter/server/.data` after any `sudo mv` of session.
+- Restrict SSH; prefer `ssh-copy-id` over password auth for `scp`.
 
-## Безопасные операции на сервере
+## Sending diagnostics
 
-- Запускайте sync от пользователя `plaud`, не от root.
-- После любого `sudo mv` или `sudo install` сессии проверяйте владельца:
-  ```bash
-  sudo chown -R plaud:plaud /srv/plaud-exporter/server/.data
-  sudo chmod 700 /srv/plaud-exporter/server/.data
-  sudo chmod 600 /srv/plaud-exporter/server/.data/session.json
-  ```
-- Ограничьте SSH-доступ; для `scp` лучше использовать ключи и `ssh-copy-id`, а не пароль.
-- Не запускайте `npm run server:auth` на сервере с 1 GB RAM.
+OK to share:
 
-## Что можно отправлять для диагностики
+- `npm run server:status` output (no token values)
+- `_errors/*.md` from export root (already redacted)
+- Exit codes and journalctl lines
 
-Можно:
+Do **not** share:
 
-- вывод `npm run server:status` без токенов;
-- `_errors/*.md` из export root, они уже redacted;
-- exit code;
-- последние строки `journalctl -u plaud-exporter.service -n 100 --no-pager`;
-- версии Node/npm.
-
-Нельзя:
-
-- `server/.data/session.json`;
-- содержимое `server/.data/playwright-profile/`;
-- полный `.env`, если там появились приватные пути или комментарии;
-- debug-логи с `PLAUD_LOG_LEVEL=debug`, пока вы вручную не проверили, что там нет секретов.
+- `session.json`
+- Full debug logs with `PLAUD_LOG_LEVEL=debug` unless reviewed for tokens first

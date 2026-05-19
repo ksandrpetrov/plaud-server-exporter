@@ -5,7 +5,6 @@ import {
   collectUnfiledFiletagIds,
   extractFiletagIdsFromRaw,
   resolveFolderPathSegment,
-  UNCATEGORIZED_FOLDER_SEGMENT,
 } from "../src/plaud/plaudFolders.js";
 
 test("extractFiletagIdsFromRaw reads filetag_id_list", () => {
@@ -47,12 +46,5 @@ test("resolveFolderPathSegment uses unfiled label when only unfiled tags", () =>
   assert.equal(
     resolveFolderPathSegment(["t-inbox"], tagById, unfiledIds),
     "Unfiled"
-  );
-});
-
-test("resolveFolderPathSegment uses uncategorized folder when no tags", () => {
-  assert.equal(
-    resolveFolderPathSegment([], new Map(), new Set()),
-    UNCATEGORIZED_FOLDER_SEGMENT
   );
 });

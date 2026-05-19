@@ -1,145 +1,102 @@
-# Диагностика и типовые сбои
+# Troubleshooting
 
-## Plaud разлогинил или сессия протухла (exit code 2)
+## Plaud logged out (exit code 2)
 
-**Симптомы:** `No session snapshot`, `PlaudAuthError`, `_errors/*auth_error*.md`, exit `2`.
+**Symptoms:** `No session snapshot`, `PlaudAuthError`, `_errors/*auth_error*.md`.
 
-**Исправление на Mac:**
+**Fix (Mac):**
 
 ```bash
 npm run server:auth
 scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
 ```
 
-**На сервере:**
+On server: move into `server/.data/`, `chown plaud:plaud`, `chmod 600` — [getting-started.md](./getting-started.md).
+
+Do not run Playwright on a 1 GB VPS.
+
+## Plaud changed API (exit code 3)
+
+**Symptoms:** `plaud_changed` in logs, `_errors/*plaud-export-error*.md` with stage `list-recordings` or `fetch-summary`.
+
+**Meaning:** Response JSON no longer matches what `plaudApiClient.js` expects — needs a code update.
+
+**Actions:**
+
+1. Read the error Markdown in `{export}/_errors/`.
+2. Compare with Plaud Web Network tab (no need to paste tokens).
+3. Update `server/src/plaud/plaudApiClient.js` and add a regression test.
+
+## Summary not exporting
+
+**Check:**
 
 ```bash
-sudo install -d -o plaud -g plaud -m 700 /srv/plaud-exporter/server/.data
-sudo install -o plaud -g plaud -m 600 /tmp/session.json /srv/plaud-exporter/server/.data/session.json
-sudo systemctl start plaud-exporter.service
-journalctl -u plaud-exporter.service -n 100 --no-pager
+npm run server:status   # session.snapshot.present, vaultRoot, exportRoot
 ```
 
-Не запускайте Playwright auth на VPS с 1 GB RAM.
+- Recording has no AI summary in Plaud Web → empty or placeholder `.md`.
+- Per-file errors increment `errors` in stats — see `_errors/` for that run.
+- `PLAUD_MIRROR_FOLDERS` and folder tags — files may be under `Plaud/{year}/{folder}/`.
 
-## Plaud изменил API (exit code 3)
-
-**Симптомы:** `plaud_changed` в логах, `_errors/*plaud-export-error*.md` со stage `list-recordings` или `fetch-summary`, exit `3`.
-
-**Что это значит:** JSON-ответ Plaud больше не похож на форму, которую ожидает `plaudApiClient.js`; нужен ручной аудит кода.
-
-**Действия:**
-
-1. Откройте свежий Markdown-отчёт в `{export}/_errors/`.
-2. Сравните с Plaud Web в Network tab браузера, не копируя токены и cookies.
-3. Обновите `server/src/plaud/plaudApiClient.js`.
-4. Добавьте regression test на новую форму ответа.
-5. Прогоните `npm test`, `npm run lint`, `npm run verify`.
-
-## Саммари не выгружается
-
-Проверьте статус:
-
-```bash
-npm run server:status
-```
-
-Смотрите поля `session.snapshot.present`, `vaultRoot`, `exportRoot`, `lastStatus.lastSyncStats`.
-
-Возможные причины:
-
-- В Plaud Web у записи ещё нет AI summary.
-- Есть per-file ошибки: `lastSyncStats.errors > 0`, детали в `_errors/`.
-- Включено `PLAUD_MIRROR_FOLDERS=true`, поэтому файлы могут лежать в `Plaud/{folder}/{year}/`.
-- Был dry-run: `npm run server:sync -- --dry-run` не пишет `.md`.
-
-## Файлы не создаются
+## Files not created
 
 ```bash
 npm run server:status
 ls -la "$PLAUD_EXPORT_ROOT/Plaud"
 ```
 
-Проверьте:
+- Wrong `PLAUD_EXPORT_ROOT` or vault path in `.env`.
+- Permission: export dir must be writable by user running sync (`plaud` on server).
+- Dry-run does not write — remove `--dry-run` for real export.
+- See [EACCES sync.lock](#eacces-synclock-on-server) if sync aborts before write.
 
-- правильный `PLAUD_EXPORT_ROOT` или `PLAUD_OBSIDIAN_VAULT_PATH` в `.env`;
-- каталог export существует;
-- пользователь `plaud` может писать в export-каталог;
-- запуск был без `--dry-run`.
+## Strange file names
 
-Если sync падает до записи файлов из-за `sync.lock`, см. [EACCES sync.lock на сервере](#eacces-synclock-на-сервере).
+Expected pattern: `YYYY-MM-DD - {meeting title}.md`.
 
-## Странные имена файлов
+- Boilerplate titles (`Plaud`, `Untitled`) are ignored → fallback `YYYY-MM-DD Plaud summary`.
+- Very long titles are truncated (~242 chars) — beginning kept readable.
+- Duplicate titles get a short id suffix — not a bug.
+- Forbidden characters become `-` or `_` (readable, not deleted).
 
-Ожидаемый формат: `YYYY-MM-DD - {meeting title}.md`.
+Logic: `server/src/sync/filenamePlanner.js`.
 
-- Заголовки-заглушки (`Plaud`, `Plaud Web`, `Untitled`) игнорируются.
-- Если нормального заголовка нет, используется fallback `YYYY-MM-DD Plaud summary`.
-- Очень длинные названия обрезаются до безопасного лимита; начало сохраняется читаемым.
-- Запрещённые символы заменяются на читаемые `-` или `_`.
-- Две разные встречи с одинаковым названием получают разные пути, чтобы не перетирать друг друга.
+## Error Markdown files in `_errors/`
 
-Логика: `server/src/sync/filenamePlanner.js` и `plaud-exporter/common/exportPathUtils.js`.
+Normal when something failed. Open the newest file — sections **Что случилось** / **Что сделать**.
 
-## Markdown-файлы ошибок в `_errors/`
+- Dedupe: identical failures reuse the same file (check `dedupe_key` in technical section).
+- Dry-run does not create `_errors/` — only logs.
 
-Это нормально, если что-то сломалось. Откройте самый свежий файл: там есть разделы **Что случилось**, **Технические детали**, **Что сделать**.
+## Duplicate files on re-run
 
-- Одинаковые повторяющиеся ошибки дедуплицируются через `dedupe_key`.
-- Dry-run не создаёт `_errors/`, а только пишет в лог.
-- Секреты должны быть отредактированы. Если видите токен или cookie, это баг redaction.
+Should **not** happen if `sync-index.json` is intact.
 
-## Повторный запуск создаёт дубли
+If duplicates appear:
 
-Такого не должно быть, если `sync-index.json` цел и доступен для записи.
+1. Check `server/.data/sync-index.json` exists and is writable.
+2. Corrupt index — restore from `sync-index.json.bak` or accept one-time re-export (unchanged hashes still skip content).
+3. Two different stable ids with same title → two files by design.
 
-Проверьте:
+## Google blocks login at `server:auth`
 
-1. `server/.data/sync-index.json` существует и принадлежит пользователю `plaud`.
-2. Есть backup `server/.data/sync-index.json.bak`.
-3. Не запущены два разных планировщика на один и тот же `server/.data`.
-
-Команды:
-
-```bash
-sudo -u plaud ls -la /srv/plaud-exporter/server/.data/
-sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
-```
-
-Если index повреждён, восстановите `.bak` или примите одноразовую повторную выгрузку. Неизменённые summary дальше будут пропускаться по hash.
-
-## Google блокирует вход при `server:auth`
-
-Используйте email/password вместо Google OAuth, установите обычный Google Chrome и сбросьте профиль:
+Use email/password, not Google. Install Google Chrome. Reset profile:
 
 ```bash
 rm -rf server/.data/playwright-profile
 npm run server:auth
 ```
 
-Если Chrome не найден, настройте `PLAUD_PLAYWRIGHT_CHANNEL=chromium` или установите Chrome.
-
 ## scp: Permission denied
 
-Это проблема SSH, а не exporter. `scp` использует тот же логин и пароль/ключ, что `ssh`:
+SSH-level issue — same login as `ssh YOUR_SSH_USER@YOUR_SERVER_HOST`. Use `ssh-copy-id`. Do not use angle brackets in commands (`<user>` breaks zsh).
 
-```bash
-ssh YOUR_SSH_USER@YOUR_SERVER_HOST 'echo ok'
-```
+## EACCES sync.lock on server
 
-Не используйте угловые скобки в командах: `<user>` в zsh означает перенаправление ввода. Для ключевого доступа разово выполните:
+**Symptom:** `status` OK, `sync` fails with `EACCES` on `sync.lock`.
 
-```bash
-ssh-copy-id YOUR_SSH_USER@YOUR_SERVER_HOST
-```
-
-Системный пользователь `plaud` создан с `/usr/sbin/nologin`; через него нельзя логиниться по SSH. Копируйте в `/tmp/session.json` обычным SSH-пользователем, затем переносите файл через `sudo install`.
-
-## EACCES sync.lock на сервере
-
-**Симптом:** `server:status` выглядит нормально, но `sync` падает с `EACCES` на `sync.lock`.
-
-**Причина:** `server/.data` принадлежит root или другому пользователю.
+**Cause:** `server/.data` owned by root.
 
 ```bash
 sudo chown -R plaud:plaud /srv/plaud-exporter/server/.data
@@ -148,54 +105,28 @@ sudo rm -f /srv/plaud-exporter/server/.data/sync.lock
 sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:sync'
 ```
 
-Всегда запускайте sync от `plaud`, не от root.
+Always run sync as `plaud`, not root.
 
-## Уже идёт sync (exit code 4)
+## Sync already running (exit code 4)
 
-Другой `server:sync` держит `sync.lock`. Обычно нужно просто подождать завершения timer-запуска.
-
-Проверка:
-
-```bash
-sudo systemctl status plaud-exporter.service --no-pager
-journalctl -u plaud-exporter.service -n 100 --no-pager
-```
-
-Если процесс точно умер, lock можно удалить:
+Another `server:sync` holds `sync.lock`. Wait for timer, or remove stale lock if process died:
 
 ```bash
 sudo rm -f /srv/plaud-exporter/server/.data/sync.lock
 ```
 
-Lock также auto-expires через 2 часа или если PID умер.
+Lock auto-expires after 2 hours or if PID is dead.
 
 ## `npm: command not found`
-
-Поставьте Node 20:
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
-node -v && npm -v
 ```
 
-## `dubious ownership` в git
-
-Обычно это значит, что в `/srv/plaud-exporter` работали от root.
+## `dubious ownership` in git
 
 ```bash
 sudo chown -R plaud:plaud /srv/plaud-exporter
 sudo -u plaud git -C /srv/plaud-exporter status
 ```
-
-## Обновили код, но exporter работает старой версией
-
-Проверьте, что обновили именно `/srv/plaud-exporter`, а потом перезапустили service:
-
-```bash
-sudo -u plaud git -C /srv/plaud-exporter log -1 --oneline
-sudo systemctl start plaud-exporter.service
-journalctl -u plaud-exporter.service -n 100 --no-pager
-```
-
-Полный flow обновления: [server-deploy.md#обновление-кода-и-перезапуск](./server-deploy.md#обновление-кода-и-перезапуск).

@@ -2,7 +2,7 @@
 
 Репозиторий: [github.com/ksandrpetrov/plaud-server-exporter](https://github.com/ksandrpetrov/plaud-server-exporter)
 
-Серверный CLI: саммари записей Plaud → Markdown для Obsidian. Рядом лежит директория Chrome-расширения `plaud-exporter/`; сервер переиспользует общий код путей и sync-индекса.
+Серверный CLI: саммари записей Plaud → Markdown для Obsidian. Рядом с Chrome-расширением [`plaud-exporter`](https://github.com/ksandrpetrov/plaud-exporter) (общий код путей и sync-индекса).
 
 ## Сервер
 
@@ -13,13 +13,11 @@
 | На сервере | `server:sync` по systemd (каждые 2 ч) |
 | На Mac | `server:auth` (Playwright + Chrome), перенос `session.json` по `scp` |
 
-Серверный exporter не скачивает audio и не поддерживает `--audio-too`. Playwright на сервере не используется.
+Аудио не выгружается. Playwright на сервере не используется.
 
 ## Инструкция
 
 **[docs/getting-started.md](docs/getting-started.md)** — Mac, сервер, systemd, Syncthing.
-
-**[docs/server-deploy.md#обновление-кода-и-перезапуск](docs/server-deploy.md#обновление-кода-и-перезапуск)** — что делать после обновления кода на сервере: остановить timer, подтянуть код, прогнать проверки, запустить service, вернуть timer.
 
 ## Команды (из корня репозитория)
 
@@ -45,5 +43,4 @@ npm run server:status    # конфиг и сессия
 npm test
 npm run lint
 npm run verify
-npm run test:submodule
 ```

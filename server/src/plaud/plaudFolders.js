@@ -263,9 +263,6 @@ export function parseFiletagListPayload(payload) {
   return findFiletagArray(payload);
 }
 
-/** Obsidian/exports subfolder for recordings with no Plaud folder tags. */
-export const UNCATEGORIZED_FOLDER_SEGMENT = "Без категории";
-
 /**
  * @param {Map<string, object>} tagById
  * @param {Set<string>} unfiledIds
@@ -274,12 +271,7 @@ export const UNCATEGORIZED_FOLDER_SEGMENT = "Без категории";
  */
 export function resolveFolderPathSegment(folderIds, tagById, unfiledIds) {
   const ids = (folderIds || []).map((id) => String(id).trim()).filter(Boolean);
-  if (!ids.length) {
-    return sanitizePathSegment(UNCATEGORIZED_FOLDER_SEGMENT, {
-      fallback: "Uncategorized",
-      maxLength: 80,
-    });
-  }
+  if (!ids.length) return "";
 
   const nonUnfiled = ids.filter((id) => !unfiledIds.has(id));
   const chosen = nonUnfiled[0] || ids[0];

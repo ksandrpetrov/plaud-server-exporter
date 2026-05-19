@@ -4,7 +4,7 @@
 
 ## Резюме
 
-Серверный exporter переносит рабочую логику Chrome-расширения
+Server exporter переносит рабочую логику Chrome-расширения
 [`plaud-exporter`](../plaud-exporter/README.md) (Manifest V3) в headless Node.js:
 скачивание записей и AI-саммари Plaud на сервере, запись Markdown для Obsidian и
 пропуск неизменённого — без открытия попапа в браузере каждый раз.
@@ -21,12 +21,12 @@
 
 ## Архитектура расширения
 
-Manifest V3, три runtime-слоя.
+Manifest V3, три слоя runtime.
 
 | Слой | Файлы | Задача |
 |------|-------|--------|
 | Service worker | `background.js` | Уведомления, `chrome.downloads`, маршрутизация сообщений, фоновый sync |
-| Content script | `content.js`, `features/audioExport/*` | Работа на `web.plaud.ai` / `app.plaud.ai`, `localStorage`, API Plaud, разбор саммари |
+| Content script | `content.js`, `features/audioExport/*` | На `web.plaud.ai` / `app.plaud.ai`, `localStorage`, API Plaud, разбор саммари |
 | Popup | `popup/*` | Запуск экспорта, настройка подпапки sync |
 
 Чистая логика — stable id, решения sync, имена, извлечение заголовков — в
@@ -35,7 +35,7 @@ Manifest V3, три runtime-слоя.
 - [`plaud-exporter/common/syncCore.js`](../plaud-exporter/common/syncCore.js)
 - [`plaud-exporter/common/exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js)
 
-Сервер импортирует их из директории `plaud-exporter/` — это единый источник правды для общей логики.
+Сервер импортирует их через git submodule — единый источник правды.
 
 ## Текущий поток экспорта
 
@@ -60,8 +60,8 @@ flowchart TD
 3. На запись: саммари, stable id, hash, решение `new` / `updated` /
    `already_synced` / `skipped`, запись только при необходимости.
 
-Сервер заменяет (1) JSON-файлом, (3) — `fs.writeFile`, а логику решений берёт из
-общей директории `plaud-exporter/`.
+Сервер заменяет (1) JSON-файлом, (3) — `fs.writeFile`, логику решений берёт из
+submodule без изменений.
 
 ## Модель auth / сессии
 
@@ -125,12 +125,12 @@ file-id: <id>                    (только на /ai/query_note)
 Политика для сервера:
 
 - workspace token, пока `expiresAt` в будущем, иначе user token (как в расширении);
-- любой 401/403 → `auth_error`, без retry, явно в `server:status` и `_errors/`;
+- любой 401/403 → `auth_expired`, без retry, явно в `server:status`;
 - опционально (фаза 2): `server:auth --refresh` headless по профилю Playwright.
 
 ## Что переиспользовать на сервере
 
-Из общей директории `plaud-exporter/` напрямую:
+Из submodule напрямую:
 
 - `syncCore.js` — stable id, отпечатки, решения sync, нормализация индекса, пути
   артефактов.
@@ -155,12 +155,12 @@ file-id: <id>                    (только на /ai/query_note)
 
 | Риск | Вероятность | Смягчение |
 |------|-------------|-----------|
-| Неожиданное истечение JWT | Средняя | `server:auth`, `auth_error` в status / `_errors`, без retry 401/403 |
+| Неожиданное истечение JWT | Средняя | `server:auth`, `auth_expired` в status, без retry 401/403 |
 | Смена полей/кодов Plaud | Низкая/средняя | Версионированный клиент; диагностика статусов без тел |
 | Список API короче DOM-merge | Низкая | Лог расхождения; фаза 2 — теги и скан снимка |
 | Headless без UI для login | Высокая при деплое | X11, auth на Mac + scp, `--import` DevTools |
 | Утечка секретов в логах | Средняя | Центральная редакция; запрет печати токенов |
-| Дрейф общей директории `plaud-exporter/` | Низкая | `npm run verify` |
+| Дрейф submodule | Низкая | `npm run verify` |
 
 ## Рекомендуемый путь реализации
 
@@ -169,10 +169,11 @@ file-id: <id>                    (только на /ai/query_note)
 1. **Playwright (редко).** `server:auth`: Chromium, `https://web.plaud.ai`, вход,
    проверка `GET /file/simple/web?limit=1`, снимок в `session.json` (`0600`).
 2. **Прямой API.** `server:sync`: снимок → те же заголовки, что в расширении,
-   четыре эндпоинта, `syncCore` + `exportPathUtils` из `plaud-exporter/`.
+   четыре эндпоинта, `syncCore` + `exportPathUtils` из submodule.
 3. **Индекс.** `sync-index.json` — схема `plaudExporterSyncIndexV1`, те же
    `determineSyncAction`.
-4. **Вывод.** `{vault}/Plaud/{YYYY}/{YYYY-MM-DD} - {title}.md`; текущий серверный сценарий intentionally summary-only, audio не подключено.
+4. **Вывод.** `{vault}/Plaud/{YYYY}/{YYYY-MM-DD} - {title}.md`; аудио опционально в
+   `_attachments/`.
 5. **Refresh.** При 401/403 — остановка, пометка снимка устаревшим, подсказка
    `server:auth`.
 
