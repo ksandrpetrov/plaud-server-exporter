@@ -58,7 +58,7 @@ export const BOT_HELP_HTML =
   "📁 файлы: дерево синка и сводка vault\n" +
   "⚙️ настройки расписания (интервал автозапуска)\n\n" +
   "В <b>Дереве синка</b> открой папку — у записей будут номера. " +
-  "Отправь цифру (1–30 на странице), чтобы получить .md, если он уже на сервере.";
+  "Отправь цифру (1–30 на странице), чтобы получить .md: если файла ещё нет на сервере, я сначала запущу синк, а потом пришлю его.";
 
 export const BOT_PRIVATE_HINT =
   "🛰 Этот бот приватный. Команды доступны только владельцу.";
@@ -321,6 +321,46 @@ export function treeListNumberPrefix(n) {
 }
 
 /**
+ * Removes a leading meeting date from the title when the tree line already
+ * shows `date` separately (Plaud titles and filenames often repeat it).
+ *
+ * @param {string} date
+ * @param {string} title
+ * @returns {string}
+ */
+export function stripLeadingDateFromTreeTitle(date, title) {
+  const d = String(date || "").trim();
+  let t = String(title || "").trim();
+  if (!d || !t) return t;
+  if (t === d) return "";
+
+  const stripPrefix = (prefix) => {
+    if (t.startsWith(prefix)) t = t.slice(prefix.length).trim();
+  };
+
+  stripPrefix(`${d} | `);
+  stripPrefix(`${d}|`);
+  stripPrefix(`${d} — `);
+  stripPrefix(`${d} - `);
+  stripPrefix(`${d}—`);
+  stripPrefix(`${d}-`);
+
+  return t;
+}
+
+/**
+ * @param {{ lineNum: number; date: string; title: string }} item
+ * @returns {string} plain text (escape HTML before sending)
+ */
+export function formatTreeFolderItemLine({ lineNum, date, title }) {
+  const prefix = treeListNumberPrefix(lineNum);
+  const datePart = String(date || "").trim() || "—";
+  const label = stripLeadingDateFromTreeTitle(datePart, title);
+  if (!label) return `${prefix} ${datePart}`;
+  return `${prefix} ${datePart} | ${label}`;
+}
+
+/**
  * @param {string} text
  * @returns {number | null} 1-based pick when the message is only digits
  */
@@ -344,11 +384,19 @@ export function treeFilePickOutOfRangeHtml(pick, shown) {
   return `🌳 Нет файла №${pick} на этой странице (показано ${shown}).`;
 }
 
-export const TREE_FILE_PICK_NOT_SYNCED_HTML =
-  "🌳 Эта запись ещё не синхронизирована — файла на диске нет.";
+/**
+ * Sent when the user picks a file that isn't on disk yet (either missing
+ * after a manual delete or never synced). The bot follows up with an auto
+ * sync and delivers the file once it lands.
+ */
+export const TREE_FILE_PICK_AUTO_SYNC_STARTED_HTML =
+  "🌳 Файл не найден на сервере. Запустил синк через 🔄. Скоро пришлю вам файл.";
 
-export const TREE_FILE_PICK_MISSING_ON_DISK_HTML =
-  "🌳 Файл не найден на сервере. Запусти синк через 🔄.";
+export const TREE_FILE_PICK_AUTO_SYNC_FAILED_HTML =
+  "⚠️ Не удалось дотянуть файл — синк не завершился. Подробности — в логах сервиса.";
+
+export const TREE_FILE_PICK_STILL_MISSING_HTML =
+  "🌳 Синк прошёл, но файл так и не появился. Попробуй позже.";
 
 /**
  * Root view of the tree: folder list with counts. Each folder is rendered as
@@ -404,10 +452,12 @@ export function filesTreeFolderHtml(folderPage) {
   let lineNum = 0;
   for (const item of folderPage.items || []) {
     lineNum += 1;
-    const date = escapeHtml(item.date);
-    const title = escapeHtml(item.title);
-    const prefix = treeListNumberPrefix(lineNum);
-    lines.push(`${prefix} ${date} — ${title}`);
+    const plain = formatTreeFolderItemLine({
+      lineNum,
+      date: item.date,
+      title: item.title,
+    });
+    lines.push(escapeHtml(plain));
   }
 
   const startIdx = (curPage - 1) * pageSize;

@@ -29,9 +29,10 @@ import {
 import {
   filesTreeFolderHtml,
   filesTreeRootHtml,
-  TREE_FILE_PICK_MISSING_ON_DISK_HTML,
-  TREE_FILE_PICK_NOT_SYNCED_HTML,
+  TREE_FILE_PICK_AUTO_SYNC_FAILED_HTML,
+  TREE_FILE_PICK_AUTO_SYNC_STARTED_HTML,
   TREE_FILE_PICK_NO_CONTEXT_HTML,
+  TREE_FILE_PICK_STILL_MISSING_HTML,
   treeFilePickOutOfRangeHtml,
 } from "./messages.js";
 import { editToMenuScreen, safeSend } from "./botMessageUtils.js";
@@ -108,6 +109,15 @@ export async function showFilesTreeFolder(ctx, { chatId, messageId, folderIndex,
   });
 }
 
+/**
+ * Owner picked a row number on the current tree page. If the .md already
+ * exists on disk we send it straight away; otherwise we kick off a silent
+ * sync, then re-resolve the record (its `summaryPath` may have been written
+ * for the first time) and deliver the file.
+ *
+ * The user gets at most two messages: an "I started a sync, file is coming"
+ * notice followed by either the document or a short reason it didn't land.
+ */
 export async function handleTreeFilePick(ctx, { chatId, pick }) {
   const state = await getTreeBrowseState(chatId);
   if (!state?.items?.length) {
@@ -119,24 +129,81 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
     await safeSend(ctx, chatId, treeFilePickOutOfRangeHtml(pick, state.items.length));
     return;
   }
-  const summaryPath = String(item.summaryPath || "").trim();
-  if (!summaryPath) {
-    await safeSend(ctx, chatId, TREE_FILE_PICK_NOT_SYNCED_HTML);
+
+  const directPath = String(item.summaryPath || "").trim();
+  if (directPath && (await isReadable(directPath))) {
+    if (await trySendDocument(ctx, chatId, directPath)) return;
+    // The file vanished or Telegram refused — fall through to the sync-then-retry path.
+  }
+
+  await safeSend(ctx, chatId, TREE_FILE_PICK_AUTO_SYNC_STARTED_HTML);
+
+  const syncResult = await runQuietSyncSafely(ctx);
+  if (syncResult.status !== "ok") {
+    logger.info("Auto-sync from tree pick did not deliver", {
+      chatId,
+      stableId: item.stableId,
+      status: syncResult.status,
+    });
+    await safeSend(ctx, chatId, TREE_FILE_PICK_AUTO_SYNC_FAILED_HTML);
     return;
   }
+
+  const freshPath = await resolveSummaryPathAfterSync(item.stableId);
+  if (!freshPath) {
+    await safeSend(ctx, chatId, TREE_FILE_PICK_STILL_MISSING_HTML);
+    return;
+  }
+  if (!(await trySendDocument(ctx, chatId, freshPath))) {
+    await safeSend(ctx, chatId, TREE_FILE_PICK_STILL_MISSING_HTML);
+  }
+}
+
+async function isReadable(path) {
   try {
-    await access(summaryPath);
+    await access(path);
+    return true;
   } catch {
-    await safeSend(ctx, chatId, TREE_FILE_PICK_MISSING_ON_DISK_HTML);
-    return;
+    return false;
   }
+}
+
+async function trySendDocument(ctx, chatId, documentPath) {
   try {
-    await ctx.telegram.sendDocument({ chatId, documentPath: summaryPath });
+    await ctx.telegram.sendDocument({ chatId, documentPath });
+    return true;
   } catch (err) {
     logger.warn("sendDocument failed", {
-      path: summaryPath,
+      path: documentPath,
       error: String(err?.message || err),
     });
-    await safeSend(ctx, chatId, TREE_FILE_PICK_MISSING_ON_DISK_HTML);
+    return false;
   }
+}
+
+async function runQuietSyncSafely(ctx) {
+  if (typeof ctx.runSyncQuiet !== "function") {
+    logger.warn("Auto-sync requested but runSyncQuiet is not wired into the bot");
+    return { status: "failed" };
+  }
+  try {
+    const result = await ctx.runSyncQuiet();
+    return result || { status: "failed" };
+  } catch (err) {
+    logger.warn("runSyncQuiet threw", {
+      error: String(err?.message || err),
+    });
+    return { status: "failed" };
+  }
+}
+
+async function resolveSummaryPathAfterSync(stableId) {
+  const id = String(stableId || "").trim();
+  if (!id) return null;
+  const idx = await loadSyncIndex();
+  const record = idx?.records?.[id];
+  const path = String(record?.summaryPath || "").trim();
+  if (!path) return null;
+  if (!(await isReadable(path))) return null;
+  return path;
 }

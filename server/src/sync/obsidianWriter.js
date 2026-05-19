@@ -1,7 +1,10 @@
 import { mkdir, writeFile, rename, stat, unlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { config, effectiveVaultRoot } from "../config/config.js";
-import { normalizeFilename } from "../../../plaud-exporter/common/exportPathUtils.js";
+import {
+  normalizeFilename,
+  withUtf8Bom,
+} from "../../../plaud-exporter/common/exportPathUtils.js";
 import { resolveMeetingTitle } from "./filenamePlanner.js";
 
 export function planAudioPath({ title, extension, folderSegment = "" }) {
@@ -87,7 +90,7 @@ export async function writeMarkdownFile({ absolutePath, contents, previousAbsolu
   }
 
   const tmpPath = `${absolutePath}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(tmpPath, contents, "utf8");
+  await writeFile(tmpPath, withUtf8Bom(contents), "utf8");
   await rename(tmpPath, absolutePath);
 }
 

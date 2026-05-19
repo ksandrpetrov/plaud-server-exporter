@@ -11,8 +11,10 @@ import {
   filesTreeFolderHtml,
   filesTreeRootHtml,
   formatBytes,
+  formatTreeFolderItemLine,
   parseFilesTreeFolderCallback,
   parseTreeFilePickNumber,
+  stripLeadingDateFromTreeTitle,
   treeListNumberPrefix,
 } from "../src/telegram/messages.js";
 import {
@@ -236,11 +238,55 @@ test("buildSyncIndexFolderPage paginates files inside one folder", () => {
   assert.doesNotMatch(filesTreeFolderHtml(page3), /ещё \d+/);
 
   const html1 = filesTreeFolderHtml(page1);
-  assert.match(html1, /^1 - .+ — .+$/m);
-  assert.match(html1, /^10 - .+ — .+$/m);
+  assert.match(html1, /^1 - .+ \| .+$/m);
+  assert.match(html1, /^10 - .+ \| .+$/m);
   assert.doesNotMatch(html1, /\[ok\]/);
   assert.doesNotMatch(html1, /:one:|:ten:/);
   assert.doesNotMatch(html1, / {2}• /);
+});
+
+test("formatTreeFolderItemLine avoids duplicate date and uses pipe separator", () => {
+  assert.equal(
+    formatTreeFolderItemLine({
+      lineNum: 1,
+      date: "2026-04-20",
+      title: "2026-04-20 | SocServ | QA | Leads",
+    }),
+    "1 - 2026-04-20 | SocServ | QA | Leads"
+  );
+  assert.equal(
+    formatTreeFolderItemLine({
+      lineNum: 2,
+      date: "2026-05-19",
+      title: "2026-05-19 - Work standup",
+    }),
+    "2 - 2026-05-19 | Work standup"
+  );
+  assert.equal(
+    formatTreeFolderItemLine({
+      lineNum: 3,
+      date: "2026-05-19",
+      title: "Work standup",
+    }),
+    "3 - 2026-05-19 | Work standup"
+  );
+  assert.equal(
+    formatTreeFolderItemLine({
+      lineNum: 4,
+      date: "2026-04-20",
+      title: "2026-04-20",
+    }),
+    "4 - 2026-04-20"
+  );
+});
+
+test("stripLeadingDateFromTreeTitle", () => {
+  assert.equal(
+    stripLeadingDateFromTreeTitle("2026-04-20", "2026-04-20 | SocServ | QA"),
+    "SocServ | QA"
+  );
+  assert.equal(stripLeadingDateFromTreeTitle("2026-04-20", "2026-04-20"), "");
+  assert.equal(stripLeadingDateFromTreeTitle("2026-04-20", "Standup"), "Standup");
 });
 
 test("treeListNumberPrefix and parseTreeFilePickNumber", () => {

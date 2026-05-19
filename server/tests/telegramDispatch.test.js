@@ -57,6 +57,7 @@ function ctx(telegram, overrides = {}) {
     allowedUsername: "aleksanderpetrov",
     allowedUserId: 100,
     runManualSync: async () => ({ status: "ok" }),
+    runSyncQuiet: async () => ({ status: "ok" }),
     ...overrides,
   };
 }

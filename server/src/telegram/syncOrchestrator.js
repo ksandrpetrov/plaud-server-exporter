@@ -154,6 +154,54 @@ async function defaultSessionLoader() {
   }
 }
 
+/**
+ * Headless variant of `runSyncWithReporting` for flows that already own the
+ * user-facing messaging (e.g. the tree-pick auto-sync), so they don't want
+ * the orchestrator to spam loading/progress/summary edits.
+ *
+ * @param {{
+ *   sessionLoader?: () => Promise<object | null>;
+ *   syncRunner?: typeof runSync;
+ * }} [params]
+ * @returns {Promise<{ status: "ok" | "lock_busy" | "no_session" | "auth_rejected" | "plaud_changed" | "failed"; stats?: object }>}
+ */
+export async function runSyncSilent({
+  sessionLoader = defaultSessionLoader,
+  syncRunner = runSync,
+} = {}) {
+  const session = await sessionLoader();
+  if (!session) {
+    logger.warn("Silent sync skipped: no Plaud session snapshot");
+    return { status: "no_session" };
+  }
+  try {
+    const stats = await syncRunner({ session });
+    logger.info("Silent sync completed", {
+      new: stats?.new,
+      updated: stats?.updated,
+      unchanged: stats?.unchanged,
+      errors: stats?.errors,
+    });
+    return { status: "ok", stats };
+  } catch (err) {
+    const failure = classifySyncFailure(err);
+    if (failure.kind === SYNC_FAILURE_LOCK) {
+      logger.info("Silent sync skipped: lock held by another process");
+      return { status: "lock_busy" };
+    }
+    if (failure.kind === SYNC_FAILURE_AUTH) {
+      logger.error("Silent sync rejected by Plaud", redactError(err));
+      return { status: "auth_rejected" };
+    }
+    if (failure.kind === SYNC_FAILURE_PLAUD_CHANGED) {
+      logger.error("Silent sync detected Plaud API changes", redactError(err));
+      return { status: "plaud_changed" };
+    }
+    logger.error("Silent sync failed", redactError(err));
+    return { status: "failed" };
+  }
+}
+
 async function sendOrEditLoading({ telegram, chatId, loadingMessageId, text }) {
   if (loadingMessageId) {
     try {

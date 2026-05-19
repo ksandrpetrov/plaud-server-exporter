@@ -35,6 +35,7 @@ const CALLBACK_DEDUP_TTL_MS = 5 * 60 * 1000;
  *   allowedUserId: number | null;
  *   longPollSec: number;
  *   runManualSync: (params: { chatId: number; loadingMessageId: number | null }) => Promise<unknown>;
+ *   runSyncQuiet?: () => Promise<{ status: string }>;
  *   scheduler?: { start: () => void; stop: () => void };
  *   offsetLoader?: typeof loadOffset;
  *   offsetSaver?: typeof saveOffset;
@@ -178,6 +179,7 @@ export class TelegramBotLoop {
       allowedUsername: this._deps.allowedUsername,
       allowedUserId: this._deps.allowedUserId ?? null,
       runManualSync: this._deps.runManualSync,
+      runSyncQuiet: this._deps.runSyncQuiet,
     };
   }
 

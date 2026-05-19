@@ -21,7 +21,7 @@ import { redactError } from "../security/redact.js";
 import { TelegramBotLoop } from "./bot.js";
 import { BotScheduler } from "./scheduler.js";
 import { TelegramClient } from "./telegramClient.js";
-import { runSyncWithReporting } from "./syncOrchestrator.js";
+import { runSyncSilent, runSyncWithReporting } from "./syncOrchestrator.js";
 
 const MENU_COMMANDS = [
   { command: "menu", description: "Главное меню" },
@@ -93,6 +93,14 @@ export async function runBot() {
       inFlightSyncs--;
     }
   };
+  const runSyncQuiet = async () => {
+    inFlightSyncs++;
+    try {
+      return await runSyncSilent();
+    } finally {
+      inFlightSyncs--;
+    }
+  };
 
   const scheduler = new BotScheduler({
     telegram,
@@ -105,6 +113,7 @@ export async function runBot() {
     allowedUserId,
     longPollSec: config.botLongPollSec,
     runManualSync,
+    runSyncQuiet,
     scheduler,
   });
 

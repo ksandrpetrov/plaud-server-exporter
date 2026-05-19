@@ -66,7 +66,7 @@ test("writeMarkdownFile renames previous file when path changed", async () => {
   const newStat = await stat(newAbs);
   assert.ok(newStat.isFile());
   const newBody = await readFile(newAbs, "utf8");
-  assert.equal(newBody, "new body");
+  assert.equal(newBody, "\uFEFFnew body");
   await assert.rejects(() => stat(oldAbs), { code: "ENOENT" });
 });
 

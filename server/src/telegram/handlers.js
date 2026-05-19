@@ -92,6 +92,7 @@ const CB_INTERVAL_VALUES = {
  *   allowedUsername: string;
  *   allowedUserId: number | null;
  *   runManualSync: (params: { chatId: number; loadingMessageId: number | null }) => Promise<unknown>;
+ *   runSyncQuiet?: () => Promise<{ status: string }>;
  * }} HandlerContext
  */
 
