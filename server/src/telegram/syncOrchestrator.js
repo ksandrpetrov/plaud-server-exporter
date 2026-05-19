@@ -18,16 +18,18 @@
 
 import { logger } from "../logger.js";
 import {
-  PlaudAuthError,
-  PlaudChangedError,
-} from "../plaud/plaudApiClient.js";
-import {
   assertSnapshotReadyForApi,
   createSessionFromSnapshot,
 } from "../auth/plaudSessionExtractor.js";
 import { loadSessionSnapshot } from "../auth/sessionStore.js";
 import { redactError } from "../security/redact.js";
-import { runSync, SyncLockError } from "../sync/syncRunner.js";
+import { runSync } from "../sync/syncRunner.js";
+import {
+  classifySyncFailure,
+  SYNC_FAILURE_AUTH,
+  SYNC_FAILURE_LOCK,
+  SYNC_FAILURE_PLAUD_CHANGED,
+} from "../sync/syncFailureMapper.js";
 import {
   buildBackToMenuKeyboard,
   buildSyncFinishedKeyboard,
@@ -245,30 +247,35 @@ async function handleSyncError({
   source,
   durationSec,
 }) {
-  if (err instanceof SyncLockError) {
+  const failure = classifySyncFailure(err);
+  const backToMenu = buildBackToMenuKeyboard();
+
+  if (failure.kind === SYNC_FAILURE_LOCK) {
     await replaceWithFinalMessage({
       telegram,
       chatId,
       messageId,
       text: SYNC_LOCK_BUSY_HTML,
-      keyboard: buildBackToMenuKeyboard(),
+      keyboard: backToMenu,
     });
     logger.info("Sync skipped: lock held by another process", { source });
     return { status: "lock_busy", summaryMessageId: messageId ?? undefined };
   }
-  if (err instanceof PlaudAuthError) {
+
+  if (failure.kind === SYNC_FAILURE_AUTH) {
     await replaceWithFinalMessage({
       telegram,
       chatId,
       messageId,
       text: SYNC_AUTH_REJECTED_HTML,
-      keyboard: buildBackToMenuKeyboard(),
+      keyboard: backToMenu,
     });
     logger.error("Sync failed: Plaud rejected the session", redactError(err));
     return { status: "auth_rejected", summaryMessageId: messageId ?? undefined };
   }
-  if (err instanceof PlaudChangedError) {
-    const stats = err.stats || {
+
+  if (failure.kind === SYNC_FAILURE_PLAUD_CHANGED) {
+    const stats = failure.stats || {
       new: 0,
       updated: 0,
       unchanged: 0,
@@ -281,17 +288,18 @@ async function handleSyncError({
       chatId,
       messageId,
       text: syncSummaryHtml(stats, { source, durationSec }),
-      keyboard: buildBackToMenuKeyboard(),
+      keyboard: backToMenu,
     });
     logger.error("Sync detected Plaud API changes", redactError(err));
     return { status: "failed", summaryMessageId: messageId ?? undefined };
   }
+
   await replaceWithFinalMessage({
     telegram,
     chatId,
     messageId,
     text: SYNC_GENERIC_ERROR_HTML,
-    keyboard: buildBackToMenuKeyboard(),
+    keyboard: backToMenu,
   });
   logger.error("Sync failed in bot orchestrator", redactError(err));
   return { status: "failed", summaryMessageId: messageId ?? undefined };

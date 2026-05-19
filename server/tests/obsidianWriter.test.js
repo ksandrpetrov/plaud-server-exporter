@@ -6,8 +6,10 @@ import { join, resolve } from "node:path";
 
 process.env.PLAUD_TIMEZONE = "UTC";
 
-const { planSummaryPath, planAudioPath, buildMarkdownDocument, writeMarkdownFile } =
-  await import("../src/sync/obsidianWriter.js");
+const { planAudioPath, buildMarkdownDocument, writeMarkdownFile } = await import(
+  "../src/sync/obsidianWriter.js"
+);
+const { planSummaryPath } = await import("../src/sync/filenamePlanner.js");
 const { config } = await import("../src/config/config.js");
 const { effectiveVaultRoot } = await import("../src/config/config.js");
 

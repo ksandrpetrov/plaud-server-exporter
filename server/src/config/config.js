@@ -131,6 +131,12 @@ const staticConfig = {
       join(dataDir(), "telegram-offset.json")
     );
   },
+  get treeBrowseStatePath() {
+    return absPath(
+      process.env.PLAUD_TREE_BROWSE_PATH,
+      join(dataDir(), "tree-browse.json")
+    );
+  },
 };
 
 export const config = staticConfig;

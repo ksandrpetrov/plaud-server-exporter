@@ -1,4 +1,4 @@
-import { PlaudAuthError } from "../plaud/plaudApiClient.js";
+import { PlaudAuthError } from "../plaud/errors.js";
 
 export const ERROR_KIND_AUTH = "auth_error";
 export const ERROR_KIND_PLAUD_CHANGED = "plaud_changed";

@@ -14,10 +14,8 @@
  *   callbacks (Telegram retries) would spam the chat.
  */
 
-import { access } from "node:fs/promises";
 import { config, effectiveVaultRoot } from "../config/config.js";
 import { logger } from "../logger.js";
-import { loadSyncIndex } from "../sync/serverSyncIndex.js";
 import {
   isAllowedSender,
   isPrivateChat,
@@ -32,15 +30,10 @@ import {
 import {
   buildBackToMenuKeyboard,
   buildFilesMenuKeyboard,
-  buildFilesTreeFolderKeyboard,
-  buildFilesTreeRootKeyboard,
   buildMainMenuKeyboard,
   buildSettingsKeyboard,
 } from "./keyboards.js";
 import {
-  BOT_HELP_HTML,
-  BOT_UNKNOWN_COMMAND,
-  BOT_WELCOME_HTML,
   CB_BACK,
   CB_CLOSE,
   CB_FILES,
@@ -54,36 +47,37 @@ import {
   CB_SETTINGS_INTERVAL_480,
   CB_SETTINGS_INTERVAL_60,
   CB_STATUS,
+  parseFilesTreeFolderCallback,
+} from "./callbackData.js";
+import {
+  BOT_HELP_HTML,
+  BOT_UNKNOWN_COMMAND,
+  BOT_WELCOME_HTML,
   MENU_CLOSED_TEXT,
   MENU_HEADER,
   filesMenuHtml,
   filesStatsHtml,
-  filesTreeFolderHtml,
-  filesTreeRootHtml,
   lastSyncSummaryLine,
-  parseFilesTreeFolderCallback,
   parseTreeFilePickNumber,
   settingsScreenHtml,
   statusScreenHtml,
-  TREE_FILE_PICK_MISSING_ON_DISK_HTML,
-  TREE_FILE_PICK_NOT_SYNCED_HTML,
-  TREE_FILE_PICK_NO_CONTEXT_HTML,
-  treeFilePickOutOfRangeHtml,
 } from "./messages.js";
 import {
-  clearTreeBrowseState,
-  getTreeBrowseState,
-  setTreeBrowseState,
-  treeBrowseItemAtPick,
-} from "./treeBrowseState.js";
-import { loadOwnerChat, saveOwnerChat } from "./ownerChat.js";
-import { loadPlaudLiveSyncTree } from "./plaudLiveTree.js";
-import { readStatus } from "./statusReader.js";
+  extractCommandName,
+  isHelpCommand,
+  isMenuCommand,
+  isStartCommand,
+  isStatusCommand,
+} from "./commandParsers.js";
+import { answerBestEffort, editToMenuScreen, safeSend } from "./botMessageUtils.js";
 import {
-  buildSyncIndexFolderPage,
-  buildSyncIndexTreeRoot,
-  scanVaultSummary,
-} from "./vaultTree.js";
+  handleTreeFilePick,
+  showFilesTreeFolder,
+  showFilesTreeRoot,
+} from "./treeBrowse.js";
+import { loadOwnerChat, saveOwnerChat } from "./ownerChat.js";
+import { readStatus } from "./statusReader.js";
+import { scanVaultSummary } from "./vaultTree.js";
 
 const CB_INTERVAL_VALUES = {
   [CB_SETTINGS_INTERVAL_60]: 60,
@@ -371,100 +365,6 @@ async function sendStatusMessage(ctx, chatId) {
   });
 }
 
-/**
- * Returns a sync-index-shaped object to feed the tree builders. Prefers a
- * live Plaud snapshot (so folder counts match Plaud's sidebar verbatim) and
- * falls back to the on-disk sync-index when Plaud is unreachable or no
- * session is stored. Live records carry the real `folderSegment` from the
- * filetag list, so legacy data with empty `folderSegment` still buckets
- * correctly.
- */
-async function loadTreeSource() {
-  const real = await loadSyncIndex();
-  try {
-    const live = await loadPlaudLiveSyncTree({ syncIndex: real });
-    if (live && Object.keys(live.records || {}).length > 0) return live;
-  } catch (err) {
-    logger.warn("Live Plaud tree failed; using sync-index", {
-      error: String(err?.message || err),
-    });
-  }
-  return real;
-}
-
-async function showFilesTreeRoot(ctx, { chatId, messageId }) {
-  clearTreeBrowseState(chatId);
-  const idx = await loadTreeSource();
-  const root = buildSyncIndexTreeRoot(idx, {
-    vaultRoot: effectiveVaultRoot(),
-    subfolder: config.obsidianSubfolder,
-  });
-  await editToMenuScreen(ctx, {
-    chatId,
-    messageId,
-    text: filesTreeRootHtml(root),
-    keyboard: buildFilesTreeRootKeyboard(root),
-  });
-}
-
-async function showFilesTreeFolder(ctx, { chatId, messageId, folderIndex, page }) {
-  const idx = await loadTreeSource();
-  const folderPage = buildSyncIndexFolderPage(idx, {
-    folderIndex,
-    page,
-    vaultRoot: effectiveVaultRoot(),
-    subfolder: config.obsidianSubfolder,
-  });
-  if (!folderPage.exists) {
-    await showFilesTreeRoot(ctx, { chatId, messageId });
-    return;
-  }
-  setTreeBrowseState(chatId, {
-    folderIndex: folderPage.folderIndex,
-    page: folderPage.page,
-    items: folderPage.items,
-  });
-  await editToMenuScreen(ctx, {
-    chatId,
-    messageId,
-    text: filesTreeFolderHtml(folderPage),
-    keyboard: buildFilesTreeFolderKeyboard(folderPage),
-  });
-}
-
-async function handleTreeFilePick(ctx, { chatId, pick }) {
-  const state = getTreeBrowseState(chatId);
-  if (!state?.items?.length) {
-    await safeSend(ctx, chatId, TREE_FILE_PICK_NO_CONTEXT_HTML);
-    return;
-  }
-  const item = treeBrowseItemAtPick(state, pick);
-  if (!item) {
-    await safeSend(ctx, chatId, treeFilePickOutOfRangeHtml(pick, state.items.length));
-    return;
-  }
-  const summaryPath = String(item.summaryPath || "").trim();
-  if (!summaryPath) {
-    await safeSend(ctx, chatId, TREE_FILE_PICK_NOT_SYNCED_HTML);
-    return;
-  }
-  try {
-    await access(summaryPath);
-  } catch {
-    await safeSend(ctx, chatId, TREE_FILE_PICK_MISSING_ON_DISK_HTML);
-    return;
-  }
-  try {
-    await ctx.telegram.sendDocument({ chatId, documentPath: summaryPath });
-  } catch (err) {
-    logger.warn("sendDocument failed", {
-      path: summaryPath,
-      error: String(err?.message || err),
-    });
-    await safeSend(ctx, chatId, TREE_FILE_PICK_MISSING_ON_DISK_HTML);
-  }
-}
-
 async function handleSetInterval(ctx, { chatId, messageId, intervalMin }) {
   if (!isAllowedInterval(intervalMin)) {
     logger.info("Ignored unsupported interval value", { intervalMin });
@@ -491,82 +391,12 @@ async function handleSetInterval(ctx, { chatId, messageId, intervalMin }) {
   });
 }
 
-async function editToMenuScreen(ctx, { chatId, messageId, text, keyboard }) {
-  try {
-    await ctx.telegram.editMessageText({
-      chatId,
-      messageId,
-      text,
-      replyMarkup: keyboard,
-    });
-  } catch (err) {
-    logger.info("Edit callback message ignored", {
-      error: String(err?.message || err),
-    });
-  }
-}
-
-async function safeSend(ctx, chatId, text, options = {}) {
-  try {
-    await ctx.telegram.sendMessage({
-      chatId,
-      text,
-      replyMarkup: options.replyMarkup ?? null,
-    });
-  } catch (err) {
-    logger.warn("sendMessage failed", {
-      error: String(err?.message || err),
-    });
-  }
-}
-
-async function answerBestEffort(ctx, callback) {
-  const id = String(callback?.id || "");
-  if (!id) return;
-  try {
-    await ctx.telegram.answerCallbackQuery({ callbackQueryId: id });
-  } catch (err) {
-    logger.info("answerCallbackQuery failed", {
-      error: String(err?.message || err),
-    });
-  }
-}
-
-// --- pure command parsers (exported for tests) -----------------------------
-
-const COMMAND_HEAD = (raw) => String(raw || "").trim().split(/\s+/)[0].toLowerCase();
-const COMMAND_RE = (name) => new RegExp(`^/${name}(?:@[a-z0-9_]+)?$`);
-
-/**
- * Returns a short, log-safe label for the incoming message: the first
- * `/command` token if any, otherwise the literal `text` truncated to 32
- * chars. We only log this for foreign senders, so it never contains the
- * owner's free-text input.
- *
- * @param {string} text
- * @returns {string}
- */
-function extractCommandName(text) {
-  const head = COMMAND_HEAD(text);
-  if (head.startsWith("/")) return head.slice(0, 32);
-  return String(text || "").slice(0, 32);
-}
-
-export function isStartCommand(text) {
-  return COMMAND_RE("start").test(COMMAND_HEAD(text));
-}
-
-export function isHelpCommand(text) {
-  return COMMAND_RE("help").test(COMMAND_HEAD(text));
-}
-
-export function isMenuCommand(text) {
-  return COMMAND_RE("menu").test(COMMAND_HEAD(text));
-}
-
-export function isStatusCommand(text) {
-  return COMMAND_RE("status").test(COMMAND_HEAD(text));
-}
+export {
+  isHelpCommand,
+  isMenuCommand,
+  isStartCommand,
+  isStatusCommand,
+} from "./commandParsers.js";
 
 export async function ownerChatId() {
   const record = await loadOwnerChat();

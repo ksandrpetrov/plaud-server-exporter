@@ -15,12 +15,16 @@ import {
   createSessionFromSnapshot,
   describeSnapshot,
 } from "../auth/plaudSessionExtractor.js";
-import { validateSession, PlaudAuthError } from "../plaud/plaudApiClient.js";
-import { runSync, recordAuthError, SyncLockError } from "../sync/syncRunner.js";
+import { validateSession } from "../plaud/plaudApiClient.js";
+import { runSync, recordAuthError } from "../sync/syncRunner.js";
 import { syncIndexInfo } from "../sync/serverSyncIndex.js";
-import { reportError } from "../errors/errorReporter.js";
-import { errorsDirectoryInfo } from "../errors/errorReporter.js";
-import { classifyError } from "../errors/errorClassifier.js";
+import { reportError, errorsDirectoryInfo } from "../errors/errorReporter.js";
+import {
+  classifySyncFailure,
+  SYNC_FAILURE_AUTH,
+  SYNC_FAILURE_LOCK,
+  SYNC_FAILURE_PLAUD_CHANGED,
+} from "../sync/syncFailureMapper.js";
 function parseArgs(argv) {
   const args = { _: [], flags: {} };
   for (let i = 0; i < argv.length; i++) {
@@ -103,32 +107,32 @@ async function commandSync(flags) {
     const stats = await runSync({ session, dryRun });
     logger.info("Sync complete.", stats);
   } catch (error) {
-    if (error instanceof SyncLockError) {
+    const failure = classifySyncFailure(error);
+    if (failure.kind === SYNC_FAILURE_LOCK) {
       logger.error(
         "Another plaud-server-exporter sync is already running. Skipping this run.",
-        error.lockInfo || {}
+        failure.lockInfo
       );
-      process.exitCode = 4;
+      process.exitCode = failure.exitCode;
       return;
     }
-    if (error instanceof PlaudAuthError) {
+    if (failure.kind === SYNC_FAILURE_AUTH) {
       await recordAuthError(error.message);
       await reportError(error, { stage: "auth", dryRun });
       logger.error(
         "Plaud session is no longer accepted by the API. Re-run `npm run server:auth`."
       );
-      process.exitCode = 2;
+      process.exitCode = failure.exitCode;
       return;
     }
-    const classified = classifyError(error);
     if (!dryRun) {
       await reportError(error, { stage: "sync", dryRun: false });
     }
     logger.errorFrom("Sync failed.", error);
-    if (classified.kind === "plaud_changed") {
+    if (failure.kind === SYNC_FAILURE_PLAUD_CHANGED) {
       logger.error("Plaud may have changed its API — manual review required.");
     }
-    process.exitCode = error?.exitCode || classified.exitCode || 1;
+    process.exitCode = failure.exitCode;
   }
 }
 

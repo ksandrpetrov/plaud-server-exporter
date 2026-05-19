@@ -6,12 +6,13 @@ import { logger } from "../logger.js";
 import { redactError } from "../security/redact.js";
 import { reportError } from "../errors/errorReporter.js";
 import { ERROR_KIND_PLAUD_CHANGED } from "../errors/errorClassifier.js";
-import { PlaudAuthError, PlaudChangedError } from "../plaud/plaudApiClient.js";
+import { PlaudAuthError, PlaudChangedError } from "../plaud/errors.js";
 import {
+  buildAudioSignature,
   buildStableId,
   detectDuplicate,
   determineSyncAction,
-  hashStringSync,
+  getRawField,
   hashSummary,
   SYNC_ACTION_ALREADY_SYNCED,
   SYNC_ACTION_NEW,
@@ -23,41 +24,17 @@ import {
   SYNC_STATUS_UPDATED,
   updateExistingRecord,
 } from "../../../plaud-exporter/common/syncCore.js";
-import { recordingsService } from "../plaud/recordingsService.js";
+import { listAllRecordings, fetchSummaries } from "../plaud/plaudApiClient.js";
 import { loadSyncIndex, saveSyncIndex } from "./serverSyncIndex.js";
-import {
-  buildMarkdownDocument,
-  resolveMeetingTitle,
-} from "./obsidianWriter.js";
+import { buildMarkdownDocument } from "./obsidianWriter.js";
 import {
   collectOccupiedFilenames,
   planSummaryPath,
+  resolveMeetingTitle,
 } from "./filenamePlanner.js";
 import { acquireSyncLock, SyncLockError } from "./runLock.js";
 
 export { SyncLockError };
-
-function getRawField(raw, keys) {
-  if (!raw || typeof raw !== "object") return "";
-  for (const key of keys) {
-    const value = raw[key];
-    if (value != null && String(value).trim()) return String(value).trim();
-  }
-  return "";
-}
-
-function buildAudioSignature(file) {
-  const raw = file?.raw || {};
-  const payload = {
-    id: file?.id || "",
-    size: getRawField(raw, ["size", "file_size", "fileSize", "audio_size", "audioSize", "bytes"]),
-    duration: getRawField(raw, ["duration", "duration_ms", "durationMs", "audio_duration", "audioDuration"]),
-    createdAt: getRawField(raw, ["created_at", "createdAt", "create_time", "createTime", "start_time", "startTime"]),
-    updatedAt: getRawField(raw, ["updated_at", "updatedAt", "update_time", "updateTime", "modified_at", "modifiedAt"]),
-    checksum: getRawField(raw, ["md5", "sha256", "checksum", "etag"]),
-  };
-  return `audio-meta:${hashStringSync(JSON.stringify(payload))}`;
-}
 
 async function summaryFileExists(absolutePath) {
   if (!absolutePath) return false;
@@ -207,7 +184,7 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
   let files;
 
   try {
-    files = await recordingsService.list(session);
+    files = await listAllRecordings(session);
   } catch (error) {
     stats.errors++;
     stats.status = "failed";
@@ -235,7 +212,7 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
     try {
       let summaries = [];
       try {
-        summaries = await recordingsService.summaries(session, file);
+        summaries = await fetchSummaries(session, file);
       } catch (summaryError) {
         stats.errors++;
         logger.warn(`Summary read failed for ${file.id}.`, redactError(summaryError));

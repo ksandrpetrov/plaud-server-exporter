@@ -2,9 +2,7 @@ import { mkdir, writeFile, rename, stat, unlink } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { config, effectiveVaultRoot } from "../config/config.js";
 import { normalizeFilename } from "../../../plaud-exporter/common/exportPathUtils.js";
-import { resolveMeetingTitle, planSummaryPath } from "./filenamePlanner.js";
-
-export { planSummaryPath, resolveMeetingTitle };
+import { resolveMeetingTitle } from "./filenamePlanner.js";
 
 export function planAudioPath({ title, extension, folderSegment = "" }) {
   const vault = effectiveVaultRoot();

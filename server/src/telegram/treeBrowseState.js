@@ -1,8 +1,27 @@
 /**
- * Per-chat context for the sync tree folder listing: which page was last shown
- * and which files were numbered 1…N on that page. Used when the owner replies
- * with a digit to receive the matching .md file.
+ * Per-chat context for the sync tree folder listing: which page was last
+ * shown and which files were numbered 1…N on that page. Used when the
+ * owner replies with a digit to receive the matching .md file.
+ *
+ * Persisted to `server/.data/tree-browse.json` (mode `0o600`, atomic
+ * rename) so a bot restart between "open folder" and "send digit" still
+ * resolves the pick. Entries older than `TREE_BROWSE_TTL_MS` are dropped
+ * lazily on read.
+ *
+ * Reads and writes are async because of disk I/O, but the API stays small
+ * and self-contained — callers `await` set/get/clear.
  */
+
+import {
+  chmod,
+  mkdir,
+  readFile,
+  rename,
+  writeFile,
+} from "node:fs/promises";
+import { dirname } from "node:path";
+import { config } from "../config/config.js";
+import { logger } from "../logger.js";
 
 /** @typedef {import("./vaultTree.js").TreeItem} TreeItem */
 
@@ -11,45 +30,134 @@
  *   folderIndex: number;
  *   page: number;
  *   items: TreeItem[];
- * }} TreeBrowseState
+ *   updatedAtMs: number;
+ * }} StoredTreeBrowseState
+ *
+ * @typedef {Omit<StoredTreeBrowseState, "updatedAtMs">} TreeBrowseState
  */
 
-/** @type {Map<number, TreeBrowseState>} */
+const TREE_BROWSE_TTL_MS = 30 * 60 * 1000;
+
+/** @type {Map<number, StoredTreeBrowseState>} */
 const byChatId = new Map();
+let loadedFromDisk = false;
+
+function nowMs() {
+  return Date.now();
+}
+
+function statePath() {
+  return config.treeBrowseStatePath;
+}
+
+function normalizeState(state) {
+  return {
+    folderIndex: Math.floor(Number(state?.folderIndex) || 0),
+    page: Math.max(1, Math.floor(Number(state?.page) || 1)),
+    items: Array.isArray(state?.items) ? [...state.items] : [],
+  };
+}
+
+function isFresh(stored, now = nowMs()) {
+  if (!stored) return false;
+  const ts = Number(stored.updatedAtMs);
+  if (!Number.isFinite(ts)) return false;
+  return now - ts < TREE_BROWSE_TTL_MS;
+}
+
+async function ensureLoaded() {
+  if (loadedFromDisk) return;
+  loadedFromDisk = true;
+  try {
+    const text = await readFile(statePath(), "utf8");
+    const parsed = JSON.parse(text);
+    const records = parsed?.byChatId;
+    if (records && typeof records === "object") {
+      const now = nowMs();
+      for (const [key, value] of Object.entries(records)) {
+        const chatId = Number(key);
+        if (!Number.isInteger(chatId)) continue;
+        if (!isFresh(value, now)) continue;
+        byChatId.set(chatId, {
+          ...normalizeState(value),
+          updatedAtMs: Number(value.updatedAtMs) || now,
+        });
+      }
+    }
+  } catch (err) {
+    if (err && err.code !== "ENOENT") {
+      logger.warn("Failed to load tree-browse.json", {
+        error: String(err?.message || err),
+      });
+    }
+  }
+}
+
+async function persist() {
+  const path = statePath();
+  const entries = {};
+  for (const [chatId, stored] of byChatId.entries()) {
+    entries[chatId] = stored;
+  }
+  const payload = `${JSON.stringify({ byChatId: entries }, null, 2)}\n`;
+  try {
+    await mkdir(dirname(path), { recursive: true });
+    const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
+    await writeFile(tmp, payload, "utf8");
+    await rename(tmp, path);
+    try {
+      await chmod(path, 0o600);
+    } catch {
+      // best-effort
+    }
+  } catch (err) {
+    logger.warn("Failed to persist tree-browse.json", {
+      error: String(err?.message || err),
+    });
+  }
+}
 
 /**
  * @param {number} chatId
  * @param {TreeBrowseState} state
  */
-export function setTreeBrowseState(chatId, state) {
+export async function setTreeBrowseState(chatId, state) {
   const id = Number(chatId);
   if (!Number.isInteger(id)) return;
+  await ensureLoaded();
   byChatId.set(id, {
-    folderIndex: Math.floor(Number(state.folderIndex) || 0),
-    page: Math.max(1, Math.floor(Number(state.page) || 1)),
-    items: Array.isArray(state.items) ? [...state.items] : [],
+    ...normalizeState(state),
+    updatedAtMs: nowMs(),
   });
+  await persist();
 }
 
 /**
  * @param {number} chatId
  */
-export function clearTreeBrowseState(chatId) {
+export async function clearTreeBrowseState(chatId) {
   const id = Number(chatId);
   if (!Number.isInteger(id)) return;
-  byChatId.delete(id);
+  await ensureLoaded();
+  if (byChatId.delete(id)) await persist();
 }
 
 /**
  * @param {number} chatId
- * @returns {TreeBrowseState | null}
+ * @returns {Promise<TreeBrowseState | null>}
  */
-export function getTreeBrowseState(chatId) {
+export async function getTreeBrowseState(chatId) {
   const id = Number(chatId);
   if (!Number.isInteger(id)) return null;
-  const state = byChatId.get(id);
-  if (!state) return null;
-  return { ...state, items: [...state.items] };
+  await ensureLoaded();
+  const stored = byChatId.get(id);
+  if (!stored) return null;
+  if (!isFresh(stored)) {
+    byChatId.delete(id);
+    void persist();
+    return null;
+  }
+  return { folderIndex: stored.folderIndex, page: stored.page, items: [...stored.items] };
 }
 
 /**
@@ -64,7 +172,8 @@ export function treeBrowseItemAtPick(state, pick) {
   return items[n - 1] || null;
 }
 
-/** Clears all in-memory state (tests). */
+/** Clears all in-memory state and forgets the load flag (tests only). */
 export function _resetTreeBrowseStateForTests() {
   byChatId.clear();
+  loadedFromDisk = false;
 }

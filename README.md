@@ -31,6 +31,7 @@
 | Документ | Содержание |
 |----------|------------|
 | **[docs/getting-started.md](docs/getting-started.md)** | Mac, VPS, первый sync, Telegram-бот, systemd |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Карта кода, общие модули, потоки sync, что трогать при изменении X |
 | [docs/server-deploy.md](docs/server-deploy.md) | Продакшен-деплой (чеклист) |
 | [docs/obsidian-sync.md](docs/obsidian-sync.md) | Syncthing: сервер → Mac |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Коды выхода, сессия, `scp`, lock, Telegram |
@@ -65,10 +66,16 @@ npm run server:bot       # Telegram-бот (VPS / локальная прове�
 
 ```bash
 npm install --workspaces
-npm test                 # server/tests (127 тестов)
-npm run test:submodule   # plaud-exporter/tests (15 тестов)
+cd plaud-exporter && npm install && cd ..
+
+npm test                 # server/tests
+npm run test:submodule   # plaud-exporter/tests
 npm run lint
 npm run verify           # импорты server → plaud-exporter/common/*
 ```
 
 Расширение отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`.
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) гоняет всё то же самое на Node 20 и 22 при push/PR в `main`.
+
+> Каталог [`plaud-exporter/`](plaud-exporter/) — **не git-submodule**, а вендорный код в монорепо. Скрипт `npm run verify` (исторически `verify-submodule`) проверяет, что `plaud-exporter/common/*.js` существуют и относительные импорты из `server/src/` резолвятся.

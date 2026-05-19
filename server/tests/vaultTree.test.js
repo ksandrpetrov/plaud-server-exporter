@@ -238,7 +238,7 @@ test("buildSyncIndexFolderPage paginates files inside one folder", () => {
   const html1 = filesTreeFolderHtml(page1);
   assert.match(html1, /:one: .+ \[ok\]/);
   assert.match(html1, /:ten: .+ \[ok\]/);
-  assert.doesNotMatch(html1, /  • /);
+  assert.doesNotMatch(html1, / {2}• /);
 });
 
 test("treeListNumberPrefix and parseTreeFilePickNumber", () => {
@@ -255,7 +255,7 @@ test("treeListNumberPrefix and parseTreeFilePickNumber", () => {
   assert.equal(parseTreeFilePickNumber("1 extra"), null);
 });
 
-test("treeBrowseItemAtPick resolves item by 1-based index on current page", () => {
+test("treeBrowseItemAtPick resolves item by 1-based index on current page", async () => {
   _resetTreeBrowseStateForTests();
   const items = [
     {
@@ -277,7 +277,7 @@ test("treeBrowseItemAtPick resolves item by 1-based index on current page", () =
       stableId: "plaud:2",
     },
   ];
-  setTreeBrowseState(42, { folderIndex: 0, page: 1, items });
+  await setTreeBrowseState(42, { folderIndex: 0, page: 1, items });
   assert.equal(treeBrowseItemAtPick({ items }, 1)?.summaryPath, "/vault/a.md");
   assert.equal(treeBrowseItemAtPick({ items }, 2)?.title, "Second");
   assert.equal(treeBrowseItemAtPick({ items }, 3), null);

@@ -2,6 +2,10 @@
 /**
  * Verifies that shared `plaud-exporter/common/*` files exist and that all
  * server-side imports into plaud-exporter resolve. Run via `npm run verify`.
+ *
+ * Historical note: `plaud-exporter/` is NOT a git submodule, it is vendored
+ * in-tree. The "submodule" name in this script and the npm task is kept for
+ * backward compatibility.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
