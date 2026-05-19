@@ -58,7 +58,7 @@ export const BOT_HELP_HTML =
   "📁 файлы: дерево синка и сводка vault\n" +
   "⚙️ настройки расписания (интервал автозапуска)\n\n" +
   "В <b>Дереве синка</b> открой папку — у записей будут номера. " +
-  "Отправь цифру (1–20 на странице), чтобы получить .md, если он уже на сервере.";
+  "Отправь цифру (1–30 на странице), чтобы получить .md, если он уже на сервере.";
 
 export const BOT_PRIVATE_HINT =
   "🛰 Этот бот приватный. Команды доступны только владельцу.";
@@ -310,31 +310,6 @@ export function filesMenuHtml() {
   return FILES_MENU_HEADER;
 }
 
-/** Slack-style `:one:` … `:twenty:` prefixes for numbered tree lines (Telegram). */
-const TREE_LIST_NUMBER_EMOJI = [
-  "",
-  "one",
-  "two",
-  "three",
-  "four",
-  "five",
-  "six",
-  "seven",
-  "eight",
-  "nine",
-  "ten",
-  "eleven",
-  "twelve",
-  "thirteen",
-  "fourteen",
-  "fifteen",
-  "sixteen",
-  "seventeen",
-  "eighteen",
-  "nineteen",
-  "twenty",
-];
-
 /**
  * @param {number} n 1-based index on the current tree page
  * @returns {string}
@@ -342,10 +317,7 @@ const TREE_LIST_NUMBER_EMOJI = [
 export function treeListNumberPrefix(n) {
   const i = Math.floor(Number(n) || 0);
   if (i < 1) return "";
-  if (i < TREE_LIST_NUMBER_EMOJI.length) {
-    return `:${TREE_LIST_NUMBER_EMOJI[i]}:`;
-  }
-  return `${i}.`;
+  return `${i} -`;
 }
 
 /**
@@ -432,11 +404,10 @@ export function filesTreeFolderHtml(folderPage) {
   let lineNum = 0;
   for (const item of folderPage.items || []) {
     lineNum += 1;
-    const status = escapeHtml(describeRecordStatus(item.status));
     const date = escapeHtml(item.date);
     const title = escapeHtml(item.title);
     const prefix = treeListNumberPrefix(lineNum);
-    lines.push(`${prefix} ${date} — ${title} [${status}]`);
+    lines.push(`${prefix} ${date} — ${title}`);
   }
 
   const startIdx = (curPage - 1) * pageSize;

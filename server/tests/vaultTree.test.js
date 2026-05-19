@@ -236,17 +236,20 @@ test("buildSyncIndexFolderPage paginates files inside one folder", () => {
   assert.doesNotMatch(filesTreeFolderHtml(page3), /ещё \d+/);
 
   const html1 = filesTreeFolderHtml(page1);
-  assert.match(html1, /:one: .+ \[ok\]/);
-  assert.match(html1, /:ten: .+ \[ok\]/);
+  assert.match(html1, /^1 - .+ — .+$/m);
+  assert.match(html1, /^10 - .+ — .+$/m);
+  assert.doesNotMatch(html1, /\[ok\]/);
+  assert.doesNotMatch(html1, /:one:|:ten:/);
   assert.doesNotMatch(html1, / {2}• /);
 });
 
 test("treeListNumberPrefix and parseTreeFilePickNumber", () => {
-  assert.equal(treeListNumberPrefix(1), ":one:");
-  assert.equal(treeListNumberPrefix(2), ":two:");
-  assert.equal(treeListNumberPrefix(10), ":ten:");
-  assert.equal(treeListNumberPrefix(20), ":twenty:");
-  assert.equal(treeListNumberPrefix(21), "21.");
+  assert.equal(treeListNumberPrefix(1), "1 -");
+  assert.equal(treeListNumberPrefix(2), "2 -");
+  assert.equal(treeListNumberPrefix(10), "10 -");
+  assert.equal(treeListNumberPrefix(20), "20 -");
+  assert.equal(treeListNumberPrefix(21), "21 -");
+  assert.equal(treeListNumberPrefix(0), "");
 
   assert.equal(parseTreeFilePickNumber("1"), 1);
   assert.equal(parseTreeFilePickNumber("  3  "), null);
