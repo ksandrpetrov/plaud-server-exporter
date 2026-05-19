@@ -120,12 +120,7 @@ Lock снимается автоматически через 2 часа или 
 
 ### `Missing script: "server:bot"`
 
-На сервере устаревший клон — нет скрипта в `package.json`. С Mac: `git push origin main`. На сервере:
-
-```bash
-sudo -u plaud git -C /srv/plaud-exporter pull --ff-only
-sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm install --workspaces'
-```
+На сервере устаревший клон — нет скрипта в `package.json`. С Mac: `git push origin main`. На сервере — [server-deploy.md § Обновление кода](./server-deploy.md#обновление-кода) (не только `git pull`).
 
 ### Сервис не стартует / сразу падает (код 2)
 

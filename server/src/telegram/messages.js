@@ -323,6 +323,8 @@ export function describeRecordStatus(rawStatus) {
       return "загрузка";
     case "idle":
       return "ожидание";
+    case "not_synced":
+      return "не синхр.";
     default:
       return describeStatusVerdict(rawStatus);
   }

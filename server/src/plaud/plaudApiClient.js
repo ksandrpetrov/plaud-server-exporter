@@ -462,6 +462,19 @@ async function enrichFilesWithFolderSegments(session, files) {
   return attachFolderSegments(files, tagById, unfiledIds);
 }
 
+/**
+ * Lightweight recordings pull for the Telegram bot's "Дерево синка" view:
+ * just the global non-trash + (optionally) trash listings, enriched with
+ * `folderSegment` from the filetag list. Skips the per-folder fan-out the
+ * full sync uses — fast enough for an interactive callback handler.
+ *
+ * @param {object} session
+ * @param {{ includeTrash?: boolean; sortBy?: string }} [options]
+ */
+export async function listRecordingsForBotTree(session, options = {}) {
+  return listAllRecordingsSimple(session, { includeTrash: true, ...options });
+}
+
 async function listAllRecordingsSimple(session, options = {}) {
   const { includeTrash = false, sortBy = session.sortBy } = options;
   const variants = includeTrash ? ["0", "1"] : ["0"];

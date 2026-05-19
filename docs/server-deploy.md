@@ -186,17 +186,38 @@ sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
 
 ## Обновление кода
 
+С Mac сначала: `git push origin main`. На сервере — полный чеклист (короткий `git pull` часто не хватает: висят локальные правки, root владелец файлов, бот держит процесс):
+
 ```bash
-sudo -u plaud git -C /srv/plaud-exporter pull --ff-only
+cd /srv/plaud-exporter
+
+sudo systemctl stop plaud-exporter.service
+
+sudo -u plaud git fetch origin main
+sudo -u plaud git reset --hard origin/main
+sudo -u plaud git clean -fd
+
+sudo chown -R plaud:plaud /srv/plaud-exporter
+
 sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm install --workspaces'
+
 sudo cp /srv/plaud-exporter/deploy/systemd/plaud-exporter.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl restart plaud-exporter.service
+sudo systemctl status plaud-exporter.service --no-pager -l
 ```
 
-Третья строка важна: при изменении самого unit-файла (например, переход с oneshot на бот) обычный `restart` не подхватит новый `ExecStart`, пока `cp` + `daemon-reload` не выполнены.
+| Шаг | Зачем |
+|-----|--------|
+| `stop` | Бот не держит файлы и lock во время `git`/`npm` |
+| `fetch` + `reset --hard` | Рабочая копия строго как `origin/main`, без локальных коммитов/конфликтов |
+| `clean -fd` | Убрать неотслеживаемые артефакты после смены структуры репо |
+| `chown` | После `sudo`/`root` git снова `plaud:plaud`, иначе `dubious ownership` |
+| `cp` unit + `daemon-reload` | Новый `ExecStart` (например `server:bot`) не подхватится одним `restart` |
 
-При выходе `2` снова скопируйте `session.json` с Mac, потом
+Не трогает `.env`, `server/.data/session.json`, `owner-chat.json` и `exports/` — они в `.gitignore`.
+
+При выходе `2` после обновления снова скопируйте `session.json` с Mac, потом
 `sudo systemctl restart plaud-exporter.service`.
 
 ## Сброс owner-chat

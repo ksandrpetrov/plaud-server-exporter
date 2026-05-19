@@ -61,6 +61,7 @@ import {
   statusScreenHtml,
 } from "./messages.js";
 import { loadOwnerChat, saveOwnerChat } from "./ownerChat.js";
+import { loadPlaudLiveSyncTree } from "./plaudLiveTree.js";
 import { readStatus } from "./statusReader.js";
 import {
   buildSyncIndexFolderPage,
@@ -306,8 +307,29 @@ async function sendStatusMessage(ctx, chatId) {
   });
 }
 
+/**
+ * Returns a sync-index-shaped object to feed the tree builders. Prefers a
+ * live Plaud snapshot (so folder counts match Plaud's sidebar verbatim) and
+ * falls back to the on-disk sync-index when Plaud is unreachable or no
+ * session is stored. Live records carry the real `folderSegment` from the
+ * filetag list, so legacy data with empty `folderSegment` still buckets
+ * correctly.
+ */
+async function loadTreeSource() {
+  const real = await loadSyncIndex();
+  try {
+    const live = await loadPlaudLiveSyncTree({ syncIndex: real });
+    if (live && Object.keys(live.records || {}).length > 0) return live;
+  } catch (err) {
+    logger.warn("Live Plaud tree failed; using sync-index", {
+      error: String(err?.message || err),
+    });
+  }
+  return real;
+}
+
 async function showFilesTreeRoot(ctx, { chatId, messageId }) {
-  const idx = await loadSyncIndex();
+  const idx = await loadTreeSource();
   const root = buildSyncIndexTreeRoot(idx, {
     vaultRoot: effectiveVaultRoot(),
     subfolder: config.obsidianSubfolder,
@@ -321,7 +343,7 @@ async function showFilesTreeRoot(ctx, { chatId, messageId }) {
 }
 
 async function showFilesTreeFolder(ctx, { chatId, messageId, folderIndex, page }) {
-  const idx = await loadSyncIndex();
+  const idx = await loadTreeSource();
   const folderPage = buildSyncIndexFolderPage(idx, {
     folderIndex,
     page,

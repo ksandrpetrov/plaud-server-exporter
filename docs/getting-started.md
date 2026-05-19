@@ -221,15 +221,7 @@ systemctl --no-pager status plaud-exporter.service   # Active: active (running)
 
 Логи: `journalctl -u plaud-exporter.service -n 50` и `/var/log/plaud-exporter/bot.log`. Sync-логи one-shot'а (`plaud-exporter-sync.service`, бэкап-раннер) — `/var/log/plaud-exporter/sync.log`. Детально — в [server-deploy.md](./server-deploy.md).
 
-**Обновление кода:**
-
-```bash
-sudo -u plaud git -C /srv/plaud-exporter pull --ff-only
-sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm install --workspaces'
-sudo cp /srv/plaud-exporter/deploy/systemd/plaud-exporter.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl restart plaud-exporter.service
-```
+**Обновление кода:** полный чеклист — [server-deploy.md § Обновление кода](./server-deploy.md#обновление-кода) (`stop` → `reset --hard` → `chown` → `npm` → unit + `restart`).
 
 На сервере все `git`/`npm` — от пользователя `plaud` (`sudo -u plaud …`), путь `/srv/plaud-exporter`. Не запускайте `npm run server:auth` на сервере.
 
