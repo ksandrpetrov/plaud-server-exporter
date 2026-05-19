@@ -67,7 +67,7 @@ npm run test:submodule   # 14 extension tests
 
 ## How to deploy
 
-See [server-deploy.md](./server-deploy.md) and [getting-started.md](./getting-started.md) (systemd timer, logrotate, `scripts/server-as-plaud.sh`).
+See [server-deploy.md](./server-deploy.md) and [getting-started.md](./getting-started.md) (Telegram bot under systemd, logrotate, `scripts/server-as-plaud.sh`).
 
 ## Remaining risks
 

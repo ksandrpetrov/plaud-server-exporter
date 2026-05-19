@@ -11,7 +11,7 @@ const { planSummaryPath, planAudioPath, buildMarkdownDocument, writeMarkdownFile
 const { config } = await import("../src/config/config.js");
 const { effectiveVaultRoot } = await import("../src/config/config.js");
 
-test("planSummaryPath places file under {vault}/Plaud/{YYYY}/", () => {
+test("planSummaryPath places file under {vault}/Plaud/", () => {
   const planned = planSummaryPath({
     title: "Weekly review",
     createdAt: "2026-05-17T12:00:00.000Z",
@@ -19,10 +19,10 @@ test("planSummaryPath places file under {vault}/Plaud/{YYYY}/", () => {
   const vault = effectiveVaultRoot();
   assert.equal(
     planned.absolutePath,
-    resolve(vault, "Plaud", "2026", "2026-05-17 - Weekly review.md")
+    resolve(vault, "Plaud", "2026-05-17 - Weekly review.md")
   );
   assert.equal(planned.dateOnly, "2026-05-17");
-  assert.equal(planned.relativePath, join("Plaud", "2026", "2026-05-17 - Weekly review.md"));
+  assert.equal(planned.relativePath, join("Plaud", "2026-05-17 - Weekly review.md"));
 });
 
 test("planAudioPath uses _attachments folder and given extension", () => {
@@ -52,9 +52,9 @@ test("buildMarkdownDocument contains summary body without YAML frontmatter", () 
 
 test("writeMarkdownFile renames previous file when path changed", async () => {
   const baseDir = await mkdtemp(join(tmpdir(), "plaud-writer-"));
-  const oldAbs = join(baseDir, "2026", "2026-05-17 - Old title.md");
-  const newAbs = join(baseDir, "2026", "2026-05-17 - New title.md");
-  await mkdir(join(baseDir, "2026"), { recursive: true });
+  const oldAbs = join(baseDir, "2026-05-17 - Old title.md");
+  const newAbs = join(baseDir, "2026-05-17 - New title.md");
+  await mkdir(baseDir, { recursive: true });
   await writeMarkdownFile({ absolutePath: oldAbs, contents: "old body" });
   await writeMarkdownFile({
     absolutePath: newAbs,

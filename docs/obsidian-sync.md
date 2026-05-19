@@ -17,4 +17,4 @@ sudo systemctl enable --now syncthing@plaud.service
 
 Установите [Syncthing](https://syncthing.net/), примите устройство сервера, укажите локальную папку vault (например `~/Obsidian/Plaud`).
 
-В Obsidian откройте vault или подпапку `Plaud` — появятся `Plaud/2026/… .md`.
+В Obsidian откройте vault или подпапку `Plaud` — появятся `Plaud/… .md`.

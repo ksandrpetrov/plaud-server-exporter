@@ -47,11 +47,6 @@ function formatDateOnly(isoLike) {
   return fmt.format(date);
 }
 
-function yearOf(dateString) {
-  const m = String(dateString || "").match(/^(\d{4})/);
-  return m ? m[1] : String(new Date().getFullYear());
-}
-
 /**
  * Builds the dated filename base: `YYYY-MM-DD - Title`.
  *
@@ -134,9 +129,7 @@ export function planSummaryPath({
   let titleBudget;
   let lastPlanned = null;
 
-  const yearGuess = yearOf(formatDateOnly(createdAt));
-  const absoluteDirGuess = join(baseDir, yearGuess);
-  const pathFilenameCap = maxFilenameLengthForDir(absoluteDirGuess);
+  const pathFilenameCap = maxFilenameLengthForDir(baseDir);
 
   for (let attempt = 0; attempt < 10; attempt++) {
     const prefixLen = formatDateOnly(createdAt) ? 13 : 0;
@@ -165,7 +158,6 @@ export function planSummaryPath({
       base = truncateToGraphemes(base, stemBudget);
       filename = `${base}${MARKDOWN_EXTENSION}`;
     }
-    const year = yearOf(dateOnly);
     ({ base, filename } = applyFilenameCollision(
       base,
       filename,
@@ -173,7 +165,7 @@ export function planSummaryPath({
       stableId
     ));
 
-    const absoluteDir = join(baseDir, year);
+    const absoluteDir = baseDir;
     const absolutePath = join(absoluteDir, filename);
     const relativePath = relative(vault, absolutePath);
     lastPlanned = {

@@ -91,6 +91,40 @@ const staticConfig = {
   get plaudWebOrigin() {
     return (process.env.PLAUD_WEB_ORIGIN || "https://web.plaud.ai").trim();
   },
+  get telegramBotToken() {
+    return (process.env.TELEGRAM_BOT_TOKEN || "").trim();
+  },
+  get telegramAllowedUsername() {
+    const raw = (process.env.TELEGRAM_ALLOWED_USERNAME || "").trim();
+    return raw.replace(/^@/, "").toLowerCase();
+  },
+  get botSyncIntervalMin() {
+    return asInt(process.env.BOT_SYNC_INTERVAL_MIN, 120);
+  },
+  get botLongPollSec() {
+    return asInt(process.env.BOT_LONG_POLL_SEC, 30);
+  },
+  get botDataDir() {
+    return dataDir();
+  },
+  get ownerChatPath() {
+    return absPath(
+      process.env.PLAUD_OWNER_CHAT_PATH,
+      join(dataDir(), "owner-chat.json")
+    );
+  },
+  get botSettingsPath() {
+    return absPath(
+      process.env.PLAUD_BOT_SETTINGS_PATH,
+      join(dataDir(), "bot-settings.json")
+    );
+  },
+  get telegramOffsetPath() {
+    return absPath(
+      process.env.PLAUD_TELEGRAM_OFFSET_PATH,
+      join(dataDir(), "telegram-offset.json")
+    );
+  },
 };
 
 export const config = staticConfig;

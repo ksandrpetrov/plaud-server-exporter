@@ -19,7 +19,7 @@ No database, queue, or HTTP server — CLI and files only.
 3. `listAllRecordings` → paginated `/file/simple/web`.
 4. Per recording: `fetchSummaries` (`/ai/query_note`), build stable id + summary hash.
 5. `determineSyncAction` against `sync-index.json`.
-6. Write clean Markdown under `{vault}/Plaud/{YYYY}/` (optional folder segment from Plaud tags).
+6. Write clean Markdown under `{vault}/Plaud/` (optional folder segment from Plaud tags).
 7. Atomic `saveSyncIndex`; write `status.json`.
 8. Exit `3` if any `plaud_changed`; exit `1` on per-file errors; exit `4` on lock conflict.
 

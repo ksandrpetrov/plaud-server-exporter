@@ -58,6 +58,10 @@ function printUsage() {
       "",
       "  status              Print configuration, session presence, and last sync stats.",
       "",
+      "  bot                 Run the Telegram bot (long-polling). Owns the schedule",
+      "                      and reports every sync. Requires TELEGRAM_BOT_TOKEN and",
+      "                      TELEGRAM_ALLOWED_USERNAME in .env.",
+      "",
       "  logout              Remove the saved session snapshot (keeps Playwright profile).",
       "",
       "  help                Print this message.",
@@ -128,6 +132,12 @@ async function commandSync(flags) {
   }
 }
 
+async function commandBot() {
+  const { runBot } = await import("../telegram/index.js");
+  const code = await runBot();
+  if (code) process.exitCode = code;
+}
+
 async function commandStatus() {
   const session = await sessionFileInfo();
   const snapshot = session.exists ? await loadSessionSnapshot() : null;
@@ -177,6 +187,9 @@ async function main() {
         break;
       case "status":
         await commandStatus();
+        break;
+      case "bot":
+        await commandBot();
         break;
       case "logout":
         await removeSessionSnapshot();

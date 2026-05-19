@@ -1,10 +1,14 @@
 # Dependencies
 node_modules/
+.npm/
+.yarn/
+.pnpm-store/
 
 # Environment / secrets
 .env
 .env.*
 !.env.example
+*.local
 
 # Runtime data (sessions, sync index, playwright profile, exports, logs)
 server/.data/
@@ -18,12 +22,36 @@ session*.json
 *-session.json
 *-tokens.json
 
+# Telegram bot runtime state (also lives under server/.data/, kept as defence-in-depth)
+telegram-offset.json
+owner-chat.json
+bot-settings.json
+
 # Playwright profile (browser state with cookies/localStorage)
 playwright-profile/
 .playwright/
 
+# Test / coverage output
+coverage/
+.nyc_output/
+
+# Build / cache artefacts
+dist/
+build/
+.cache/
+.tmp/
+tmp/
+*.tsbuildinfo
+
+# Backups
+*.bak
+*.orig
+
 # OS / editor
 .DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 .idea/
 .vscode/
 *.swp

@@ -78,8 +78,8 @@ test("long Russian and English titles are truncated safely", () => {
 });
 
 test("fitsPathLengthBudget enforces conservative full-path limit", () => {
-  const short = join(tmpRoot, "exports", "Plaud", "2026", "a.md");
-  const long = join(tmpRoot, "x".repeat(300), "Plaud", "2026", "a.md");
+  const short = join(tmpRoot, "exports", "Plaud", "a.md");
+  const long = join(tmpRoot, "x".repeat(300), "Plaud", "a.md");
   assert.equal(fitsPathLengthBudget(short), true);
   assert.equal(fitsPathLengthBudget(long), false);
 });
@@ -127,7 +127,7 @@ test("planSummaryPath nests under folder segment when provided", () => {
     createdAt: "2026-05-17T12:00:00.000Z",
     folderSegment: "Client calls",
   });
-  assert.match(planned.relativePath, /Plaud[\\/]Client calls[\\/]2026[\\/]/);
+  assert.match(planned.relativePath, /Plaud[\\/]Client calls[\\/]/);
   assert.match(planned.filename, /^2026-05-17 - Weekly review\.md$/);
 });
 

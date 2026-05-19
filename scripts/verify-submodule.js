@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Verifies that the `plaud-exporter` git submodule is initialized and that all
- * server-side imports into it resolve to real files. Run via `npm run verify`.
+ * Verifies that shared `plaud-exporter/common/*` files exist and that all
+ * server-side imports into plaud-exporter resolve. Run via `npm run verify`.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -42,7 +42,7 @@ function checkRequiredFiles() {
   for (const rel of REQUIRED_SUBMODULE_FILES) {
     const full = resolve(root, rel);
     if (!existsSync(full)) {
-      fail(`missing required submodule file: ${rel}`);
+      fail(`missing required plaud-exporter file: ${rel}`);
       ok = false;
     }
   }

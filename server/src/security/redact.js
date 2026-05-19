@@ -15,6 +15,18 @@ const AUTH_HEADER_RE = /\b(Authorization|authorization)\s*:\s*[^\r\n]+/g;
 const PLAUD_STORAGE_KEY_RE =
   /\b(pld_[A-Za-z0-9_:.-]*|pld_tokenstr|tokenstr|workspaceToken|workspaceList)\b\s*[:=]\s*("[^"\n]*"|'[^'\n]*'|[^\s,;}\]]+)/gi;
 const HEX_TOKEN_RE = /\b[A-Fa-f0-9]{64,}\b/g;
+/**
+ * Telegram bot tokens look like `<bot-id>:<url-safe-secret>` (e.g. `123456789:AA…`).
+ * The numeric prefix is the bot user id (5–11 digits in practice) followed by
+ * a colon and a 30+ char URL-safe secret.
+ */
+const TELEGRAM_BOT_TOKEN_RE = /\b\d{5,12}:[A-Za-z0-9_-]{20,}\b/g;
+/**
+ * api.telegram.org URLs embed the bot token in the path (`/bot<token>/method`).
+ * We strip it eagerly so any stray request log can't leak the token.
+ */
+const TELEGRAM_BOT_URL_RE =
+  /(api\.telegram\.org\/bot)\d{5,12}:[A-Za-z0-9_-]{20,}/g;
 
 const SENSITIVE_KEY_NAMES = new Set([
   "authorization",
@@ -46,6 +58,8 @@ export function redactString(value) {
     .replace(AUTH_HEADER_RE, "$1: [REDACTED]")
     .replace(COOKIE_HEADER_RE, "$1: [REDACTED]")
     .replace(PLAUD_STORAGE_KEY_RE, "$1: [REDACTED]")
+    .replace(TELEGRAM_BOT_URL_RE, "$1[REDACTED_TELEGRAM_TOKEN]")
+    .replace(TELEGRAM_BOT_TOKEN_RE, "[REDACTED_TELEGRAM_TOKEN]")
     .replace(JWT_RE, "[REDACTED_JWT]")
     .replace(HEX_TOKEN_RE, "[REDACTED_HEX]");
 }

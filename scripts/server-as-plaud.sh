@@ -14,7 +14,6 @@
 #   sudo /srv/plaud-exporter/scripts/server-as-plaud.sh <command> [args...]
 #
 # Examples:
-#   sudo /srv/plaud-exporter/scripts/server-as-plaud.sh git submodule update --init --recursive
 #   sudo /srv/plaud-exporter/scripts/server-as-plaud.sh git pull
 #   sudo /srv/plaud-exporter/scripts/server-as-plaud.sh npm install --workspaces
 #   sudo /srv/plaud-exporter/scripts/server-as-plaud.sh npm run server:sync -- --dry-run
@@ -35,7 +34,6 @@ Usage: $0 <command> [args...]
 Runs <command> as user '$TARGET_USER' inside '$PROJECT_DIR'.
 
 Examples:
-  sudo $0 git submodule update --init --recursive
   sudo $0 git pull
   sudo $0 npm install --workspaces
   sudo $0 npm run server:sync -- --dry-run

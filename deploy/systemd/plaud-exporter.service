@@ -1,19 +1,21 @@
 [Unit]
-Description=Plaud Server Exporter — one-shot sync of Plaud recordings into Markdown
+Description=Plaud Server Exporter — Telegram bot (long-polling + scheduled sync)
 Documentation=file:///srv/plaud-exporter/docs/server-deploy.md
 Wants=network-online.target
 After=network-online.target
 
 [Service]
-Type=oneshot
+Type=simple
 User=plaud
 Group=plaud
 WorkingDirectory=/srv/plaud-exporter
 EnvironmentFile=/srv/plaud-exporter/.env
-ExecStart=/usr/bin/env npm run --silent server:sync
-StandardOutput=append:/var/log/plaud-exporter/sync.log
-StandardError=append:/var/log/plaud-exporter/sync.log
-TimeoutStartSec=30min
+ExecStart=/usr/bin/env npm run --silent server:bot
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/plaud-exporter/bot.log
+StandardError=append:/var/log/plaud-exporter/bot.log
+Environment=NODE_ENV=production
 Nice=10
 
 # Hardening

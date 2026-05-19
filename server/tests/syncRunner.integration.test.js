@@ -75,13 +75,7 @@ test("first run creates summary; second run skips unchanged", async () => {
     assert.equal(first.new, 1);
     assert.equal(first.summariesDownloaded, 1);
 
-    const mdPath = join(
-      dir,
-      "exports",
-      "Plaud",
-      "2026",
-      "2026-05-17 - Team sync.md"
-    );
+    const mdPath = join(dir, "exports", "Plaud", "2026-05-17 - Team sync.md");
     const body = await readFile(mdPath, "utf8");
     assert.doesNotMatch(body, /^---\n/);
     assert.match(body, /Notes v1/);
@@ -112,13 +106,7 @@ test("changed summary updates file on second run", async () => {
     const updated = await runSync({ session, summaryOnly: true });
     assert.equal(updated.updated, 1);
 
-    const mdPath = join(
-      dir,
-      "exports",
-      "Plaud",
-      "2026",
-      "2026-05-17 - Team sync.md"
-    );
+    const mdPath = join(dir, "exports", "Plaud", "2026-05-17 - Team sync.md");
     const body = await readFile(mdPath, "utf8");
     assert.match(body, /Notes v2/);
   } finally {
@@ -156,7 +144,7 @@ test("rename-only updates filename when Plaud title changes but summary hash is 
     };
     await runSync({ session, summaryOnly: true });
 
-    const oldPath = join(dir, "exports", "Plaud", "2026", "2026-05-17 - Old title.md");
+    const oldPath = join(dir, "exports", "Plaud", "2026-05-17 - Old title.md");
     assert.ok(await stat(oldPath));
 
     globalThis.fetch = async (url) => {
@@ -183,7 +171,7 @@ test("rename-only updates filename when Plaud title changes but summary hash is 
     assert.equal(renamed.metadataUpdated, 1);
     assert.equal(renamed.unchanged, 0);
 
-    const newPath = join(dir, "exports", "Plaud", "2026", "2026-05-17 - New title.md");
+    const newPath = join(dir, "exports", "Plaud", "2026-05-17 - New title.md");
     const body = await readFile(newPath, "utf8");
     assert.match(body, /Same body/);
     await assert.rejects(() => stat(oldPath), { code: "ENOENT" });
@@ -241,8 +229,8 @@ test("same title with different stable ids creates two files", async () => {
     const stats = await runSync({ session, summaryOnly: true });
     assert.equal(stats.new, 2);
     const files = [
-      join(dir, "exports", "Plaud", "2026", "2026-05-17 - Weekly review.md"),
-      join(dir, "exports", "Plaud", "2026", "2026-05-18 - Weekly review.md"),
+      join(dir, "exports", "Plaud", "2026-05-17 - Weekly review.md"),
+      join(dir, "exports", "Plaud", "2026-05-18 - Weekly review.md"),
     ];
     const bodies = await Promise.all(files.map((p) => readFile(p, "utf8")));
     assert.match(bodies[0], /alpha/);
@@ -257,13 +245,7 @@ test("manually deleted summary file is restored on next sync", async () => {
   process.env.PLAUD_DATA_DIR = join(dir, ".data");
   process.env.PLAUD_EXPORT_ROOT = join(dir, "exports");
 
-  const mdPath = join(
-    dir,
-    "exports",
-    "Plaud",
-    "2026",
-    "2026-05-17 - Team sync.md"
-  );
+  const mdPath = join(dir, "exports", "Plaud", "2026-05-17 - Team sync.md");
 
   const originalFetch = globalThis.fetch;
   globalThis.fetch = mockFetch();

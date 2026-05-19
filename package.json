@@ -14,6 +14,7 @@
     "server:auth": "node server/src/cli/index.js auth",
     "server:sync": "node server/src/cli/index.js sync",
     "server:status": "node server/src/cli/index.js status",
+    "server:bot": "node server/src/cli/index.js bot",
     "test": "node --test server/tests/**/*.test.js",
     "test:submodule": "cd plaud-exporter && npm test",
     "lint": "npm run lint --workspace=@plaud-server-exporter/server",

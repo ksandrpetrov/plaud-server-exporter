@@ -35,7 +35,8 @@ Manifest V3, три слоя runtime.
 - [`plaud-exporter/common/syncCore.js`](../plaud-exporter/common/syncCore.js)
 - [`plaud-exporter/common/exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js)
 
-Сервер импортирует их через git submodule — единый источник правды.
+Сервер импортирует их из каталога `plaud-exporter/` в этом репозитории — единый
+источник правды с расширением.
 
 ## Текущий поток экспорта
 
@@ -61,7 +62,7 @@ flowchart TD
    `already_synced` / `skipped`, запись только при необходимости.
 
 Сервер заменяет (1) JSON-файлом, (3) — `fs.writeFile`, логику решений берёт из
-submodule без изменений.
+`plaud-exporter/common/*` без изменений.
 
 ## Модель auth / сессии
 
@@ -130,7 +131,7 @@ file-id: <id>                    (только на /ai/query_note)
 
 ## Что переиспользовать на сервере
 
-Из submodule напрямую:
+Из `plaud-exporter/common/` напрямую:
 
 - `syncCore.js` — stable id, отпечатки, решения sync, нормализация индекса, пути
   артефактов.
@@ -160,7 +161,7 @@ file-id: <id>                    (только на /ai/query_note)
 | Список API короче DOM-merge | Низкая | Лог расхождения; фаза 2 — теги и скан снимка |
 | Headless без UI для login | Высокая при деплое | X11, auth на Mac + scp, `--import` DevTools |
 | Утечка секретов в логах | Средняя | Центральная редакция; запрет печати токенов |
-| Дрейф submodule | Низкая | `npm run verify` |
+| Расхождение с `plaud-exporter/common` | Низкая | `npm run verify` |
 
 ## Рекомендуемый путь реализации
 
@@ -169,13 +170,43 @@ file-id: <id>                    (только на /ai/query_note)
 1. **Playwright (редко).** `server:auth`: Chromium, `https://web.plaud.ai`, вход,
    проверка `GET /file/simple/web?limit=1`, снимок в `session.json` (`0600`).
 2. **Прямой API.** `server:sync`: снимок → те же заголовки, что в расширении,
-   четыре эндпоинта, `syncCore` + `exportPathUtils` из submodule.
+   четыре эндпоинта, `syncCore` + `exportPathUtils` из `plaud-exporter/common/`.
 3. **Индекс.** `sync-index.json` — схема `plaudExporterSyncIndexV1`, те же
    `determineSyncAction`.
-4. **Вывод.** `{vault}/Plaud/{YYYY}/{YYYY-MM-DD} - {title}.md`; аудио опционально в
+4. **Вывод.** `{vault}/Plaud/{YYYY-MM-DD} - {title}.md`; аудио опционально в
    `_attachments/`.
 5. **Refresh.** При 401/403 — остановка, пометка снимка устаревшим, подсказка
    `server:auth`.
 
 Быстрый путь совпадает с расширением (чистый HTTP); браузер — только при смене
 сессии Plaud.
+
+## Telegram-бот (эксплуатация)
+
+На VPS вместо systemd timer — один процесс `server:bot` (`server/src/telegram/`):
+
+| Модуль | Назначение |
+|--------|------------|
+| `bot.js` | Long-polling, маршрутизация updates |
+| `handlers.js` | Команды `/start`, `/menu`, `/status`, inline-кнопки |
+| `scheduler.js` | Таймер автосинка (`BOT_SYNC_INTERVAL_MIN` / `bot-settings.json`) |
+| `syncOrchestrator.js` | Общий lock и отчёты в чат (тот же `runSync`, что CLI) |
+| `ownerChat.js` | Персистентный `chat_id` после первого `/start` |
+| `auth.js` | Gate по `TELEGRAM_ALLOWED_USERNAME` |
+
+Поток:
+
+```mermaid
+flowchart LR
+  systemd[plaud-exporter.service] --> bot[server:bot]
+  bot --> poll[getUpdates]
+  bot --> sched[scheduler]
+  sched --> sync[runSync + sync.lock]
+  sync --> disk[Markdown + sync-index]
+  sync --> tg[editMessageText / notify owner]
+```
+
+Ручной `server:sync` и oneshot `plaud-exporter-sync.service` остаются для отладки;
+параллельный запуск с ботом даёт код выхода `4` из-за `sync.lock`.
+
+Инструкции: [getting-started.md](./getting-started.md), [server-deploy.md](./server-deploy.md).
