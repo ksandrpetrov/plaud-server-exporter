@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolve } from "node:path";
 
-const { config, effectiveVaultRoot } = await import("../src/config/config.js");
+const { effectiveVaultRoot } = await import("../src/config/config.js");
 
 function withEnv(overrides, fn) {
   const saved = {};

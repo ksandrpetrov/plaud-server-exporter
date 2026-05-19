@@ -255,7 +255,9 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
 
       const duplicate = detectDuplicate(syncIndex, candidate);
       const existingRecord = duplicate?.record || null;
-      let action = determineSyncAction(existingRecord, candidate);
+      let action = determineSyncAction(existingRecord, candidate, {
+        plannedSummaryPath: planned.absolutePath,
+      });
 
       if (
         action.action === SYNC_ACTION_ALREADY_SYNCED &&

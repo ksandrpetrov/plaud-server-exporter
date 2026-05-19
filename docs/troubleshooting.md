@@ -1,128 +1,132 @@
-# Устранение неполадок
+# Troubleshooting
 
-## Google блокирует вход при `server:auth`
+## Plaud logged out (exit code 2)
 
-Войдите в Plaud **email/паролем**, не через Google. Должен быть установлен **Google Chrome** (экспортёр запускает его по умолчанию).
+**Symptoms:** `No session snapshot`, `PlaudAuthError`, `_errors/*auth_error*.md`.
 
-Если мешает старый профиль:
+**Fix (Mac):**
+
+```bash
+npm run server:auth
+scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
+```
+
+On server: move into `server/.data/`, `chown plaud:plaud`, `chmod 600` — [getting-started.md](./getting-started.md).
+
+Do not run Playwright on a 1 GB VPS.
+
+## Plaud changed API (exit code 3)
+
+**Symptoms:** `plaud_changed` in logs, `_errors/*plaud-export-error*.md` with stage `list-recordings` or `fetch-summary`.
+
+**Meaning:** Response JSON no longer matches what `plaudApiClient.js` expects — needs a code update.
+
+**Actions:**
+
+1. Read the error Markdown in `{export}/_errors/`.
+2. Compare with Plaud Web Network tab (no need to paste tokens).
+3. Update `server/src/plaud/plaudApiClient.js` and add a regression test.
+
+## Summary not exporting
+
+**Check:**
+
+```bash
+npm run server:status   # session.snapshot.present, vaultRoot, exportRoot
+```
+
+- Recording has no AI summary in Plaud Web → empty or placeholder `.md`.
+- Per-file errors increment `errors` in stats — see `_errors/` for that run.
+- `PLAUD_MIRROR_FOLDERS` and folder tags — files may be under `Plaud/{year}/{folder}/`.
+
+## Files not created
+
+```bash
+npm run server:status
+ls -la "$PLAUD_EXPORT_ROOT/Plaud"
+```
+
+- Wrong `PLAUD_EXPORT_ROOT` or vault path in `.env`.
+- Permission: export dir must be writable by user running sync (`plaud` on server).
+- Dry-run does not write — remove `--dry-run` for real export.
+- See [EACCES sync.lock](#eacces-synclock-on-server) if sync aborts before write.
+
+## Strange file names
+
+Expected pattern: `YYYY-MM-DD - {meeting title}.md`.
+
+- Boilerplate titles (`Plaud`, `Untitled`) are ignored → fallback `YYYY-MM-DD Plaud summary`.
+- Very long titles are truncated (~242 chars) — beginning kept readable.
+- Duplicate titles get a short id suffix — not a bug.
+- Forbidden characters become `-` or `_` (readable, not deleted).
+
+Logic: `server/src/sync/filenamePlanner.js`.
+
+## Error Markdown files in `_errors/`
+
+Normal when something failed. Open the newest file — sections **Что случилось** / **Что сделать**.
+
+- Dedupe: identical failures reuse the same file (check `dedupe_key` in technical section).
+- Dry-run does not create `_errors/` — only logs.
+
+## Duplicate files on re-run
+
+Should **not** happen if `sync-index.json` is intact.
+
+If duplicates appear:
+
+1. Check `server/.data/sync-index.json` exists and is writable.
+2. Corrupt index — restore from `sync-index.json.bak` or accept one-time re-export (unchanged hashes still skip content).
+3. Two different stable ids with same title → two files by design.
+
+## Google blocks login at `server:auth`
+
+Use email/password, not Google. Install Google Chrome. Reset profile:
 
 ```bash
 rm -rf server/.data/playwright-profile
 npm run server:auth
 ```
 
-## Сессия (exit code 2)
-
-На Mac: `npm run server:auth`, затем `scp session.json` на сервер — [getting-started.md](getting-started.md).
-
-На сервере **не** запускайте `server:auth` (1 GB RAM, OOM).
-
 ## scp: Permission denied
 
-`scp ... YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json` возвращает `Permission denied, please try again.` — это **SSH-уровень**, а не права на файлы. Чек-лист:
+SSH-level issue — same login as `ssh YOUR_SSH_USER@YOUR_SERVER_HOST`. Use `ssh-copy-id`. Do not use angle brackets in commands (`<user>` breaks zsh).
 
-1. Проверьте логин/пароль через обычный `ssh`. Если он тоже не пускает — пароль ошибочный или провайдер сменил его.
+## EACCES sync.lock on server
 
-   ```bash
-   ssh YOUR_SSH_USER@YOUR_SERVER_HOST 'echo ok'
-   ```
+**Symptom:** `status` OK, `sync` fails with `EACCES` on `sync.lock`.
 
-2. Если в `ssh` сразу пишет `root@host: Permission denied (publickey)` без запроса пароля — в `/etc/ssh/sshd_config` стоит `PermitRootLogin prohibit-password` или `PasswordAuthentication no`. Войдите через панель провайдера, поправьте на `PermitRootLogin yes` + `PasswordAuthentication yes` и `sudo systemctl reload ssh`. Безопаснее — настроить ключ (ниже).
-
-3. Чтобы перестать вводить пароль и не упираться в эти ошибки — один раз положите свой публичный ключ на сервер:
-
-   ```bash
-   ssh-copy-id YOUR_SSH_USER@YOUR_SERVER_HOST
-   ```
-
-   После этого `ssh`/`scp` пускают по ключу `~/.ssh/id_rsa` без пароля.
-
-4. Угловые скобки (`<user>`, `<host>`) в команде дают `zsh: no such file or directory: …` — это перенаправление ввода, а не плейсхолдер. Подставляйте логин/хост напрямую (например `YOUR_SSH_USER@YOUR_SERVER_HOST`).
-
-## Plaud изменил API (exit code 3)
-
-Смотрите `{export}/_errors/*.md` и логи. Нужно обновить `server/src/plaud/plaudApiClient.js` под новый API.
-
-## EACCES sync.lock на сервере
-
-**Симптом:** `npm run server:status` от `plaud` показывает сессию (`session.snapshot.present: true`), а `npm run server:sync` падает:
-
-```text
-EACCES: permission denied, open '/srv/plaud-exporter/server/.data/sync.lock'
-```
-
-В `_errors/` может быть отчёт с `kind: write_error`, `stage: sync`.
-
-**Причина:** каталог `server/.data` создан или принадлежит **root** (часто после `sudo mkdir` + `chown` только на `session.json`), либо sync когда-то запускали не от `plaud`. Пользователь `plaud` читает `session.json`, но не может создавать в каталоге `sync.lock` и `sync-index.json`.
-
-### Пошагово
-
-1. Подключитесь к серверу по SSH.
-
-2. Проверьте владельца каталога и файлов:
-
-   ```bash
-   ls -la /srv/plaud-exporter/server/.data
-   ```
-
-   Ожидается: каталог `drwx------ plaud plaud`, `session.json` — `-rw------- plaud plaud`.  
-   Если у `.data` владелец `root` — это и есть ошибка.
-
-3. Исправьте права на служебный каталог:
-
-   ```bash
-   sudo chown -R plaud:plaud /srv/plaud-exporter/server/.data
-   sudo chmod 700 /srv/plaud-exporter/server/.data
-   sudo chmod 600 /srv/plaud-exporter/server/.data/session.json
-   ```
-
-4. Удалите зависший lock, если он остался от запуска под root:
-
-   ```bash
-   sudo rm -f /srv/plaud-exporter/server/.data/sync.lock
-   ```
-
-5. Убедитесь, что каталог выгрузки тоже доступен `plaud`:
-
-   ```bash
-   sudo chown -R plaud:plaud /srv/plaud-exporter/exports
-   ls -la /srv/plaud-exporter/exports
-   ```
-
-6. Повторите проверку **только от пользователя plaud** (не `npm run server:sync` от root):
-
-   ```bash
-   sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
-   sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:sync'
-   ```
-
-7. После успешного sync снова посмотрите `.data` — должны появиться `sync-index.json` и при необходимости `sync.lock` (кратко на время sync), все с владельцем `plaud`:
-
-   ```bash
-   ls -la /srv/plaud-exporter/server/.data
-   ```
-
-**Чтобы не повторилось:** на сервере `git`, `npm`, `server:sync` — только `sudo -u plaud …`. Не запускайте sync в `/srv/plaud-exporter` от root. При переносе сессии с Mac — `chown -R plaud:plaud` на весь `server/.data`, см. [getting-started.md](getting-started.md).
-
-## Файлы не появляются
+**Cause:** `server/.data` owned by root.
 
 ```bash
-npm run server:status    # session.present, exportRoot
+sudo chown -R plaud:plaud /srv/plaud-exporter/server/.data
+sudo chmod 700 /srv/plaud-exporter/server/.data
+sudo rm -f /srv/plaud-exporter/server/.data/sync.lock
+sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:sync'
 ```
 
-Права на `PLAUD_EXPORT_ROOT` у пользователя `plaud`. Ошибки — в `_errors/`.
+Always run sync as `plaud`, not root.
 
-## Sync уже идёт (exit code 4)
+## Sync already running (exit code 4)
 
-Не запускайте `server:sync` вручную одновременно с systemd timer. Подождите или проверьте `server/.data/sync.lock`.
+Another `server:sync` holds `sync.lock`. Wait for timer, or remove stale lock if process died:
 
-## `npm: command not found` на сервере
+```bash
+sudo rm -f /srv/plaud-exporter/server/.data/sync.lock
+```
+
+Lock auto-expires after 2 hours or if PID is dead.
+
+## `npm: command not found`
 
 ```bash
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 ```
 
-## `dubious ownership` в git
+## `dubious ownership` in git
 
-Команды только от `plaud`: `sudo -u plaud git -C /srv/plaud-exporter …`. При необходимости: `sudo chown -R plaud:plaud /srv/plaud-exporter`.
+```bash
+sudo chown -R plaud:plaud /srv/plaud-exporter
+sudo -u plaud git -C /srv/plaud-exporter status
+```
