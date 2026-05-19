@@ -191,6 +191,9 @@ sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:sync'
 
 ```env
 TELEGRAM_BOT_TOKEN=123456:ABC-your-bot-token
+# Стабильный user_id владельца (узнать у @userinfobot). Рекомендуется задать.
+TELEGRAM_ALLOWED_USER_ID=123456789
+# Опционально как дополнительная проверка поверх id.
 TELEGRAM_ALLOWED_USERNAME=your_username
 BOT_SYNC_INTERVAL_MIN=120
 BOT_LONG_POLL_SEC=30
@@ -218,6 +221,8 @@ systemctl --no-pager status plaud-exporter.service   # Active: active (running)
 Если `npm run | grep server:bot` ничего не вывел — на сервере устаревший клон. Сначала `git pull` (см. «Обновление кода» ниже) или запушьте новые правки с Mac.
 
 После старта отправьте боту `/start` с разрешённого аккаунта — он сохранит `chatId` в `server/.data/owner-chat.json` (`0o600`) и пойдёт по расписанию.
+
+В меню **📁 Файлы → 🌳 Дерево синка** можно открыть папку и посмотреть пронумерованный список записей; цифрой в чат (1–20 на странице) бот пришлёт уже синхронизированный `.md` как документ. Подробнее — [server/README.md](../server/README.md#telegram-бот).
 
 Логи: `journalctl -u plaud-exporter.service -n 50` и `/var/log/plaud-exporter/bot.log`. Sync-логи one-shot'а (`plaud-exporter-sync.service`, бэкап-раннер) — `/var/log/plaud-exporter/sync.log`. Детально — в [server-deploy.md](./server-deploy.md).
 

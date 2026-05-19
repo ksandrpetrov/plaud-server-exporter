@@ -12,7 +12,14 @@ import {
   filesTreeRootHtml,
   formatBytes,
   parseFilesTreeFolderCallback,
+  parseTreeFilePickNumber,
+  treeListNumberPrefix,
 } from "../src/telegram/messages.js";
+import {
+  _resetTreeBrowseStateForTests,
+  setTreeBrowseState,
+  treeBrowseItemAtPick,
+} from "../src/telegram/treeBrowseState.js";
 import {
   buildFilesTreeFolderKeyboard,
   buildFilesTreeRootKeyboard,
@@ -227,6 +234,54 @@ test("buildSyncIndexFolderPage paginates files inside one folder", () => {
   assert.match(filesTreeFolderHtml(page1), /стр\. 1 из 3/);
   assert.match(filesTreeFolderHtml(page1), /ещё 15/);
   assert.doesNotMatch(filesTreeFolderHtml(page3), /ещё \d+/);
+
+  const html1 = filesTreeFolderHtml(page1);
+  assert.match(html1, /:one: .+ \[ok\]/);
+  assert.match(html1, /:ten: .+ \[ok\]/);
+  assert.doesNotMatch(html1, /  • /);
+});
+
+test("treeListNumberPrefix and parseTreeFilePickNumber", () => {
+  assert.equal(treeListNumberPrefix(1), ":one:");
+  assert.equal(treeListNumberPrefix(2), ":two:");
+  assert.equal(treeListNumberPrefix(10), ":ten:");
+  assert.equal(treeListNumberPrefix(20), ":twenty:");
+  assert.equal(treeListNumberPrefix(21), "21.");
+
+  assert.equal(parseTreeFilePickNumber("1"), 1);
+  assert.equal(parseTreeFilePickNumber("  3  "), null);
+  assert.equal(parseTreeFilePickNumber("3"), 3);
+  assert.equal(parseTreeFilePickNumber("abc"), null);
+  assert.equal(parseTreeFilePickNumber("1 extra"), null);
+});
+
+test("treeBrowseItemAtPick resolves item by 1-based index on current page", () => {
+  _resetTreeBrowseStateForTests();
+  const items = [
+    {
+      title: "First",
+      summaryPath: "/vault/a.md",
+      date: "2026-01-01",
+      status: "success",
+      lastSyncedAt: "",
+      folder: "Work",
+      stableId: "plaud:1",
+    },
+    {
+      title: "Second",
+      summaryPath: "/vault/b.md",
+      date: "2026-01-02",
+      status: "success",
+      lastSyncedAt: "",
+      folder: "Work",
+      stableId: "plaud:2",
+    },
+  ];
+  setTreeBrowseState(42, { folderIndex: 0, page: 1, items });
+  assert.equal(treeBrowseItemAtPick({ items }, 1)?.summaryPath, "/vault/a.md");
+  assert.equal(treeBrowseItemAtPick({ items }, 2)?.title, "Second");
+  assert.equal(treeBrowseItemAtPick({ items }, 3), null);
+  _resetTreeBrowseStateForTests();
 });
 
 test("buildSyncIndexFolderPage resolves folder by name and by index equivalently", () => {

@@ -76,14 +76,14 @@ No database, queue, or HTTP server — CLI and files only.
 - Dedup: `stableId` primary, `fingerprint` secondary (`syncCore.js`).
 - **Unchanged summary:** skip write.
 - **Content change:** update file.
-- **Title-only change:** rename/move on disk (`metadataOnly`).
+- **Metadata-only change** (title, filename, `folderSegment`): rename/move on disk (`metadataOnly`, no API re-download).
 - **User deleted `.md`:** restore on next sync if hash unchanged.
 - **Same title, different ids:** distinct files (collision suffix).
 - **Lock:** `sync.lock` via `O_EXCL`; stale >2h or dead pid removed.
 
 ## Tests coverage
 
-**67 server tests** (`npm test`), **14 extension tests** (`npm run test:submodule`):
+**127 server tests** (`npm test`), **15 extension tests** (`npm run test:submodule`):
 
 | Area | Coverage |
 |------|----------|

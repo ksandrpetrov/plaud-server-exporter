@@ -35,6 +35,7 @@ const MENU_COMMANDS = [
 export async function runBot() {
   const token = config.telegramBotToken;
   const allowedUsername = config.telegramAllowedUsername;
+  const allowedUserId = config.telegramAllowedUserId;
 
   if (!token) {
     logger.error(
@@ -42,11 +43,18 @@ export async function runBot() {
     );
     return 2;
   }
-  if (!allowedUsername) {
+  if (!allowedUsername && !allowedUserId) {
     logger.error(
-      "Telegram bot misconfigured: TELEGRAM_ALLOWED_USERNAME is empty. Set it in .env."
+      "Telegram bot misconfigured: set TELEGRAM_ALLOWED_USER_ID (recommended) and/or TELEGRAM_ALLOWED_USERNAME in .env."
     );
     return 2;
+  }
+  if (!allowedUserId) {
+    logger.warn(
+      "TELEGRAM_ALLOWED_USER_ID is not set — falling back to username-only auth. " +
+        "Telegram usernames can be released and re-claimed by other accounts; " +
+        "add TELEGRAM_ALLOWED_USER_ID to .env for a stable identity check."
+    );
   }
 
   const telegram = new TelegramClient(token);
@@ -94,6 +102,7 @@ export async function runBot() {
   const loop = new TelegramBotLoop({
     telegram,
     allowedUsername,
+    allowedUserId,
     longPollSec: config.botLongPollSec,
     runManualSync,
     scheduler,

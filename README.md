@@ -65,8 +65,8 @@ npm run server:bot       # Telegram-бот (VPS / локальная прове�
 
 ```bash
 npm install --workspaces
-npm test                 # server/tests (97 тестов)
-npm run test:submodule   # plaud-exporter/tests (14 тестов)
+npm test                 # server/tests (127 тестов)
+npm run test:submodule   # plaud-exporter/tests (15 тестов)
 npm run lint
 npm run verify           # импорты server → plaud-exporter/common/*
 ```

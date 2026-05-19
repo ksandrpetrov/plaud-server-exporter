@@ -98,6 +98,12 @@ const staticConfig = {
     const raw = (process.env.TELEGRAM_ALLOWED_USERNAME || "").trim();
     return raw.replace(/^@/, "").toLowerCase();
   },
+  get telegramAllowedUserId() {
+    const raw = (process.env.TELEGRAM_ALLOWED_USER_ID || "").trim();
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isInteger(n) && n > 0 ? n : null;
+  },
   get botSyncIntervalMin() {
     return asInt(process.env.BOT_SYNC_INTERVAL_MIN, 120);
   },

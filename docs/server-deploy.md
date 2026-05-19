@@ -105,10 +105,16 @@ sudo /srv/plaud-exporter/scripts/server-as-plaud.sh npm run server:sync
 
 ```env
 TELEGRAM_BOT_TOKEN=123456:ABC-your-bot-token
+# Числовой user_id владельца (стабилен, не меняется при ребрендинге username).
+# Получить можно у @userinfobot или из getUpdates после первого /start.
+TELEGRAM_ALLOWED_USER_ID=123456789
+# Опционально: username владельца без @ (доп. проверка поверх id).
 TELEGRAM_ALLOWED_USERNAME=your_username
 BOT_SYNC_INTERVAL_MIN=120
 BOT_LONG_POLL_SEC=30
 ```
+
+> Авторизация бота построена на трёх слоях: `chat.type === "private"`, совпадение `from.id` с `TELEGRAM_ALLOWED_USER_ID` и совпадение `from.username` с `TELEGRAM_ALLOWED_USERNAME` (если задан). Все три должны пройти, иначе апдейт молча отбрасывается — посторонние не видят даже подсказки «бот приватный». Подробности — в [security.md](./security.md#доступ-к-telegram-боту).
 
 > Если на сервере раньше стоял старый `plaud-exporter.service` (oneshot `server:sync`) и `plaud-exporter.timer`, сначала уберите их, иначе `cp` поверх существующего unit'а ничего не починит без `daemon-reload`/`disable`:
 >
@@ -135,7 +141,7 @@ systemctl --no-pager status plaud-exporter.service      # Active: active (runnin
 tail -n 50 /var/log/plaud-exporter/bot.log
 ```
 
-После первого запуска отправьте боту `/start` с разрешённого аккаунта (`TELEGRAM_ALLOWED_USERNAME`) — он запомнит `chatId` в `server/.data/owner-chat.json` (`0o600`) и начнёт слать отбивки.
+После первого запуска отправьте боту `/start` **в личном чате** с разрешённого аккаунта (`TELEGRAM_ALLOWED_USER_ID` / `TELEGRAM_ALLOWED_USERNAME`) — он запомнит `chatId` в `server/.data/owner-chat.json` (`0o600`) и начнёт слать отбивки. После первой записи файл пиннится к этому `chatId`: повторный `/start` из другого чата отвергается и логируется как warning (см. [security.md](./security.md#доступ-к-telegram-боту)).
 
 Сервис запускает `npm run server:bot` от пользователя `plaud`. Бот:
 

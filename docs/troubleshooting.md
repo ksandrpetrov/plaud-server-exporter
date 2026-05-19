@@ -132,18 +132,20 @@ sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
 journalctl -u plaud-exporter.service -n 30 --no-pager
 ```
 
-Нужны `TELEGRAM_BOT_TOKEN` и `TELEGRAM_ALLOWED_USERNAME`. Без токена `server:bot` завершается с кодом `2`.
+Нужны `TELEGRAM_BOT_TOKEN` и хотя бы одно из `TELEGRAM_ALLOWED_USER_ID` / `TELEGRAM_ALLOWED_USERNAME`. Без них `server:bot` завершается с кодом `2`. Если задан только username — будет warning «add TELEGRAM_ALLOWED_USER_ID», бот при этом стартует.
 
 ### Бот молчит после `/start`
 
-1. Username в `.env` — **без `@**, lowercase, тот же, что в Telegram.
-2. Проверьте, что сервис running: `systemctl status plaud-exporter.service`.
-3. После первого `/start` должен появиться `server/.data/owner-chat.json` (`0o600`). Если файла нет — смотрите `bot.log` на ошибки API Telegram.
-4. Перепривязка: [server-deploy.md](./server-deploy.md#сброс-owner-chat).
+1. `/start` отправлен **в личном чате** с ботом, не в группе (групповые чаты бот игнорирует молча).
+2. `TELEGRAM_ALLOWED_USER_ID` в `.env` совпадает с вашим Telegram user_id (узнать через `@userinfobot`).
+3. Username в `.env` — **без `@`**, lowercase, тот же, что в Telegram (если задан).
+4. Сервис running: `systemctl status plaud-exporter.service`.
+5. После первого `/start` должен появиться `server/.data/owner-chat.json` (`0o600`). Если файла нет — смотрите `bot.log` на ошибки API Telegram или строки `Silently ignored …` (увидите, кто и почему был отброшен).
+6. Перепривязка: [server-deploy.md](./server-deploy.md#сброс-owner-chat).
 
 ### Кнопки sync не работают / «чужой» бот
 
-Только аккаунт из `TELEGRAM_ALLOWED_USERNAME` может запускать синк и менять расписание. Остальные callback'и игнорируются.
+Команды и callback’и принимаются только при совпадении `chat.type === "private"`, `from.id === TELEGRAM_ALLOWED_USER_ID` и (если задано) `from.username === TELEGRAM_ALLOWED_USERNAME`. Остальные апдейты молча отбрасываются — в `bot.log` будет `Silently ignored …` с причиной.
 
 ### Старый `plaud-exporter.timer` всё ещё запускает sync
 

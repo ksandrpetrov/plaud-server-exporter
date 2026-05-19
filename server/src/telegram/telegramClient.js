@@ -14,6 +14,8 @@
  *   URL before the error reaches a logger.
  */
 
+import { readFile } from "node:fs/promises";
+import { basename } from "node:path";
 import { Agent } from "node:https";
 
 const TELEGRAM_API = "https://api.telegram.org";
@@ -185,6 +187,32 @@ export class TelegramClient {
   /**
    * @param {{ chatId: number | string; action?: string }} params
    */
+  /**
+   * Sends a file as a Telegram document (e.g. vault .md unchanged).
+   *
+   * @param {{
+   *   chatId: number | string;
+   *   documentPath: string;
+   *   caption?: string | null;
+   * }} params
+   */
+  async sendDocument(params) {
+    const path = String(params.documentPath || "");
+    if (!path) {
+      throw new TelegramError("sendDocument: documentPath is required");
+    }
+    const buf = await readFile(path);
+    const form = new FormData();
+    form.append("chat_id", String(params.chatId));
+    form.append("document", new Blob([buf]), basename(path));
+    if (params.caption) form.append("caption", params.caption);
+    return this._callMultipart("sendDocument", {
+      form,
+      timeoutMs: SEND_MESSAGE_TIMEOUT_MS,
+      maxRetries: SEND_MESSAGE_MAX_RETRIES,
+    });
+  }
+
   async sendChatAction(params) {
     const data = {
       chat_id: params.chatId,
@@ -228,6 +256,65 @@ export class TelegramClient {
   }
 
   // --- internals ---------------------------------------------------------
+
+  async _callMultipart(methodName, { form, timeoutMs, maxRetries }) {
+    const url = `${this._baseUrl}/${methodName}`;
+    const effectiveTimeout = timeoutMs || this._requestTimeoutMs;
+    const effectiveMaxRetries = Math.max(0, maxRetries ?? this._maxRetries);
+
+    let attempt = 0;
+    while (true) {
+      attempt++;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), effectiveTimeout);
+      let response;
+      try {
+        response = await this._fetch(url, {
+          method: "POST",
+          body: form,
+          signal: controller.signal,
+          agent: this._defaultAgent,
+        });
+      } catch (err) {
+        clearTimeout(timer);
+        const safeError = this.sanitize(String(err?.message || err));
+        if (attempt > effectiveMaxRetries) {
+          throw new TelegramError(
+            `${methodName}: network error after ${effectiveMaxRetries} retries: ${safeError}`
+          );
+        }
+        const wait = this._computeBackoffMs(attempt);
+        await this._sleep(wait);
+        continue;
+      } finally {
+        clearTimeout(timer);
+      }
+
+      const parsed = await this._parseResponse(response, methodName);
+      if (parsed.kind === "ok") return parsed.result;
+      if (parsed.kind === "rate_limited") {
+        if (attempt > effectiveMaxRetries) {
+          throw new TelegramError(
+            `${methodName}: still rate-limited after ${effectiveMaxRetries} retries`
+          );
+        }
+        await this._sleep(parsed.waitMs);
+        continue;
+      }
+      if (parsed.kind === "retryable") {
+        if (attempt > effectiveMaxRetries) {
+          throw new TelegramError(
+            `${methodName}: HTTP ${parsed.status} after ${effectiveMaxRetries} retries`
+          );
+        }
+        await this._sleep(this._computeBackoffMs(attempt));
+        continue;
+      }
+      throw new TelegramError(
+        `${methodName}: HTTP ${parsed.status}: ${this.sanitize(parsed.bodySnippet)}`
+      );
+    }
+  }
 
   async _call(methodName, { data, timeoutMs, maxRetries }) {
     const url = `${this._baseUrl}/${methodName}`;

@@ -33,6 +33,8 @@ const YEAR_ONLY_SEGMENT_RE = /^\d{4}$/;
  *   status: string;
  *   lastSyncedAt: string;
  *   folder: string;
+ *   stableId: string;
+ *   summaryPath: string;
  * }} TreeItem
  */
 
@@ -177,7 +179,15 @@ function recordToTreeItem(record, ctx) {
     "Без названия";
   const status = String(record.status || "");
   const folder = folderLabelFromRecord(record, ctx);
-  return { date, title, status, lastSyncedAt, folder };
+  return {
+    date,
+    title,
+    status,
+    lastSyncedAt,
+    folder,
+    stableId: String(record.stableId || ""),
+    summaryPath: String(record.summaryPath || ""),
+  };
 }
 
 /**

@@ -9,7 +9,7 @@
 - **Stable filenames.** `YYYY-MM-DD - {meeting title}.md` with sanitize, grapheme-safe truncation (242-char budget), collision suffixes, Windows reserved-name handling.
 - **Error visibility.** Failures create redacted reports in `{export}/_errors/`; `plaud_changed` uses exit code 3.
 - **Reliable sync.** Hash-based skip/update, rename-on-title-change, restore manually deleted files, `sync.lock` for concurrent runs (exit 4).
-- **Tests.** 67 server + 14 extension tests; all green with `npm test`, `npm run lint`, `npm run verify`.
+- **Tests.** 127 server + 15 extension tests; all green with `npm test`, `npm run lint`, `npm run verify`.
 
 ## Files changed
 
@@ -59,10 +59,10 @@ On server: copy `session.json` from Mac, run `npm run server:sync` as user `plau
 ## How to test
 
 ```bash
-npm test                 # 67 server tests
+npm test                 # 127 server tests
 npm run lint
 npm run verify
-npm run test:submodule   # 14 extension tests
+npm run test:submodule   # 15 extension tests
 ```
 
 ## How to deploy

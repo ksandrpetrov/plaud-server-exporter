@@ -67,6 +67,7 @@ export const BOT_WELCOME_HTML =
   "Что умею:\n" +
   "🔄 запустить синк по кнопке\n" +
   "📊 показать статус последнего синка\n" +
+  "📁 открыть дерево синка и скачать .md по номеру в чате\n" +
   "⚙️ настроить интервал автоматического запуска\n\n" +
   "Команды:\n" +
   "/menu — главное меню\n" +
@@ -82,7 +83,10 @@ export const BOT_HELP_HTML =
   "Через /menu доступно:\n" +
   "🔄 запуск синка вручную\n" +
   "📊 статус последнего синка\n" +
-  "⚙️ настройки расписания (интервал автозапуска)";
+  "📁 файлы: дерево синка и сводка vault\n" +
+  "⚙️ настройки расписания (интервал автозапуска)\n\n" +
+  "В <b>Дереве синка</b> открой папку — у записей будут номера. " +
+  "Отправь цифру (1–20 на странице), чтобы получить .md, если он уже на сервере.";
 
 export const BOT_PRIVATE_HINT =
   "🛰 Этот бот приватный. Команды доступны только владельцу.";
@@ -334,6 +338,74 @@ export function filesMenuHtml() {
   return FILES_MENU_HEADER;
 }
 
+/** Slack-style `:one:` … `:twenty:` prefixes for numbered tree lines (Telegram). */
+const TREE_LIST_NUMBER_EMOJI = [
+  "",
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve",
+  "thirteen",
+  "fourteen",
+  "fifteen",
+  "sixteen",
+  "seventeen",
+  "eighteen",
+  "nineteen",
+  "twenty",
+];
+
+/**
+ * @param {number} n 1-based index on the current tree page
+ * @returns {string}
+ */
+export function treeListNumberPrefix(n) {
+  const i = Math.floor(Number(n) || 0);
+  if (i < 1) return "";
+  if (i < TREE_LIST_NUMBER_EMOJI.length) {
+    return `:${TREE_LIST_NUMBER_EMOJI[i]}:`;
+  }
+  return `${i}.`;
+}
+
+/**
+ * @param {string} text
+ * @returns {number | null} 1-based pick when the message is only digits
+ */
+export function parseTreeFilePickNumber(text) {
+  const s = String(text || "");
+  const m = /^(\d+)$/.exec(s);
+  if (!m) return null;
+  const n = Number.parseInt(m[1], 10);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return n;
+}
+
+export const TREE_FILE_PICK_NO_CONTEXT_HTML =
+  "🌳 Сначала открой папку в <b>Дереве синка</b> и посмотри список с номерами.";
+
+/**
+ * @param {number} pick
+ * @param {number} shown
+ */
+export function treeFilePickOutOfRangeHtml(pick, shown) {
+  return `🌳 Нет файла №${pick} на этой странице (показано ${shown}).`;
+}
+
+export const TREE_FILE_PICK_NOT_SYNCED_HTML =
+  "🌳 Эта запись ещё не синхронизирована — файла на диске нет.";
+
+export const TREE_FILE_PICK_MISSING_ON_DISK_HTML =
+  "🌳 Файл не найден на сервере. Запусти синк через 🔄.";
+
 /**
  * Root view of the tree: folder list with counts. Each folder is rendered as
  * a `📁 <name> — N записей` line; the navigation buttons (one per folder) are
@@ -385,11 +457,14 @@ export function filesTreeFolderHtml(folderPage) {
     "",
   ];
 
+  let lineNum = 0;
   for (const item of folderPage.items || []) {
+    lineNum += 1;
     const status = escapeHtml(describeRecordStatus(item.status));
     const date = escapeHtml(item.date);
     const title = escapeHtml(item.title);
-    lines.push(`  • ${date} — ${title} [${status}]`);
+    const prefix = treeListNumberPrefix(lineNum);
+    lines.push(`${prefix} ${date} — ${title} [${status}]`);
   }
 
   const startIdx = (curPage - 1) * pageSize;

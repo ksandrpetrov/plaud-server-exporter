@@ -32,6 +32,7 @@ const CALLBACK_DEDUP_TTL_MS = 5 * 60 * 1000;
  * @typedef {{
  *   telegram: import("./telegramClient.js").TelegramClient;
  *   allowedUsername: string;
+ *   allowedUserId: number | null;
  *   longPollSec: number;
  *   runManualSync: (params: { chatId: number; loadingMessageId: number | null }) => Promise<unknown>;
  *   scheduler?: { start: () => void; stop: () => void };
@@ -64,6 +65,7 @@ export class TelegramBotLoop {
     logger.info("Telegram bot started", {
       longPollSec: this._deps.longPollSec,
       allowedUsername: this._deps.allowedUsername || "(unset)",
+      allowedUserId: this._deps.allowedUserId ?? null,
     });
 
     let backoffMs = ERROR_BACKOFF_INITIAL_MS;
@@ -174,6 +176,7 @@ export class TelegramBotLoop {
     return {
       telegram: this._deps.telegram,
       allowedUsername: this._deps.allowedUsername,
+      allowedUserId: this._deps.allowedUserId ?? null,
       runManualSync: this._deps.runManualSync,
     };
   }

@@ -133,8 +133,9 @@ file-id: <id>                    (только на /ai/query_note)
 
 Из `plaud-exporter/common/` напрямую:
 
-- `syncCore.js` — stable id, отпечатки, решения sync, нормализация индекса, пути
-  артефактов.
+- `syncCore.js` — stable id, отпечатки, `folderSegment`, решения sync
+  (в т.ч. `metadata_only` при смене папки/имени без нового хеша), нормализация
+  индекса, пути артефактов.
 - `exportPathUtils.js` — безопасные имена, заголовки из markdown.
 
 Портировать в `server/src/plaud/` один в один по смыслу:
