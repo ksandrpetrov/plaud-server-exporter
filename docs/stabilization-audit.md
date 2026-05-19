@@ -1,139 +1,140 @@
-# Plaud Exporter Stabilization Audit
+# Аудит стабилизации Plaud Exporter
 
-> Technical audit (2026-05-18). Day-to-day ops: [getting-started.md](./getting-started.md).
+> Технический аудит от 2026-05-18. Повседневные операции: [getting-started.md](./getting-started.md). Деплой и обновление сервера: [server-deploy.md](./server-deploy.md).
 
-## Current architecture
+## Текущая архитектура
 
-- **Root repo** `plaud-server-exporter`: Node 20+ CLI (`server:auth`, `server:sync`, `server:status`, `logout`).
-- **Submodule** `plaud-exporter/`: Chrome extension + shared `common/syncCore.js`, `common/exportPathUtils.js`.
-- **Server** `server/src/`: Playwright auth, session snapshot, Plaud API client, sync runner, Obsidian writer, filename planner, error reporter, JSON sync-index, run lock.
+- **Корневой репозиторий** `plaud-server-exporter`: Node 20+ CLI (`server:auth`, `server:sync`, `server:status`, `logout`).
+- **Директория расширения** `plaud-exporter/`: Chrome extension и общий код `common/syncCore.js`, `common/exportPathUtils.js`.
+- **Сервер** `server/src/`: Playwright auth, снимок сессии, Plaud API client, sync runner, Obsidian writer, filename planner, error reporter, JSON sync-index, run lock.
 
-No database, queue, or HTTP server — CLI and files only.
+Базы данных, очереди и HTTP-сервера нет: только CLI и файлы.
 
-**Target server:** Ubuntu 22.04 VPS (~1 vCPU / 1 GB RAM). Playwright auth on Mac only; `session.json` copied via `scp`.
+Целевой production-сервер: Ubuntu 22.04 VPS, около 1 vCPU / 1 GB RAM. Playwright auth запускается на Mac, `session.json` копируется на сервер через `scp`.
 
-## Current sync flow
+## Текущий поток sync
 
-1. Load `server/.data/session.json` → `PlaudSession`.
-2. Acquire `sync.lock` (skipped in dry-run).
-3. `listAllRecordings` → paginated `/file/simple/web`.
-4. Per recording: `fetchSummaries` (`/ai/query_note`), build stable id + summary hash.
-5. `determineSyncAction` against `sync-index.json`.
-6. Write clean Markdown under `{vault}/Plaud/{YYYY}/` (optional folder segment from Plaud tags).
-7. Atomic `saveSyncIndex`; write `status.json`.
-8. Exit `3` if any `plaud_changed`; exit `1` on per-file errors; exit `4` on lock conflict.
+1. Загрузить `server/.data/session.json` и собрать `PlaudSession`.
+2. Взять `sync.lock`; в dry-run lock не нужен.
+3. Получить записи через `listAllRecordings`, paginated `/file/simple/web`.
+4. Для каждой записи получить summary через `/ai/query_note`, собрать stable id и summary hash.
+5. Принять решение через `determineSyncAction` по `sync-index.json`.
+6. Записать чистый Markdown в `{vault}/Plaud/{folder}/{YYYY}/`.
+7. Атомарно сохранить `sync-index.json` и записать `status.json`.
+8. Вернуть exit `3` при `plaud_changed`, exit `1` при per-file ошибках, exit `4` при занятом lock.
 
-## Auth/session flow
+## Поток auth/session
 
-- **Interactive:** Playwright → `web.plaud.ai` → snapshot `localStorage` + cookies → `session.json` (`chmod 600`).
-- **Profile:** `server/.data/playwright-profile/` (gitignored).
-- **API client:** `Authorization`, `workspace-id`, region redirect on `-302`, retries except 401/403.
-- **`server:status`:** JSON with session *presence* only (no token values).
-- **Expiry:** `PlaudAuthError` → `_errors/auth_error*.md`, exit `2`; re-run `server:auth` on Mac and `scp`.
+- **Интерактивный вход:** Playwright → `web.plaud.ai` → снимок `localStorage` + cookies → `session.json` (`chmod 600`).
+- **Профиль браузера:** `server/.data/playwright-profile/`, находится в `.gitignore`.
+- **API client:** `Authorization`, `workspace-id`, смена региона при `-302`, retry кроме 401/403.
+- **`server:status`:** показывает наличие сессии без token values.
+- **Истечение сессии:** `PlaudAuthError` → `_errors/auth_error*.md`, exit `2`; нужно заново выполнить `server:auth` на Mac и скопировать `session.json`.
 
-## Summary export flow
+## Поток выгрузки summary
 
-- Notes from `/ai/query_note` (`summary`, `auto_sum_note`, `sum_multi_note`).
-- **`.md` content:** summary body only — no YAML frontmatter, no exporter debug fields.
-- Duplicate leading `# Title` stripped when it matches the resolved meeting title.
-- **Metadata** (stable id, hash, paths, timestamps): `server/.data/sync-index.json` only.
+- Notes берутся из `/ai/query_note`: `summary`, `auto_sum_note`, `sum_multi_note`.
+- **Содержимое `.md`:** только тело summary; без YAML frontmatter, debug-полей и metadata exporter.
+- Дублирующий первый `# Title` удаляется, если совпадает с resolved meeting title.
+- **Metadata** (stable id, hash, paths, timestamps) живёт только в `server/.data/sync-index.json`.
 
-## Audio export status
+## Статус выгрузки audio
 
-- **Server exporter: summary-only only.** No `--audio-too`, no `PLAUD_EXPORT_AUDIO` env, no audio download in `runSync`.
-- `runSync` never calls `/file/temp-url` (covered by `syncAudioDefault.test.js`).
-- Helpers `writeAudioFile`, `planAudioPath`, `fetchAudioUrl` remain in codebase but are **not wired** to sync — intentional simplification; user requirement is no audio by default.
-- **Chrome extension** (`plaud-exporter/`) still has its own audio export; unchanged and tested via `npm run test:submodule`.
+- **Серверный exporter работает только в summary-only режиме.** Нет `--audio-too`, нет `PLAUD_EXPORT_AUDIO`, нет audio download в `runSync`.
+- `runSync` не вызывает `/file/temp-url`; это покрыто `syncAudioDefault.test.js`.
+- Helpers `writeAudioFile`, `planAudioPath`, `fetchAudioUrl` остаются в коде, но не подключены к sync. Это осознанное упрощение под основной сценарий.
+- Chrome-расширение в `plaud-exporter/` по-прежнему умеет экспортировать audio в браузере; серверная стабилизация его не ломает и проверяется через `npm run test:submodule`.
 
-## File naming logic
+## Логика имён файлов
 
-- **Module:** `server/src/sync/filenamePlanner.js` (+ shared `exportPathUtils.js`).
-- **Title resolution:** Plaud `file_name` → first non-boilerplate Markdown heading → `YYYY-MM-DD Plaud summary`.
-- **Boilerplate ignored:** `Plaud`, `Plaud Web`, `Untitled`, empty.
-- **Filename pattern:** `YYYY-MM-DD - {title}.md`, cross-platform sanitize, Windows reserved names escaped.
-- **Collisions:** short stable-id suffix via `collectOccupiedFilenames` / sync-index.
+- **Модуль:** `server/src/sync/filenamePlanner.js` плюс общий `exportPathUtils.js`.
+- **Источник title:** Plaud `file_name` → первый не boilerplate Markdown heading → `YYYY-MM-DD Plaud summary`.
+- **Boilerplate игнорируется:** `Plaud`, `Plaud Web`, `Untitled`, пустой title.
+- **Паттерн filename:** `YYYY-MM-DD - {title}.md`, cross-platform sanitize, reserved Windows names экранируются.
+- **Collision:** короткий suffix по stable id через `collectOccupiedFilenames` и sync-index.
 
-## Filename/path length handling
+## Ограничения длины filename/path
 
-- Path component limit 255 (Win/macOS/Linux) → **242** chars for filename incl. `.md` (~5% below 255).
-- Full path budget **240** chars (`MAX_FULL_PATH_LENGTH`) for conservative Windows MAX_PATH.
-- `planSummaryPath` shrinks title when vault prefix is long.
-- Truncation via `Intl.Segmenter` (grapheme-safe) when available.
+- Практический path component limit на Windows/macOS/Linux: 255. Выбран лимит **242** символа для filename с `.md`, примерно 5% запас.
+- Full path budget: **240** символов (`MAX_FULL_PATH_LENGTH`) как консервативный Windows MAX_PATH budget.
+- `planSummaryPath` уменьшает title budget, если vault path слишком длинный.
+- Обрезка идёт по grapheme через `Intl.Segmenter`, когда он доступен.
 
-## Error handling
+## Обработка ошибок
 
 - **`errorClassifier.js`:** `auth_error`, `plaud_changed`, `network_error`, `rate_limit`, `write_error`, `config_error`, `unknown_error`.
-- **`errorReporter.js`:** human Markdown in `{vault}/_errors/`, redaction, dedupe by `dedupe_key`.
-- **`PlaudChangedError`** on unexpected API list/summary shapes.
-- **Exit codes:** `0` ok, `1` generic, `2` auth, `3` plaud_changed, `4` lock held.
-- Dry-run logs errors but does not write `_errors/` files.
+- **`errorReporter.js`:** человекочитаемый Markdown в `{vault}/_errors/`, redaction, dedupe через `dedupe_key`.
+- **`PlaudChangedError`:** неожиданные формы list/summary API.
+- **Коды выхода:** `0` успех, `1` общая ошибка, `2` auth, `3` `plaud_changed`, `4` занят lock.
+- Dry-run логирует ошибки, но не создаёт `_errors/`.
 
-## Sync index behavior
+## Поведение sync-index
 
-- Path: `server/.data/sync-index.json`.
-- Atomic write: temp file + rename; `.bak` of previous version.
-- Corrupt JSON: recover from `.bak` or start empty.
-- Dedup: `stableId` primary, `fingerprint` secondary (`syncCore.js`).
-- **Unchanged summary:** skip write.
-- **Content change:** update file.
-- **Title-only change:** rename/move on disk (`metadataOnly`).
-- **User deleted `.md`:** restore on next sync if hash unchanged.
-- **Same title, different ids:** distinct files (collision suffix).
-- **Lock:** `sync.lock` via `O_EXCL`; stale >2h or dead pid removed.
+- Путь: `server/.data/sync-index.json`.
+- Запись: temp file + rename; `.bak` предыдущей валидной версии.
+- Повреждённый JSON: recovery из `.bak` или старт с пустого index.
+- Dedup: `stableId` основной, `fingerprint` дополнительный.
+- **Саммари не изменилось:** write пропускается.
+- **Content изменился:** файл обновляется.
+- **Изменился только title/path:** файл переименовывается/перемещается как metadata-only update.
+- **Пользователь удалил `.md`:** файл восстанавливается на следующем sync.
+- **Одинаковые title у разных встреч:** создаются разные файлы, без перетирания.
+- **Lock:** `sync.lock` через `O_EXCL`; stale lock снимается, если старше 2 часов или PID умер.
 
-## Tests coverage
+## Покрытие тестами
 
-**67 server tests** (`npm test`), **14 extension tests** (`npm run test:submodule`):
+Текущие проверки: **68 server tests** (`npm test`) и **15 extension tests** (`npm run test:submodule`).
 
-| Area | Coverage |
-|------|----------|
-| Naming | Plaud title, MD heading, boilerplate, forbidden chars, Windows reserved, long RU/EN, emoji, path budget, collisions |
-| Summary-only | Default `runSync` never hits `/file/temp-url` |
-| Sync integration | new / unchanged / updated / rename-only / duplicate titles / restore deleted file / skip bad id / dry-run |
-| Errors | auth + plaud_changed reports, redaction, dedupe, classifier kinds |
-| Lock | parallel run exit 4, dry-run bypass |
-| CLI subprocess | no session → 2, read-only export root |
+| Область | Покрытие |
+|---------|----------|
+| Naming | Plaud title, Markdown heading, boilerplate, запрещённые символы, Windows reserved, длинные RU/EN title, emoji, path budget, collisions |
+| Summary-only | Обычный `runSync` не вызывает `/file/temp-url` |
+| Интеграция sync | new / unchanged / updated / rename-only / duplicate titles / restore deleted file / skip bad id / dry-run |
+| Ошибки | auth + `plaud_changed` reports, redaction, dedupe, classifier kinds |
+| Lock | parallel run exit `4`, dry-run bypass |
+| CLI subprocess | no session → `2`, read-only export root |
 | Index | atomic save, `.bak`, load missing |
 | API client | headers, redirect, 401, shape errors |
 
-## Main risks
+## Основные риски
 
-| Risk | Impact |
-|------|--------|
-| Plaud API/DOM change | Sync fails; `plaud_changed` in `_errors/`, exit 3 |
-| Token expiry | Auth errors; `server:auth` + `scp` |
-| Lost sync-index | Re-export possible; unchanged content skipped by hash |
-| Concurrent sync (same host) | Exit 4; lock auto-expires |
-| Concurrent sync (NFS, two hosts) | Local lock only — single writer or one timer |
-| Identical titles, different meetings | Collision suffix — OK |
-| Deep `PLAUD_OBSIDIAN_VAULT_PATH` | Very short basenames |
-| 1 GB VPS | No Playwright on server; OOM on `npm install` without swap |
+| Риск | Последствие |
+|------|-------------|
+| Plaud изменил API/DOM | Sync падает явно: `plaud_changed` в `_errors/`, exit `3` |
+| Истёк token | Auth error; нужен `server:auth` на Mac и `scp session.json` |
+| Потерян sync-index | Возможна одноразовая повторная выгрузка; дальше hash снова защитит от дублей |
+| Параллельный sync на одном host | Второй запуск exit `4`, lock auto-expires |
+| Параллельный sync на shared storage с разных host | Локальный lock не защищает; нужен один writer |
+| Одинаковые названия разных встреч | Collision suffix, без перетирания |
+| Очень глубокий `PLAUD_OBSIDIAN_VAULT_PATH` | Basename станет короче |
+| VPS 1 GB RAM | Не запускать Playwright auth на сервере; при `npm install` может понадобиться swap |
 
-## Refactoring plan
+## План рефакторинга
 
-| # | Item | Status |
-|---|------|--------|
-| 1 | Summary-only default + test | ✅ |
-| 2 | Clean Markdown (metadata in index only) | ✅ |
-| 3 | Unified filename planner + path limits | ✅ |
-| 4 | Error reporter + classification + redaction | ✅ |
+| # | Пункт | Статус |
+|---|-------|--------|
+| 1 | Summary-only по умолчанию + тест | ✅ |
+| 2 | Чистый Markdown, metadata только в index | ✅ |
+| 3 | Единый filename planner + path limits | ✅ |
+| 4 | Error reporter, classification и redaction | ✅ |
 | 5 | Atomic sync-index + backup | ✅ |
-| 6 | Run lock + exit 4 | ✅ |
-| 7 | Remove server audio CLI/env (not needed) | ✅ |
-| 8 | Operational docs | ✅ (this pass) |
-| 9 | Chrome extension untouched | ✅ |
+| 6 | Run lock + exit `4` | ✅ |
+| 7 | Убрать server audio CLI/env как ненужные | ✅ |
+| 8 | Операционная документация | ✅ |
+| 9 | Chrome extension не сломан | ✅ |
+| 10 | Русификация docs + update/restart flow | ✅ |
 
-## Acceptance checklist
+## Чеклист приёмки
 
 - [x] `npm test`, `npm run lint`, `npm run verify`, `npm run test:submodule`
-- [x] Default export is summary-only; server never downloads audio
-- [x] Clean `.md` without exporter frontmatter
-- [x] Meeting title in filename (Plaud → heading → date fallback)
+- [x] Экспорт по умолчанию summary-only; сервер не скачивает audio
+- [x] Чистый `.md` без exporter frontmatter
+- [x] Название встречи в filename: Plaud → heading → date fallback
 - [x] Safe truncation, collisions, Windows reserved names, Unicode
-- [x] `_errors/*.md` with redaction and dedupe
-- [x] `plaud_changed` visible with exit 3
+- [x] `_errors/*.md` с redaction и dedupe
+- [x] `plaud_changed` виден явно, exit `3`
 - [x] Sync-index atomic + `.bak`
-- [x] Concurrent run blocked (exit 4)
-- [x] Dry-run: no writes, no audio API
+- [x] Параллельный запуск блокируется, exit `4`
+- [x] Dry-run: без файлов, без index update, без audio API
 - [x] Extension tests green
-- [x] README + deploy + security + troubleshooting documented
+- [x] README, deploy, security, troubleshooting и update/restart flow задокументированы

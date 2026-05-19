@@ -63,11 +63,8 @@ CLI выгружает **саммари** записей Plaud в Markdown дл�
 
 5. Положите сессию в каталог приложения и выставьте права:
    ```bash
-   sudo mkdir -p /srv/plaud-exporter/server/.data
-   sudo mv /tmp/session.json /srv/plaud-exporter/server/.data/session.json
-   sudo chown -R plaud:plaud /srv/plaud-exporter/server/.data
-   sudo chmod 700 /srv/plaud-exporter/server/.data
-   sudo chmod 600 /srv/plaud-exporter/server/.data/session.json
+   sudo install -d -o plaud -g plaud -m 700 /srv/plaud-exporter/server/.data
+   sudo install -o plaud -g plaud -m 600 /tmp/session.json /srv/plaud-exporter/server/.data/session.json
    ```
 6. Проверка от пользователя `plaud`:
    ```bash
@@ -98,7 +95,7 @@ CLI выгружает **саммари** записей Plaud в Markdown дл�
 ## Mac
 
 ```bash
-git clone --recurse-submodules https://github.com/ksandrpetrov/plaud-server-exporter.git
+git clone https://github.com/ksandrpetrov/plaud-server-exporter.git
 cd plaud-server-exporter
 npm install --workspaces
 npx playwright install chromium
@@ -129,7 +126,6 @@ sudo useradd --system --create-home --home-dir /srv/plaud-exporter --shell /usr/
 sudo mkdir -p /var/log/plaud-exporter && sudo chown plaud:plaud /var/log/plaud-exporter
 
 sudo -u plaud git clone https://github.com/ksandrpetrov/plaud-server-exporter.git /srv/plaud-exporter
-sudo -u plaud git -C /srv/plaud-exporter submodule update --init --recursive
 sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm install --workspaces'
 
 sudo -u plaud bash -lc 'cd /srv/plaud-exporter && cp .env.example .env && chmod 600 .env'
@@ -169,12 +165,8 @@ Permission denied не уходит — раздел «scp: Permission denied» 
 На сервере (под своим SSH-пользователем, через `sudo`):
 
 ```bash
-sudo mkdir -p /srv/plaud-exporter/server/.data
-sudo mv /tmp/session.json /srv/plaud-exporter/server/.data/session.json
-# Каталог .data тоже должен принадлежать plaud — иначе sync не создаст sync.lock
-sudo chown -R plaud:plaud /srv/plaud-exporter/server/.data
-sudo chmod 700 /srv/plaud-exporter/server/.data
-sudo chmod 600 /srv/plaud-exporter/server/.data/session.json
+sudo install -d -o plaud -g plaud -m 700 /srv/plaud-exporter/server/.data
+sudo install -o plaud -g plaud -m 600 /tmp/session.json /srv/plaud-exporter/server/.data/session.json
 ```
 
 ```bash
@@ -194,15 +186,36 @@ sudo cp /srv/plaud-exporter/deploy/logrotate/plaud-exporter /etc/logrotate.d/pla
 
 Логи: `journalctl -u plaud-exporter.service -n 50` и `/var/log/plaud-exporter/sync.log`.
 
-**Обновление кода:**
+**Обновление кода и перезапуск:**
 
 ```bash
-sudo -u plaud git -C /srv/plaud-exporter pull
-sudo -u plaud git -C /srv/plaud-exporter submodule update --init --recursive
+sudo systemctl stop plaud-exporter.timer
+sudo systemctl status plaud-exporter.service --no-pager
+sudo systemctl stop plaud-exporter.service
+sudo -u plaud git -C /srv/plaud-exporter status --short
+sudo -u plaud git -C /srv/plaud-exporter pull --ff-only
 sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm install --workspaces'
+sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm test'
+sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run lint'
+sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run verify'
+sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run test:submodule'
+sudo systemctl daemon-reload
+sudo systemctl start plaud-exporter.service
+sudo systemctl status plaud-exporter.service --no-pager
+journalctl -u plaud-exporter.service -n 100 --no-pager
+sudo systemctl enable --now plaud-exporter.timer
+systemctl list-timers plaud-exporter.timer --no-pager
 ```
 
-На сервере все `git`/`npm` — от пользователя `plaud` (`sudo -u plaud …`), путь `/srv/plaud-exporter`. Не запускайте `npm run server:auth` на сервере.
+Короткий вариант без обновления кода:
+
+```bash
+sudo systemctl restart plaud-exporter.service
+sudo systemctl status plaud-exporter.service --no-pager
+journalctl -u plaud-exporter.service -n 100 --no-pager
+```
+
+На сервере все `git`/`npm` — от пользователя `plaud` (`sudo -u plaud …`), путь `/srv/plaud-exporter`. Не запускайте `npm run server:auth` на сервере. Подробный flow: [server-deploy.md#обновление-кода-и-перезапуск](./server-deploy.md#обновление-кода-и-перезапуск).
 
 ---
 
