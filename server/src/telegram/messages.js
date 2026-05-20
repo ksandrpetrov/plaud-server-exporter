@@ -310,6 +310,37 @@ export function filesMenuHtml() {
   return FILES_MENU_HEADER;
 }
 
+const DIGIT_EMOJI = [
+  "0\uFE0F\u20E3",
+  "1\uFE0F\u20E3",
+  "2\uFE0F\u20E3",
+  "3\uFE0F\u20E3",
+  "4\uFE0F\u20E3",
+  "5\uFE0F\u20E3",
+  "6\uFE0F\u20E3",
+  "7\uFE0F\u20E3",
+  "8\uFE0F\u20E3",
+  "9\uFE0F\u20E3",
+];
+
+/**
+ * Render a non-negative integer using keycap digit emoji (e.g. 12 → "1️⃣2️⃣").
+ *
+ * Used for *displaying* file numbers to the user; input parsing intentionally
+ * still expects plain ASCII digits (see `parseTreeFilePickNumber`).
+ *
+ * @param {number} n
+ * @returns {string}
+ */
+export function formatNumberEmoji(n) {
+  const i = Math.floor(Number(n));
+  if (!Number.isFinite(i) || i < 0) return "";
+  return String(i)
+    .split("")
+    .map((d) => DIGIT_EMOJI[Number(d)] ?? d)
+    .join("");
+}
+
 /**
  * @param {number} n 1-based index on the current tree page
  * @returns {string}
@@ -317,7 +348,7 @@ export function filesMenuHtml() {
 export function treeListNumberPrefix(n) {
   const i = Math.floor(Number(n) || 0);
   if (i < 1) return "";
-  return `${i} -`;
+  return `${formatNumberEmoji(i)} -`;
 }
 
 /**
@@ -381,7 +412,7 @@ export const TREE_FILE_PICK_NO_CONTEXT_HTML =
  * @param {number} shown
  */
 export function treeFilePickOutOfRangeHtml(pick, shown) {
-  return `🌳 Нет файла №${pick} на этой странице (показано ${shown}).`;
+  return `🌳 Нет файла №${formatNumberEmoji(pick)} на этой странице (показано ${shown}).`;
 }
 
 /**

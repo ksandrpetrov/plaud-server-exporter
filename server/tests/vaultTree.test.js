@@ -11,6 +11,7 @@ import {
   filesTreeFolderHtml,
   filesTreeRootHtml,
   formatBytes,
+  formatNumberEmoji,
   formatTreeFolderItemLine,
   parseFilesTreeFolderCallback,
   parseTreeFilePickNumber,
@@ -238,8 +239,10 @@ test("buildSyncIndexFolderPage paginates files inside one folder", () => {
   assert.doesNotMatch(filesTreeFolderHtml(page3), /ещё \d+/);
 
   const html1 = filesTreeFolderHtml(page1);
-  assert.match(html1, /^1 - .+ \| .+$/m);
-  assert.match(html1, /^10 - .+ \| .+$/m);
+  const one = formatNumberEmoji(1);
+  const ten = formatNumberEmoji(10);
+  assert.match(html1, new RegExp(`^${one} - .+ \\| .+$`, "m"));
+  assert.match(html1, new RegExp(`^${ten} - .+ \\| .+$`, "m"));
   assert.doesNotMatch(html1, /\[ok\]/);
   assert.doesNotMatch(html1, /:one:|:ten:/);
   assert.doesNotMatch(html1, / {2}• /);
@@ -252,7 +255,7 @@ test("formatTreeFolderItemLine avoids duplicate date and uses pipe separator", (
       date: "2026-04-20",
       title: "2026-04-20 | SocServ | QA | Leads",
     }),
-    "1 - 2026-04-20 | SocServ | QA | Leads"
+    `${formatNumberEmoji(1)} - 2026-04-20 | SocServ | QA | Leads`
   );
   assert.equal(
     formatTreeFolderItemLine({
@@ -260,7 +263,7 @@ test("formatTreeFolderItemLine avoids duplicate date and uses pipe separator", (
       date: "2026-05-19",
       title: "2026-05-19 - Work standup",
     }),
-    "2 - 2026-05-19 | Work standup"
+    `${formatNumberEmoji(2)} - 2026-05-19 | Work standup`
   );
   assert.equal(
     formatTreeFolderItemLine({
@@ -268,7 +271,7 @@ test("formatTreeFolderItemLine avoids duplicate date and uses pipe separator", (
       date: "2026-05-19",
       title: "Work standup",
     }),
-    "3 - 2026-05-19 | Work standup"
+    `${formatNumberEmoji(3)} - 2026-05-19 | Work standup`
   );
   assert.equal(
     formatTreeFolderItemLine({
@@ -276,7 +279,7 @@ test("formatTreeFolderItemLine avoids duplicate date and uses pipe separator", (
       date: "2026-04-20",
       title: "2026-04-20",
     }),
-    "4 - 2026-04-20"
+    `${formatNumberEmoji(4)} - 2026-04-20`
   );
 });
 
@@ -289,19 +292,33 @@ test("stripLeadingDateFromTreeTitle", () => {
   assert.equal(stripLeadingDateFromTreeTitle("2026-04-20", "Standup"), "Standup");
 });
 
-test("treeListNumberPrefix and parseTreeFilePickNumber", () => {
-  assert.equal(treeListNumberPrefix(1), "1 -");
-  assert.equal(treeListNumberPrefix(2), "2 -");
-  assert.equal(treeListNumberPrefix(10), "10 -");
-  assert.equal(treeListNumberPrefix(20), "20 -");
-  assert.equal(treeListNumberPrefix(21), "21 -");
+test("formatNumberEmoji renders digits as keycap emoji", () => {
+  assert.equal(formatNumberEmoji(0), "0\uFE0F\u20E3");
+  assert.equal(formatNumberEmoji(7), "7\uFE0F\u20E3");
+  assert.equal(formatNumberEmoji(10), "1\uFE0F\u20E3" + "0\uFE0F\u20E3");
+  assert.equal(
+    formatNumberEmoji(123),
+    "1\uFE0F\u20E3" + "2\uFE0F\u20E3" + "3\uFE0F\u20E3"
+  );
+  assert.equal(formatNumberEmoji(-1), "");
+  assert.equal(formatNumberEmoji(Number.NaN), "");
+});
+
+test("treeListNumberPrefix uses emoji digits while input parsing stays ASCII", () => {
+  assert.equal(treeListNumberPrefix(1), `${formatNumberEmoji(1)} -`);
+  assert.equal(treeListNumberPrefix(2), `${formatNumberEmoji(2)} -`);
+  assert.equal(treeListNumberPrefix(10), `${formatNumberEmoji(10)} -`);
+  assert.equal(treeListNumberPrefix(20), `${formatNumberEmoji(20)} -`);
+  assert.equal(treeListNumberPrefix(21), `${formatNumberEmoji(21)} -`);
   assert.equal(treeListNumberPrefix(0), "");
 
+  // Input always expects plain ASCII digits, never keycap emoji.
   assert.equal(parseTreeFilePickNumber("1"), 1);
   assert.equal(parseTreeFilePickNumber("  3  "), null);
   assert.equal(parseTreeFilePickNumber("3"), 3);
   assert.equal(parseTreeFilePickNumber("abc"), null);
   assert.equal(parseTreeFilePickNumber("1 extra"), null);
+  assert.equal(parseTreeFilePickNumber(formatNumberEmoji(1)), null);
 });
 
 test("treeBrowseItemAtPick resolves item by 1-based index on current page", async () => {
