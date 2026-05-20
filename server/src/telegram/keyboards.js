@@ -23,9 +23,9 @@ import {
   CB_SETTINGS_INTERVAL_480,
   CB_SETTINGS_INTERVAL_60,
   CB_STATUS,
-  INTERVAL_PRESETS_MIN,
   filesTreeFolderCallback,
-} from "./messages.js";
+} from "./callbackData.js";
+import { INTERVAL_PRESETS_MIN } from "./botSettings.js";
 
 export function buildMainMenuKeyboard() {
   return {

@@ -1,0 +1,89 @@
+# AGENTS.md — карта репо для AI-агентов
+
+Цель: за 60 секунд понять, **что трогать** и **что не трогать** при изменениях. Подробности — в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Что это
+
+Монорепозиторий с двумя средами выполнения и одним общим контрактом:
+
+- `server/` — Node 20+ ESM CLI + Telegram-бот (long-polling). Точка входа: [`server/src/cli/index.js`](server/src/cli/index.js); бот: [`server/src/telegram/index.js`](server/src/telegram/index.js).
+- `plaud-exporter/` — Chrome MV3 расширение. **Не** git-submodule, вендорный код в монорепо. Точки входа: `background.js`, `content.js`, `popup/`.
+- `docs/`, `deploy/`, `scripts/` — документация, systemd, верификация.
+
+Сервер **не** качает аудио (только саммари). Расширение — качает и то и другое.
+
+## Shared контракт (только 3 файла)
+
+| Файл | Меняешь — обновляй |
+|------|--------------------|
+| [`plaud-exporter/common/syncCore.js`](plaud-exporter/common/syncCore.js) | Тесты в `plaud-exporter/tests/syncCore.test.js` **и** `server/tests/syncRunner*.test.js` |
+| [`plaud-exporter/common/exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) | `plaud-exporter/tests/exportPathUtils.test.js` + `server/tests/filenamePlanner.test.js` |
+| [`plaud-exporter/common/plaudFolders.js`](plaud-exporter/common/plaudFolders.js) | `plaud-exporter/tests/plaudFolders.test.js` + `server/tests/plaudFolders.test.js` |
+
+Список захардкожен в [`scripts/verify-submodule.js`](scripts/verify-submodule.js). `npm run verify` проверяет существование файлов и что все относительные импорты `server/src/...` резолвятся.
+
+Остальные `plaud-exporter/common/*` (`storageUtils.js`, `domUtils.js`, `uiComponents.js`, `plaud-i18n-messages.js`, `plaudRecordingIds.js`) — **только** для расширения, сервер их не трогает.
+
+## Команды (из корня)
+
+```bash
+npm test                 # server tests (node:test)
+npm run lint             # server eslint
+npm run verify           # shared common imports OK
+npm run test:submodule   # extension tests (alias: test:extension)
+npm run test:extension   # same
+```
+
+Extension отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`. CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) гоняет всё на Node 20 и 22.
+
+## Файлы, которые нельзя трогать целиком без плана
+
+> Размер > 1k LOC. Любые правки — точечно, маленькими PR, чтобы не съесть весь контекст агента.
+
+| Файл | LOC | Что в нём |
+|------|-----|-----------|
+| [`plaud-exporter/features/audioExport/audioExport.js`](plaud-exporter/features/audioExport/audioExport.js) | ~2.2k | Plaud HTTP в браузере + `runExportAll` + `runSmartSync` |
+| [`plaud-exporter/popup/popup.js`](plaud-exporter/popup/popup.js) | ~1.9k | Весь UI попапа и его состояние |
+| [`plaud-exporter/background.js`](plaud-exporter/background.js) | ~1.2k | MV3 service worker: downloads, оркестрация, keep-alive |
+
+Средние (500–600 LOC) тоже лучше править прицельно: [`server/src/telegram/messages.js`](server/src/telegram/messages.js), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js).
+
+## Где живёт что
+
+| Хочешь поменять | Иди сюда |
+|------------------|----------|
+| Решение sync (new / unchanged / metadata-only / re-download) | [`syncCore.js`](plaud-exporter/common/syncCore.js) + `serverSyncIndex.js` |
+| Имя файла, длина пути, санитизация | [`exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) + `filenamePlanner.js` |
+| Папки Plaud / Unfiled / Trash | [`plaudFolders.js`](plaud-exporter/common/plaudFolders.js) |
+| Новый Telegram callback / сообщение | `handlers.js` + `messages.js` + `keyboards.js` |
+| Новая CLI команда | [`server/src/cli/index.js`](server/src/cli/index.js) |
+| Новая env переменная | [`server/src/config/config.js`](server/src/config/config.js) + `.env.example` + `server/README.md` |
+| Классификация ошибки sync | [`errors/errorClassifier.js`](server/src/errors/errorClassifier.js) + `errorReporter.js` + exit codes в README |
+| Один источник для CLI и бота при ошибках sync | [`sync/syncFailureMapper.js`](server/src/sync/syncFailureMapper.js) — паттерн «не дрейфуем» |
+
+## Состояние на диске
+
+| Путь | Назначение |
+|------|------------|
+| `server/.data/session.json` | Plaud session (`chmod 600`) |
+| `server/.data/sync-index.json` | sync index (atomic + `.bak`) |
+| `server/.data/status.json` | Последний run для `server:status` и бота |
+| `server/.data/sync.lock` | Файловый лок |
+| `server/.data/owner-chat.json` | Chat ID владельца бота |
+| `server/.data/bot-settings.json` | Интервал автосинка |
+| `{vault}/Plaud/...md` | Саммари (поведение определено `PLAUD_MIRROR_FOLDERS` и `plaudFolders.js`) |
+| `{vault}/_errors/*.md` | Отчёты об ошибках |
+
+Все JSON в `.data/` — `chmod 600`, директория `chmod 700`.
+
+## Коды выхода CLI
+
+`0` ок, `1` ошибки sync, `2` нет/битая сессия (или нет `TELEGRAM_BOT_TOKEN` для `bot`), `3` API Plaud изменился (`PlaudChangedError`), `4` другой sync держит lock.
+
+## Чего точно не делать
+
+- Не качать аудио на сервере — `runSync` summary-only по дизайну (тест `syncAudioDefault.test.js`).
+- Не запускать Playwright на VPS — auth только на Mac.
+- Не дублировать решения sync в `audioExport.js` или `syncRunner.js` — они должны звать `determineSyncAction` из `syncCore.js`.
+- Не вводить параллельные реализации логики папок — всё через `plaudFolders.js`.
+- Не править `chrome.runtime` action-строки в одном файле без проверки всех `sendMessage` / `onMessage` (`grep -r "action:" plaud-exporter`).

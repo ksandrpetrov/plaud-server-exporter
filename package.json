@@ -16,8 +16,11 @@
     "server:status": "node server/src/cli/index.js status",
     "server:bot": "node server/src/cli/index.js bot",
     "test": "node --test server/tests/**/*.test.js",
-    "test:submodule": "cd plaud-exporter && npm test",
+    "test:extension": "cd plaud-exporter && npm test",
+    "test:submodule": "npm run test:extension",
     "lint": "npm run lint --workspace=@plaud-server-exporter/server",
-    "verify": "node scripts/verify-submodule.js"
+    "lint:extension": "cd plaud-exporter && npm run lint",
+    "verify": "node scripts/verify-submodule.js",
+    "verify:extension": "cd plaud-exporter && npm run verify"
   }
 }

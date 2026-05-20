@@ -2,7 +2,7 @@
 
 Репозиторий: [github.com/ksandrpetrov/plaud-server-exporter](https://github.com/ksandrpetrov/plaud-server-exporter)
 
-Серверный CLI выгружает **саммари** записей Plaud в Markdown для Obsidian. На VPS расписание и уведомления ведёт **Telegram-бот** (long-polling под systemd). В том же репозитории лежит Chrome-расширение **`plaud-exporter/`** — общие модули путей и sync-индекса (`syncCore.js`, `exportPathUtils.js`) импортируются сервером напрямую.
+Серверный CLI выгружает **саммари** записей Plaud в Markdown для Obsidian. На VPS расписание и уведомления ведёт **Telegram-бот** (long-polling под systemd). В том же репозитории лежит Chrome-расширение **`plaud-exporter/`**, а его модули `common/syncCore.js`, `common/exportPathUtils.js` и `common/plaudFolders.js` импортируются сервером напрямую — это единственный формальный контракт между двумя средами выполнения (см. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
 
 ## Состав репозитория
 

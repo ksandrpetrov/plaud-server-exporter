@@ -31,16 +31,19 @@ plaud-server-exporter/
 
 ## Общий код (shared common)
 
-Два файла — единственный формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а.
+Три файла — единственный формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и оба набора тестов. Список зафиксирован в [`scripts/verify-submodule.js`](../scripts/verify-submodule.js) (`REQUIRED_SUBMODULE_FILES`).
 
-| Файл | Что в нём |
-|------|-----------|
-| [`plaud-exporter/common/syncCore.js`](../plaud-exporter/common/syncCore.js) | Стабильные ID, хеши саммари, `determineSyncAction` (new / unchanged / metadata-only / re-download), нормализация индекса |
-| [`plaud-exporter/common/exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js) | Санитизация имён, даты-префиксы, `MAX_FULL_PATH_LENGTH`, режимы экспорта |
+| Файл | Что в нём | Server-side consumers |
+|------|-----------|------------------------|
+| [`plaud-exporter/common/syncCore.js`](../plaud-exporter/common/syncCore.js) | Стабильные ID, хеши саммари, `determineSyncAction` (new / unchanged / metadata-only / re-download), нормализация индекса | `syncRunner.js`, `serverSyncIndex.js`, `errorReporter.js` |
+| [`plaud-exporter/common/exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js) | Санитизация имён, даты-префиксы, `MAX_FULL_PATH_LENGTH`, режимы экспорта | `filenamePlanner.js`, `obsidianWriter.js` |
+| [`plaud-exporter/common/plaudFolders.js`](../plaud-exporter/common/plaudFolders.js) | Парсинг filetags, `attachFolderSegmentsToFiles`, локализованный Unfiled, Trash | Re-export в `server/src/plaud/plaudFolders.js`; `recordingsApi.js`, `vaultTree.js`, `plaudLiveTree.js` |
 
 > Исторически каталог называется «submodule» в скриптах (`npm run verify`, `scripts/verify-submodule.js`), но это **не git-submodule**. Это вендорный код в монорепо. Сценарий: импорты server'а резолвятся как `../../../plaud-exporter/common/...`.
 
 Остальные модули `plaud-exporter/common/` (`storageUtils.js`, `domUtils.js`, `uiComponents.js`, `plaud-i18n-messages.js`, `plaudRecordingIds.js`) — **только** для расширения, server их не использует.
+
+Команда `npm run verify` из корня проверяет, что все три файла существуют и что относительные импорты из `server/src/` резолвятся. CI запускает её на каждом push/PR.
 
 ## Точки входа
 

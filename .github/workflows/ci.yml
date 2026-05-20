@@ -34,7 +34,15 @@ jobs:
       - name: Lint (server)
         run: npm run lint
 
+      - name: Lint (extension)
+        working-directory: plaud-exporter
+        run: npm run lint
+
       - name: Verify shared common imports
+        run: npm run verify
+
+      - name: Verify extension dynamic imports
+        working-directory: plaud-exporter
         run: npm run verify
 
       - name: Test server

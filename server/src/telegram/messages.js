@@ -4,34 +4,13 @@
  * Edit copy here only — handlers and keyboards reference the constants, so we
  * never inline button labels.
  *
- * Callback protocol (CB_* tokens and `filesTreeFolderCallback`) lives in
- * `callbackData.js`; re-exported below so tests and call sites that
- * historically imported from `messages.js` keep working.
+ * Callback protocol (CB_* tokens, `filesTreeFolderCallback`) lives in
+ * `callbackData.js`. Scheduler presets live in `botSettings.js`. Import them
+ * directly; do not add re-exports here.
  *
  * The visual style and tone follow `satellite/satellite/messages_ru.py`:
  * single short status line, single concise instruction, HTML where needed.
  */
-
-export {
-  CB_RUN_SYNC,
-  CB_STATUS,
-  CB_SETTINGS,
-  CB_SETTINGS_INTERVAL_60,
-  CB_SETTINGS_INTERVAL_120,
-  CB_SETTINGS_INTERVAL_240,
-  CB_SETTINGS_INTERVAL_480,
-  CB_FILES,
-  CB_FILES_TREE,
-  CB_FILES_TREE_FOLDER_PREFIX,
-  CB_FILES_STATS,
-  CB_BACK,
-  CB_HELP,
-  CB_CLOSE,
-  filesTreeFolderCallback,
-  parseFilesTreeFolderCallback,
-} from "./callbackData.js";
-
-export const INTERVAL_PRESETS_MIN = [60, 120, 240, 480];
 
 export const BOT_WELCOME_HTML =
   "🛰 <b>Plaud-экспортер на связи.</b>\n\n" +

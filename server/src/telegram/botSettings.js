@@ -19,7 +19,13 @@ import {
 import { dirname } from "node:path";
 import { config } from "../config/config.js";
 import { logger } from "../logger.js";
-import { INTERVAL_PRESETS_MIN } from "./messages.js";
+
+/**
+ * Allowed values for the scheduler interval (minutes). The bot's settings
+ * keyboard and `isAllowedInterval` are both driven by this single list, so
+ * adding a preset is a one-line change.
+ */
+export const INTERVAL_PRESETS_MIN = [60, 120, 240, 480];
 
 /**
  * @typedef {{ intervalMin: number; updatedAt: string }} BotSettings
