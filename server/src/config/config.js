@@ -137,6 +137,15 @@ const staticConfig = {
       join(dataDir(), "tree-browse.json")
     );
   },
+  get webappHost() {
+    return (process.env.WEBAPP_HOST || "127.0.0.1").trim();
+  },
+  get webappPort() {
+    return asInt(process.env.WEBAPP_PORT, 8080);
+  },
+  get webappBaseUrl() {
+    return (process.env.WEBAPP_BASE_URL || "").trim();
+  },
 };
 
 export const config = staticConfig;

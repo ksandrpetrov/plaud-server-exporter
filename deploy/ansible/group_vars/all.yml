@@ -1,0 +1,11 @@
+---
+deploy_dir: /opt/plaud-exporter
+compose_project_name: plaud-exporter
+webapp_host_port: 18080
+legacy_systemd_unit: plaud-exporter.service
+plaud_exports_host_dir: /srv/plaud-exporter/exports
+# First deploy: build on server. Later CI sets APP_IMAGE to ghcr.io/.../plaud-server-exporter:sha-*
+app_image_source: build
+ghcr_owner: ksandrpetrov
+ghcr_repo: plaud-server-exporter
+app_image: "ghcr.io/{{ ghcr_owner }}/{{ ghcr_repo }}:latest"

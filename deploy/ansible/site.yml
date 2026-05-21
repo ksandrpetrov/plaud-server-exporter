@@ -1,0 +1,165 @@
+---
+- name: Plaud exporter — Docker production bootstrap
+  hosts: plaud
+  become: true
+  vars:
+    repo_src: "{{ playbook_dir }}/../.."
+    docker_distro: "{{ ansible_distribution | lower }}"
+  pre_tasks:
+    - name: Remove stale Docker apt source lists (duplicate Signed-By breaks apt update)
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/docker.list
+        - /etc/apt/sources.list.d/docker-ce.list
+      failed_when: false
+
+    - name: Read existing APP_IMAGE from deploy .env if present
+      ansible.builtin.slurp:
+        src: "{{ deploy_dir }}/.env"
+      register: existing_env_slurp
+      failed_when: false
+
+    - name: Parse existing APP_IMAGE
+      ansible.builtin.set_fact:
+        existing_app_image: "{{ (existing_env_slurp.content | b64decode).split('\n') | select('match', '^APP_IMAGE=') | list | first | default('') | regex_replace('^APP_IMAGE=', '') | trim }}"
+      when: existing_env_slurp is succeeded
+
+    - name: Choose effective APP_IMAGE
+      ansible.builtin.set_fact:
+        app_image_effective: >-
+          {{
+            existing_app_image
+            if (existing_app_image | default('') | length > 0)
+            else (
+              'plaud-exporter-bot:local'
+              if app_image_source == 'build'
+              else app_image
+            )
+          }}
+
+  tasks:
+    - name: Install prerequisites
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+        state: present
+        update_cache: true
+
+    - name: Add Docker official GPG key
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/{{ docker_distro }}/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: "0644"
+
+    - name: Add Docker apt repository
+      ansible.builtin.apt_repository:
+        repo: >-
+          deb [arch={{ ansible_architecture | replace('x86_64', 'amd64') }}
+          signed-by=/etc/apt/keyrings/docker.asc]
+          https://download.docker.com/linux/{{ docker_distro }}
+          {{ ansible_distribution_release }} stable
+        filename: docker
+        state: present
+
+    - name: Install Docker Engine and compose plugin
+      ansible.builtin.apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-compose-plugin
+        state: present
+        update_cache: true
+
+    - name: Ensure deploy directory exists
+      ansible.builtin.file:
+        path: "{{ deploy_dir }}"
+        state: directory
+        mode: "0750"
+
+    - name: Copy production docker-compose.yml
+      ansible.builtin.copy:
+        src: "{{ repo_src }}/deploy/docker-compose.yml"
+        dest: "{{ deploy_dir }}/docker-compose.yml"
+        mode: "0644"
+
+    - name: Render .env
+      ansible.builtin.template:
+        src: env.j2
+        dest: "{{ deploy_dir }}/.env"
+        mode: "0600"
+
+    - name: Ensure exports directory on host
+      ansible.builtin.file:
+        path: "{{ plaud_exports_host_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Stop and disable legacy systemd bot unit
+      ansible.builtin.systemd:
+        name: "{{ legacy_systemd_unit }}"
+        state: stopped
+        enabled: false
+      failed_when: false
+
+    - name: Check loopback port is free
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ webapp_host_port }}"
+        state: stopped
+        timeout: 3
+      register: port_check
+      failed_when: false
+
+    - name: Port still bound — abort with hint
+      ansible.builtin.fail:
+        msg: >-
+          127.0.0.1:{{ webapp_host_port }} is in use. Stop the conflicting process
+          (ss -tlnp | grep {{ webapp_host_port }}) or change webapp_host_port.
+      when: port_check is failed
+
+    - name: Sync application source for local build
+      ansible.builtin.synchronize:
+        src: "{{ repo_src }}/"
+        dest: "{{ deploy_dir }}/build"
+        delete: false
+        rsync_opts:
+          - "--exclude=.git"
+          - "--exclude=node_modules"
+          - "--exclude=server/.data"
+          - "--exclude=exports"
+      when: app_image_source == 'build'
+
+    - name: Build Docker image on server
+      ansible.builtin.command:
+        cmd: docker build -t plaud-exporter-bot:local -f Dockerfile .
+        chdir: "{{ deploy_dir }}/build"
+      when: app_image_source == 'build'
+
+    - name: Start Docker stack
+      ansible.builtin.command:
+        cmd: docker compose up -d
+        chdir: "{{ deploy_dir }}"
+      environment:
+        COMPOSE_PROJECT_NAME: "{{ compose_project_name }}"
+
+    - name: Wait for healthy container
+      ansible.builtin.shell: |
+        set -e
+        cd "{{ deploy_dir }}"
+        for i in $(seq 1 24); do
+          if docker compose ps --format '{{ "{{" }}.Health{{ "}}" }}' 2>/dev/null | grep -q healthy; then
+            exit 0
+          fi
+          sleep 5
+        done
+        docker compose ps
+        docker compose logs --tail=80 bot
+        exit 1
+      args:
+        executable: /bin/bash
+      changed_when: false

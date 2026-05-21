@@ -1,0 +1,13 @@
+---
+all:
+  children:
+    plaud:
+      hosts:
+        your-vps.example.com:
+          ansible_user: deploy
+      vars:
+        telegram_bot_token: "123456789:REPLACE"
+        telegram_allowed_user_id: "123456789"
+        telegram_allowed_username: "your_username"
+        webapp_base_url: "https://your-domain.example/connect"
+        plaud_timezone: Europe/Moscow

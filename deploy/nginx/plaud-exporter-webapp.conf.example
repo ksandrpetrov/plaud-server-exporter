@@ -1,0 +1,32 @@
+# Fragment for an existing `server { listen 443 ssl; ... }` block on the host.
+# Replace YOUR_DOMAIN and WEBAPP_HOST_PORT (default 18080) to match deploy/.env.
+
+    location /connect {
+        proxy_pass http://127.0.0.1:18080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Telegram-Init-Data $http_x_telegram_init_data;
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:18080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Telegram-Init-Data $http_x_telegram_init_data;
+    }
+
+    # Exact match — avoids returning the main site HTML for health checks.
+    location = /healthz {
+        proxy_pass http://127.0.0.1:18080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }

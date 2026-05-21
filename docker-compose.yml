@@ -1,0 +1,23 @@
+# Local development: build image, bind-mount state and exports.
+services:
+  bot:
+    build: .
+    env_file:
+      - .env
+    environment:
+      WEBAPP_HOST: 0.0.0.0
+      WEBAPP_PORT: "8080"
+      PLAUD_DATA_DIR: /app/server/.data
+      PLAUD_EXPORT_ROOT: /app/exports
+    ports:
+      - "${WEBAPP_PORT:-8080}:8080"
+    volumes:
+      - ./server/.data:/app/server/.data
+      - ./exports:/app/exports
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped

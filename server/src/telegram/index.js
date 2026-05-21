@@ -16,9 +16,11 @@
  */
 
 import { config } from "../config/config.js";
+import { startWebServer, stopWebServer } from "../http/webServer.js";
 import { logger } from "../logger.js";
 import { redactError } from "../security/redact.js";
 import { TelegramBotLoop } from "./bot.js";
+import { logPersistenceDiagnostics } from "./persistenceDiagnostics.js";
 import { BotScheduler } from "./scheduler.js";
 import { TelegramClient } from "./telegramClient.js";
 import { runSyncSilent, runSyncWithReporting } from "./syncOrchestrator.js";
@@ -56,6 +58,9 @@ export async function runBot() {
         "add TELEGRAM_ALLOWED_USER_ID to .env for a stable identity check."
     );
   }
+
+  await logPersistenceDiagnostics();
+  await startWebServer();
 
   const telegram = new TelegramClient(token);
   await registerMenuCommandsSafely(telegram);
@@ -126,6 +131,8 @@ export async function runBot() {
     logger.error("Bot loop crashed", redactError(err));
     await loop.shutdown();
     return 1;
+  } finally {
+    await stopWebServer().catch(() => {});
   }
 }
 

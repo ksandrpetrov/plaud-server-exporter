@@ -1,0 +1,27 @@
+# Production on VPS: image from GHCR, loopback port, named volume for server/.data.
+name: plaud-exporter
+
+services:
+  bot:
+    image: ${APP_IMAGE}
+    env_file:
+      - .env
+    environment:
+      WEBAPP_HOST: 0.0.0.0
+      WEBAPP_PORT: "8080"
+      PLAUD_DATA_DIR: /app/server/.data
+    ports:
+      - "127.0.0.1:${WEBAPP_HOST_PORT:-18080}:8080"
+    volumes:
+      - app-data:/app/server/.data
+      - ${PLAUD_EXPORTS_HOST_DIR:-/srv/plaud-exporter/exports}:/app/exports
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
+volumes:
+  app-data:

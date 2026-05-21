@@ -1,0 +1,16 @@
+.git
+.github
+.idea
+.vscode
+node_modules
+server/.data
+exports
+logs
+*.log
+.env
+.env.*
+plaud-exporter/node_modules
+docs
+deploy/ansible
+**/*.test.js
+**/.DS_Store

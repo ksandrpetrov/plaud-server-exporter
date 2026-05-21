@@ -170,3 +170,33 @@ sudo apt install -y nodejs
 sudo chown -R plaud:plaud /srv/plaud-exporter
 sudo -u plaud git -C /srv/plaud-exporter status
 ```
+
+## Docker: бот «забыл» сессию / owner-chat после деплоя
+
+**Симптомы:** в логах `Persistence is empty but backup files exist`, синк не идёт, `/start` как с нуля.
+
+**Причина:** named volume `plaud-exporter_app-data` пустой, а старые JSON лежат в `/srv/plaud-exporter/server/.data/` (systemd).
+
+**Исправление (один раз на сервере):**
+
+```bash
+sudo bash /path/to/repo/scripts/migrate-legacy-data.sh
+```
+
+CI deploy (`scripts/ci-deploy-remote.sh`) намеренно падает, если на хосте больше JSON-файлов, чем в volume — не копируйте `.data` вручную поверх свежего volume.
+
+## Публичный `/healthz` отдаёт HTML главной страницы
+
+В nginx нужен **exact** match: `location = /healthz { proxy_pass http://127.0.0.1:18080; ... }`.  
+См. [deploy/nginx/plaud-exporter-webapp.conf.example](../deploy/nginx/plaud-exporter-webapp.conf.example).
+
+## Два бота с одним `TELEGRAM_BOT_TOKEN`
+
+Отключите legacy unit перед Docker:
+
+```bash
+sudo systemctl stop plaud-exporter.service
+sudo systemctl disable plaud-exporter.service
+```
+
+Не держите systemd и `docker compose up` одновременно — будут 409 от Telegram и гонки offset.

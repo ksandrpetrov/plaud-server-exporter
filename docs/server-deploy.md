@@ -243,3 +243,14 @@ sudo systemctl restart plaud-exporter.service
 ```
 
 Интервал 2 ч должен быть больше худшего времени sync, иначе пересечения и код `4`.
+
+## Альтернатива: Docker (production)
+
+Полная схема: [deploy/README.md](../deploy/README.md). Кратко:
+
+- **Только бот** в compose; TLS на **хостовом nginx** (`location = /healthz` — exact match).
+- Loopback: `127.0.0.1:18080` → контейнер `:8080`.
+- State: volume `plaud-exporter_app-data` → `/app/server/.data`; exports — bind `/srv/plaud-exporter/exports`.
+- **Не** запускайте одновременно `plaud-exporter.service` (systemd) и Docker с одним токеном.
+- Первичный выкат: `make deploy` (Ansible). Дальше — push в `main` → GHCR `:sha-*` → CI deploy.
+- Миграция с systemd: `scripts/migrate-legacy-data.sh` (см. [troubleshooting.md](./troubleshooting.md)).
