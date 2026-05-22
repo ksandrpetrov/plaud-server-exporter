@@ -7,7 +7,7 @@ SCRIPT="${ROOT}/scripts/ci-deploy-systemd-remote.sh"
 
 bash -n "$SCRIPT"
 
-preflight_line="$(grep -n 'Preflight: repo + systemd unit' "$SCRIPT" | head -1 | cut -d: -f1)"
+preflight_line="$(grep -n 'Preflight + deploy' "$SCRIPT" | head -1 | cut -d: -f1)"
 stop_line="$(grep -n 'systemctl stop' "$SCRIPT" | head -1 | cut -d: -f1)"
 fetch_line="$(grep -n 'git -C' "$SCRIPT" | head -1 | cut -d: -f1)"
 restart_line="$(grep -n 'systemctl restart' "$SCRIPT" | head -1 | cut -d: -f1)"
@@ -29,6 +29,11 @@ fi
 
 if ! grep -q 'npm install --workspaces' "$SCRIPT"; then
   echo "ci-deploy-systemd-remote.test: missing npm install --workspaces" >&2
+  exit 1
+fi
+
+if ! grep -q '/opt/plaud-server-exporter' "$SCRIPT"; then
+  echo "ci-deploy-systemd-remote.test: missing alternate repo path probe" >&2
   exit 1
 fi
 
