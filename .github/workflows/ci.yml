@@ -44,5 +44,8 @@ jobs:
       - name: Test server
         run: npm test
 
+      - name: Smoke critical server imports
+        run: node scripts/smoke_container.mjs
+
       - name: Test extension
         run: npm run test:submodule

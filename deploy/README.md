@@ -36,9 +36,19 @@ Rolling deploy from CI **refuses** to proceed if host `.data` has more JSON file
 
 ## Rolling deploy (CI / manual)
 
-GitHub Actions on `push` to `main` builds `ghcr.io/<owner>/<repo>:sha-<short>`, runs image smoke, then SSH deploy.
+GitHub Actions on `push` to `main` builds `ghcr.io/<owner>/<repo>:sha-<short>`, runs image smoke, then **optionally** SSH deploy.
 
-Secrets: `DEPLOY_HOST`, `DEPLOY_USER`, `SSH_PRIVATE_KEY`; optional `SSH_KNOWN_HOSTS`, `GHCR_PULL_TOKEN`.  
+**Important:** production SSH deploy is **opt-in**. In the repo (Settings → Secrets and variables → Actions → **Variables**), set:
+
+| Variable | Value | Meaning |
+|----------|--------|---------|
+| `PRODUCTION_DOCKER_DEPLOY` | `true` | Run deploy job after `make deploy` / Ansible bootstrap |
+
+If this variable is unset or not `true`, CI still builds and smoke-tests the image but **does not SSH** — your **systemd** bot on `/srv/plaud-exporter` or `/opt/plaud-server-exporter` stays running.
+
+`ci-deploy-remote.sh` also skips safely when `${DEPLOY_DIR}/docker-compose.yml` is missing (exit 0, systemd untouched).
+
+Secrets (only when Docker deploy enabled): `DEPLOY_HOST`, `DEPLOY_USER`, `SSH_PRIVATE_KEY`; optional `SSH_KNOWN_HOSTS`, `GHCR_PULL_TOKEN`.  
 Variable: `SMOKE_PUBLIC_BASE_URL` (public HTTPS base for `make smoke-prod`).
 
 Manual:

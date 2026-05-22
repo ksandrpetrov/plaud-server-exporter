@@ -99,11 +99,10 @@
         state: directory
         mode: "0755"
 
-    - name: Stop and disable legacy systemd bot unit
+    - name: Stop legacy systemd bot before Docker binds loopback port
       ansible.builtin.systemd:
         name: "{{ legacy_systemd_unit }}"
         state: stopped
-        enabled: false
       failed_when: false
 
     - name: Check loopback port is free
@@ -163,3 +162,9 @@
       args:
         executable: /bin/bash
       changed_when: false
+
+    - name: Disable legacy systemd bot unit (Docker is healthy)
+      ansible.builtin.systemd:
+        name: "{{ legacy_systemd_unit }}"
+        enabled: false
+      failed_when: false

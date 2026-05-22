@@ -37,6 +37,8 @@ jobs:
       - run: npm run lint
       - run: npm run verify
       - run: npm test
+      - run: node scripts/smoke_container.mjs
+      - run: bash scripts/ci-deploy-remote.test.sh
       - run: npm run test:submodule
 
   build:
@@ -118,7 +120,10 @@ jobs:
   deploy:
     name: Deploy to production
     needs: [build, docker-smoke]
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    # Opt-in: systemd-only VPS must not get systemd stopped on every main push.
+    if: >-
+      (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+      && vars.PRODUCTION_DOCKER_DEPLOY == 'true'
     runs-on: ubuntu-latest
     environment: production
     steps:

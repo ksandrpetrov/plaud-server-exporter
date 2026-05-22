@@ -118,6 +118,26 @@ Lock снимается автоматически через 2 часа или 
 
 ## Telegram-бот
 
+### Бот мёртв после push в `main` / CI Deploy (`inactive`, `disabled`)
+
+**Симптомы:** `systemctl status plaud-exporter.service` → `inactive (dead)`, `disabled`; в journal — штатный `SIGTERM` около времени GitHub Actions Deploy; `/opt/plaud-exporter` нет.
+
+**Причина:** workflow Deploy раньше останавливал и **отключал** systemd **до** проверки Docker. Если Ansible/bootstrap не делали, бот оставался выключенным.
+
+**Сейчас в репо:** deploy по SSH только при `PRODUCTION_DOCKER_DEPLOY=true`; скрипт не трогает systemd, пока нет `docker-compose.yml`, и откатывает systemd при сбое до healthz.
+
+**Поднять systemd снова (ваш случай):**
+
+```bash
+sudo systemctl enable plaud-exporter.service
+sudo systemctl start plaud-exporter.service
+sudo systemctl status plaud-exporter.service --no-pager -l
+```
+
+Путь к коду смотрите в unit: `systemctl cat plaud-exporter.service | grep WorkingDirectory` (у вас может быть `/opt/plaud-server-exporter`, не `/srv/plaud-exporter`).
+
+Пока остаётесь на systemd — **не** включайте `PRODUCTION_DOCKER_DEPLOY` в GitHub Variables.
+
 ### `Missing script: "server:bot"`
 
 На сервере устаревший клон — нет скрипта в `package.json`. С Mac: `git push origin main`. На сервере — [server-deploy.md § Обновление кода](./server-deploy.md#обновление-кода) (не только `git pull`).
