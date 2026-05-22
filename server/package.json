@@ -14,7 +14,7 @@
   "scripts": {
     "start": "node src/cli/index.js",
     "bot": "node src/cli/index.js bot",
-    "test": "node --test tests/**/*.test.js",
+    "test": "node --test $(find tests -name '*.test.js' | sort)",
     "lint": "eslint src/ tests/"
   },
   "dependencies": {

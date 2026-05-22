@@ -76,6 +76,6 @@ npm run verify           # импорты server → plaud-exporter/common/*
 
 Расширение отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`.
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) гоняет всё то же самое на Node 20 и 22 при push/PR в `main`.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) гоняет всё то же самое на Node 22 при push/PR в `main`.
 
 > Каталог [`plaud-exporter/`](plaud-exporter/) — **не git-submodule**, а вендорный код в монорепо. Скрипт `npm run verify` (исторически `verify-submodule`) проверяет, что `plaud-exporter/common/*.js` существуют и относительные импорты из `server/src/` резолвятся.

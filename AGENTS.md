@@ -22,7 +22,7 @@
 
 Список захардкожен в [`scripts/verify-submodule.js`](scripts/verify-submodule.js). `npm run verify` проверяет существование файлов и что все относительные импорты `server/src/...` резолвятся.
 
-Остальные `plaud-exporter/common/*` (`storageUtils.js`, `domUtils.js`, `uiComponents.js`, `plaud-i18n-messages.js`, `plaudRecordingIds.js`) — **только** для расширения, сервер их не трогает.
+Остальные `plaud-exporter/common/*` (`runtimeMessages.js`, `storageUtils.js`, `domUtils.js`, `uiComponents.js`, `plaud-i18n-messages.js`, `plaudRecordingIds.js`) — **только** для расширения, сервер их не трогает. Модули `plaud-exporter/background/*` — тоже только SW.
 
 ## Команды (из корня)
 
@@ -34,7 +34,7 @@ npm run test:submodule   # extension tests (alias: test:extension)
 npm run test:extension   # same
 ```
 
-Extension отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`. CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) гоняет всё на Node 20 и 22.
+Extension отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`. CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) гоняет всё на Node 22.
 
 ## Файлы, которые нельзя трогать целиком без плана
 
@@ -44,7 +44,7 @@ Extension отдельно: `cd plaud-exporter && npm run lint && npm test && np
 |------|-----|-----------|
 | [`plaud-exporter/features/audioExport/audioExport.js`](plaud-exporter/features/audioExport/audioExport.js) | ~2.2k | Plaud HTTP в браузере + `runExportAll` + `runSmartSync` |
 | [`plaud-exporter/popup/popup.js`](plaud-exporter/popup/popup.js) | ~1.9k | Весь UI попапа и его состояние |
-| [`plaud-exporter/background.js`](plaud-exporter/background.js) | ~1.2k | MV3 service worker: downloads, оркестрация, keep-alive |
+| [`plaud-exporter/background.js`](plaud-exporter/background.js) | ~1k | MV3 service worker: оркестрация export/sync (downloads — `background/chromeDownloadBridge.js`) |
 
 Средние (500–600 LOC) тоже лучше править прицельно: [`server/src/telegram/messages.js`](server/src/telegram/messages.js), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js).
 
@@ -55,6 +55,7 @@ Extension отдельно: `cd plaud-exporter && npm run lint && npm test && np
 | Решение sync (new / unchanged / metadata-only / re-download) | [`syncCore.js`](plaud-exporter/common/syncCore.js) + `serverSyncIndex.js` |
 | Имя файла, длина пути, санитизация | [`exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) + `filenamePlanner.js` |
 | Папки Plaud / Unfiled / Trash | [`plaudFolders.js`](plaud-exporter/common/plaudFolders.js) |
+| `action` popup ↔ SW ↔ content | [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js) + `tests/runtimeMessages.test.js`; литералы в `popup.js` / `content.js` |
 | Новый Telegram callback / сообщение | `handlers.js` + `messages.js` + `keyboards.js` |
 | Новая CLI команда | [`server/src/cli/index.js`](server/src/cli/index.js) |
 | Новая env переменная | [`server/src/config/config.js`](server/src/config/config.js) + `.env.example` + `server/README.md` |
@@ -86,4 +87,4 @@ Extension отдельно: `cd plaud-exporter && npm run lint && npm test && np
 - Не запускать Playwright на VPS — auth только на Mac.
 - Не дублировать решения sync в `audioExport.js` или `syncRunner.js` — они должны звать `determineSyncAction` из `syncCore.js`.
 - Не вводить параллельные реализации логики папок — всё через `plaudFolders.js`.
-- Не править `chrome.runtime` action-строки в одном файле без проверки всех `sendMessage` / `onMessage` (`grep -r "action:" plaud-exporter`).
+- Не менять протокол `action` точечно: константа в [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js), wiring в sender/handler, `npm test` в `plaud-exporter` (в т.ч. `runtimeMessages.test.js`).

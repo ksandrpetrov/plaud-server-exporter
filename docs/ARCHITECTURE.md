@@ -19,10 +19,11 @@ plaud-server-exporter/
 │   │   └── logger.js
 │   └── tests/                   node:test (см. ниже)
 ├── plaud-exporter/              Chrome MV3 extension
-│   ├── common/                  ОБЩИЕ модули с server (см. ниже)
-│   ├── features/audioExport/    Plaud API client + smart sync (browser)
-│   ├── background.js            Service worker (downloads, оркестрация)
-│   ├── content.js               Бутстрап в plaud.ai
+│   ├── common/                  Shared (3) + extension-only (см. ниже)
+│   ├── background/              Модули SW: downloads, tabs, locale
+│   ├── background.js            Service worker (~1k LOC, оркестрация)
+│   ├── features/audioExport/    Plaud API + smart sync (browser)
+│   ├── content.js               onMessage → audioExport
 │   └── popup/                   UI расширения
 ├── docs/                        Документация (RU)
 ├── deploy/                      systemd, logrotate
@@ -41,9 +42,19 @@ plaud-server-exporter/
 
 > Исторически каталог называется «submodule» в скриптах (`npm run verify`, `scripts/verify-submodule.js`), но это **не git-submodule**. Это вендорный код в монорепо. Сценарий: импорты server'а резолвятся как `../../../plaud-exporter/common/...`.
 
-Остальные модули `plaud-exporter/common/` (`storageUtils.js`, `domUtils.js`, `uiComponents.js`, `plaud-i18n-messages.js`, `plaudRecordingIds.js`) — **только** для расширения, server их не использует.
+Остальные модули `plaud-exporter/common/` — **только** для расширения, server их не использует:
 
-Команда `npm run verify` из корня проверяет, что все три файла существуют и что относительные импорты из `server/src/` резолвятся. CI запускает её на каждом push/PR.
+| Модуль | Назначение |
+|--------|------------|
+| `runtimeMessages.js` | Константы `action` для popup ↔ service worker ↔ content; тест `runtimeMessages.test.js` сверяет литералы в `popup.js` / `content.js` |
+| `storageUtils.js` | `chrome.storage` + загрузка/сохранение индекса sync |
+| `domUtils.js`, `uiComponents.js` | DOM и статусный UI на странице Plaud |
+| `plaud-i18n-messages.js` | Каталоги строк popup / background |
+| `plaudRecordingIds.js` | Нормализация id записей |
+
+Service worker вынесен в `background/`: `chromeDownloadBridge.js` (`chrome.downloads`), `tabMessaging.js` (`sendMessage` + re-inject), `bgLocale.js`. В `features/audioExport/` из `audioExport.js` выделены `plaudBrowserSession.js` (сессия из `localStorage`), `plaudRecordingIdScraper.js`, `plaudCollisionPaths.js` (имена и коллизии в sync-папке).
+
+Команда `npm run verify` из корня проверяет, что все три shared-файла существуют и что относительные импорты из `server/src/` резолвятся. CI запускает её на каждом push/PR.
 
 ## Точки входа
 
@@ -136,6 +147,9 @@ Telegram-бот собственного exit code не использует —
 | Env переменная | [`server/src/config/config.js`](../server/src/config/config.js) + [`.env.example`](../.env.example) + [`server/README.md`](../server/README.md) |
 | Тесты sync flow | `server/tests/syncRunner*.test.js` |
 | Тесты Telegram | `server/tests/telegram*.test.js`, `syncOrchestrator.test.js` |
+| Новое `action` в расширении | [`runtimeMessages.js`](../plaud-exporter/common/runtimeMessages.js) + sender/handler в том же PR; `grep action:` в `popup/`, `content.js`, `background.js`, `features/` |
+| Скачивание через Chrome | [`chromeDownloadBridge.js`](../plaud-exporter/background/chromeDownloadBridge.js) |
+| Сессия Plaud в браузере | [`plaudBrowserSession.js`](../plaud-exporter/features/audioExport/plaudBrowserSession.js) |
 
 ## Локальная проверка
 
@@ -149,7 +163,7 @@ npm run verify           # shared common imports + файлы существую
 npm run test:submodule   # plaud-exporter (node:test)
 ```
 
-CI ([`/.github/workflows/ci.yml`](../.github/workflows/ci.yml)) гоняет всё то же самое на Node 20 и 22 при push/PR в `main`.
+CI ([`/.github/workflows/ci.yml`](../.github/workflows/ci.yml)) гоняет всё то же самое на Node 22 при push/PR в `main`.
 
 ## Что **не** трогаем в этом репо
 

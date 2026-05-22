@@ -25,18 +25,24 @@ Manifest V3, три слоя runtime.
 
 | Слой | Файлы | Задача |
 |------|-------|--------|
-| Service worker | `background.js` | Уведомления, `chrome.downloads`, маршрутизация сообщений, фоновый sync |
-| Content script | `content.js`, `features/audioExport/*` | На `web.plaud.ai` / `app.plaud.ai`, `localStorage`, API Plaud, разбор саммари |
+| Service worker | `background.js`, `background/*` | Уведомления, оркестрация; `chromeDownloadBridge.js` — `chrome.downloads`; `tabMessaging.js` — сообщения во вкладку |
+| Content script | `content.js`, `features/audioExport/*` | На `web.plaud.ai` / `app.plaud.ai`; `plaudBrowserSession.js` — `localStorage`; API и smart sync в `audioExport.js` |
 | Popup | `popup/*` | Запуск экспорта, настройка подпапки sync |
 
-Чистая логика — stable id, решения sync, имена, извлечение заголовков — в
-модулях без браузера:
+Протокол сообщений между слоями: константы `action` в
+[`runtimeMessages.js`](../plaud-exporter/common/runtimeMessages.js) (SW и
+`audioExport` импортируют ESM; popup/content — строковые литералы, сверка
+тестом).
 
-- [`plaud-exporter/common/syncCore.js`](../plaud-exporter/common/syncCore.js)
-- [`plaud-exporter/common/exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js)
+Чистая логика — stable id, решения sync, имена, папки Plaud — в модулях без
+браузера (shared с server):
 
-Сервер импортирует их из каталога `plaud-exporter/` в этом репозитории — единый
-источник правды с расширением.
+- [`syncCore.js`](../plaud-exporter/common/syncCore.js)
+- [`exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js)
+- [`plaudFolders.js`](../plaud-exporter/common/plaudFolders.js)
+
+Сервер импортирует их из `plaud-exporter/common/` — единый источник правды с
+расширением (`npm run verify`).
 
 ## Текущий поток экспорта
 
@@ -46,7 +52,7 @@ flowchart TD
     Popup -->|message| CS[content.js на вкладке Plaud]
     BG -->|tabs.sendMessage| CS
     CS --> AE[features/audioExport/audioExport.js]
-    AE -->|getPlaudSession| LS[localStorage вкладки Plaud]
+    AE -->|plaudBrowserSession| LS[localStorage вкладки Plaud]
     AE -->|fetch| API[api.plaud.ai]
     AE -->|downloadPlaudFile| BG
     BG -->|chrome.downloads| Disk[Папка Downloads]
@@ -131,12 +137,13 @@ file-id: <id>                    (только на /ai/query_note)
 
 ## Что переиспользовать на сервере
 
-Из `plaud-exporter/common/` напрямую:
+Из `plaud-exporter/common/` напрямую (см. `npm run verify`):
 
 - `syncCore.js` — stable id, отпечатки, `folderSegment`, решения sync
   (в т.ч. `metadata_only` при смене папки/имени без нового хеша), нормализация
   индекса, пути артефактов.
 - `exportPathUtils.js` — безопасные имена, заголовки из markdown.
+- `plaudFolders.js` — filetags Plaud, Unfiled/Trash, `attachFolderSegmentsToFiles`.
 
 Портировать в `server/src/plaud/` один в один по смыслу:
 

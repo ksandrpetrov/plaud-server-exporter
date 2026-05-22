@@ -5,7 +5,7 @@
 ## Current architecture
 
 - **Root repo** `plaud-server-exporter`: Node 20+ CLI (`server:auth`, `server:sync`, `server:status`, `logout`).
-- **Submodule** `plaud-exporter/`: Chrome extension + shared `common/syncCore.js`, `common/exportPathUtils.js`.
+- **Submodule** `plaud-exporter/`: Chrome extension + shared `common/syncCore.js`, `common/exportPathUtils.js`, `common/plaudFolders.js`.
 - **Server** `server/src/`: Playwright auth, session snapshot, Plaud API client, sync runner, Obsidian writer, filename planner, error reporter, JSON sync-index, run lock.
 
 No database, queue, or HTTP server — CLI and files only.
@@ -83,7 +83,7 @@ No database, queue, or HTTP server — CLI and files only.
 
 ## Tests coverage
 
-**127 server tests** (`npm test`), **15 extension tests** (`npm run test:submodule`):
+**127 server tests** (`npm test`), **15 extension tests** (`npm run test:submodule`) — на момент аудита; сейчас `npm test` / `npm run test:submodule` из корня дают больше (см. CI).
 
 | Area | Coverage |
 |------|----------|

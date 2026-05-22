@@ -1,53 +1,143 @@
-name: Deploy Plaud Server Exporter
+name: Deploy
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 concurrency:
-  group: plaud-server-exporter-deploy
+  group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  deploy:
-    name: Deploy to VPS
+  checks:
+    name: Lint, verify, test (Node 22.x)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
     steps:
-      - name: Deploy over SSH
-        uses: appleboy/ssh-action@v1.2.0
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
         with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          port: ${{ secrets.DEPLOY_PORT }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          script_stop: true
-          script: |
-            set -euo pipefail
+          node-version: "22.x"
+          cache: npm
 
-            cd "${{ secrets.DEPLOY_PATH }}"
+      - run: npm install --workspaces --ignore-scripts
+      - run: npm install --ignore-scripts
+        working-directory: plaud-exporter
 
-            git remote set-url origin https://github.com/ksandrpetrov/plaud-server-exporter.git
-            git fetch origin
+      - run: npm run lint
+      - run: npm run verify
+      - run: npm test
+      - run: npm run test:submodule
 
-            CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-            git reset --hard "origin/${CURRENT_BRANCH}"
-            git clean -fd
+  build:
+    name: Build and push image
+    needs: checks
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.sha_tag }}
+    steps:
+      - uses: actions/checkout@v5
 
-            npm install --workspaces
-            cd plaud-exporter
-            npm install
-            cd ..
+      - uses: docker/setup-buildx-action@v3
 
-            npm run verify
-            npm run server:status
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            systemctl restart plaud-exporter.service
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=sha-{{sha}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
 
-            sleep 2
-            systemctl status plaud-exporter.service --no-pager -l
-            ss -ltnp | grep -E ':18080|:8080' || true
+      - name: Normalize sha tag
+        id: sha
+        run: |
+          SHORT="${GITHUB_SHA::7}"
+          echo "sha_tag=sha-${SHORT}" >> "$GITHUB_OUTPUT"
+          echo "image=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${SHORT}" >> "$GITHUB_OUTPUT"
+
+      - name: Compose image tags
+        id: dtags
+        run: |
+          TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.sha_tag }}"
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            TAGS="${TAGS},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.dtags.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Tag semver on release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          docker buildx imagetools create \
+            "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.sha.outputs.sha_tag }}" \
+            -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}"
+
+  docker-smoke:
+    name: Docker image smoke
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and smoke test image
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }}"
+          SKIP_BUILD=1 bash scripts/docker-smoke-image.sh "$IMAGE"
+
+  deploy:
+    name: Deploy to production
+    needs: [build, docker-smoke]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Deploy over SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          GHCR_PULL_TOKEN: ${{ secrets.GHCR_PULL_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_PULL_USER: ${{ github.actor }}
+          SMOKE_PUBLIC_BASE_URL: ${{ vars.SMOKE_PUBLIC_BASE_URL }}
+          APP_IMAGE: ghcr.io/${{ github.repository }}:${{ needs.build.outputs.image_tag }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          export APP_IMAGE
+          bash scripts/ci-deploy-remote.sh
