@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildTypewriterFrames,
+  clipTelegramText,
   LoadingPulse,
   safeSliceHtml,
+  typewriterChunks,
   typewriterReveal,
 } from "../src/telegram/streamingDelivery.js";
 
@@ -28,6 +30,25 @@ test("buildTypewriterFrames returns single frame for short text", () => {
 test("buildTypewriterFrames skips animation below default minLen (120)", () => {
   const frames = buildTypewriterFrames("x".repeat(80));
   assert.deepEqual(frames, ["x".repeat(80)]);
+});
+
+test("typewriterChunks matches Чайка: empty below 120 chars, partial prefixes only", () => {
+  assert.deepEqual(typewriterChunks("hi"), []);
+  assert.deepEqual(typewriterChunks("x".repeat(50)), []);
+  const text = "<b>Заголовок</b>\n" + "Длинный текст. ".repeat(30);
+  const chunks = typewriterChunks(text);
+  assert.ok(chunks.length >= 2);
+  for (const chunk of chunks) {
+    assert.ok(chunk.length < text.length);
+    assert.equal((chunk.match(/<b>/g) || []).length, (chunk.match(/<\/b>/g) || []).length);
+  }
+});
+
+test("clipTelegramText keeps HTML balanced under 4096", () => {
+  const long = "<b>" + "a".repeat(5000) + "</b>";
+  const clipped = clipTelegramText(long);
+  assert.ok(clipped.length <= 4096);
+  assert.equal((clipped.match(/<b>/g) || []).length, (clipped.match(/<\/b>/g) || []).length);
 });
 
 test("buildTypewriterFrames chunks are monotonic and html-safe", () => {

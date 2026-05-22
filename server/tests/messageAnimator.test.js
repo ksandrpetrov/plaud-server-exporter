@@ -88,7 +88,10 @@ test("animator.send: long text streams via sendMessageDraft + final sendMessage"
   const draftIds = new Set(drafts.map((d) => d.payload.draftId));
   assert.equal(draftIds.size, 1, "all draft frames share one draft_id for smooth animation");
   const lastDraft = drafts[drafts.length - 1].payload;
-  assert.equal(lastDraft.text, longText, "last draft frame is the full text");
+  assert.ok(
+    lastDraft.text.length < longText.length,
+    "draft typewriter ends on a partial prefix (Чайка); full text only in sendMessage"
+  );
   assert.equal(sends[0].payload.text, longText, "final sendMessage carries the full text");
   assert.deepEqual(sends[0].payload.replyMarkup, replyMarkup, "final delivery keeps the keyboard");
   assert.equal(sends[0].payload.messageEffectId, "fxA", "final delivery keeps the effect");

@@ -11,12 +11,20 @@ import { logger } from "../logger.js";
 import { TelegramError } from "./telegramClient.js";
 
 const MIN_DRAFT_INTERVAL_MS = 280;
+const MIN_DRAFT_CHAR_DELTA = 24;
+const TELEGRAM_TEXT_LIMIT = 4096;
 const DRAFT_UNAVAILABLE_MARKERS = [
   "sendmessagedraft",
+  "textdraft",
   "method is not found",
   "method not found",
   "unknown method",
   "not implemented",
+];
+const EMPTY_TEXT_REJECTED_MARKERS = [
+  "text is empty",
+  "message text is empty",
+  "text must be non-empty",
 ];
 
 // Aligned with satellite/telegram_bot/streaming_delivery.py (Чайка UX).
@@ -24,7 +32,6 @@ const TYPEWRITER_MIN_LEN = 120;
 const TYPEWRITER_MAX_FRAMES = 9;
 const TYPEWRITER_MIN_CHUNK = 60;
 const TYPEWRITER_FRAME_MS = 160;
-const TYPEWRITER_CARET = "";
 
 const HTML_TAG_RE = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)(\s[^<>]*)?>/g;
 
@@ -35,6 +42,30 @@ const HTML_TAG_RE = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)(\s[^<>]*)?>/g;
 function isDraftUnavailable(err) {
   const text = String(err?.message || err).toLowerCase();
   return DRAFT_UNAVAILABLE_MARKERS.some((m) => text.includes(m));
+}
+
+/**
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+function isEmptyTextRejected(err) {
+  const text = String(err?.message || err).toLowerCase();
+  return EMPTY_TEXT_REJECTED_MARKERS.some((m) => text.includes(m));
+}
+
+/**
+ * @param {string} text
+ * @returns {string}
+ */
+export function clipTelegramText(text) {
+  if (text.length <= TELEGRAM_TEXT_LIMIT) return text;
+  let cut = TELEGRAM_TEXT_LIMIT - 1;
+  for (let i = 0; i < 8; i++) {
+    const candidate = safeSliceHtml(text, cut) + "…";
+    if (candidate.length <= TELEGRAM_TEXT_LIMIT) return candidate;
+    cut = Math.max(0, cut - (candidate.length - TELEGRAM_TEXT_LIMIT) - 4);
+  }
+  return text.slice(0, TELEGRAM_TEXT_LIMIT);
 }
 
 /**
@@ -52,6 +83,55 @@ export function stableDraftId(chatId, seed) {
 }
 
 /**
+ * Opens a draft stream (Thinking… placeholder or initial text), mirroring
+ * ``StreamingReply.open`` / ``_try_start_draft`` in Чайка.
+ *
+ * @param {{
+ *   telegram: import("./telegramClient.js").TelegramClient;
+ *   chatId: number;
+ *   draftId: number;
+ *   initialText?: string;
+ * }} params
+ * @returns {Promise<boolean>}
+ */
+export async function tryOpenDraft({
+  telegram,
+  chatId,
+  draftId,
+  initialText = "",
+}) {
+  const clipped = clipTelegramText(initialText);
+  try {
+    await telegram.sendMessageDraft({
+      chatId,
+      draftId,
+      text: clipped,
+    });
+    return true;
+  } catch (err) {
+    if (isDraftUnavailable(err)) {
+      logger.info("sendMessageDraft unavailable at open", {
+        error: String(err?.message || err),
+      });
+      return false;
+    }
+    if (clipped === "" && isEmptyTextRejected(err)) {
+      logger.info("Empty draft text rejected, retrying with placeholder");
+      return tryOpenDraft({
+        telegram,
+        chatId,
+        draftId,
+        initialText: "⏳",
+      });
+    }
+    logger.debug?.("sendMessageDraft open failed", {
+      error: String(err?.message || err),
+    });
+    return false;
+  }
+}
+
+/**
  * @param {{
  *   telegram: import("./telegramClient.js").TelegramClient;
  *   chatId: number;
@@ -66,29 +146,41 @@ export function createSyncProgressDelivery({
   nowMs = () => Date.now(),
 }) {
   const seed = nowMs();
-  let mode = /** @type {"draft" | "legacy"} */ ("draft");
+  let mode = /** @type {"draft" | "legacy"} */ ("legacy");
   let draftId = stableDraftId(chatId, seed);
   let legacyMessageId = loadingMessageId;
   let lastDraftMs = 0;
+  let lastPushed = "";
   let draftFailed = false;
 
   return {
+    draftId,
+    isDraftMode() {
+      return mode === "draft" && !draftFailed;
+    },
+    markDraftActive() {
+      mode = "draft";
+      draftFailed = false;
+    },
+
     /**
      * @param {string} text
      */
     async pushProgress(text) {
+      const clipped = clipTelegramText(text);
       if (draftFailed) {
-        await pushLegacy(text);
+        await pushLegacy(clipped);
         return;
       }
+      if (!shouldPushDraft(clipped)) return;
+      lastPushed = clipped;
       const now = nowMs();
-      if (now - lastDraftMs < MIN_DRAFT_INTERVAL_MS) return;
       lastDraftMs = now;
       try {
         await telegram.sendMessageDraft({
           chatId,
           draftId,
-          text,
+          text: clipped,
         });
         mode = "draft";
       } catch (err) {
@@ -118,11 +210,12 @@ export function createSyncProgressDelivery({
      * @returns {Promise<number | null>}
      */
     async finish({ text, replyMarkup, messageEffectId }) {
+      const clipped = clipTelegramText(text);
       if (mode === "draft" && !draftFailed) {
         try {
           const result = await telegram.sendMessage({
             chatId,
-            text,
+            text: clipped,
             replyMarkup: replyMarkup ?? null,
             messageEffectId: messageEffectId ?? null,
           });
@@ -138,12 +231,20 @@ export function createSyncProgressDelivery({
         telegram,
         chatId,
         messageId: legacyMessageId,
-        text,
+        text: clipped,
         replyMarkup,
         messageEffectId,
       });
     },
   };
+
+  function shouldPushDraft(text) {
+    if (text === lastPushed) return false;
+    if (!lastPushed) return true;
+    const now = nowMs();
+    if (text.length - lastPushed.length >= MIN_DRAFT_CHAR_DELTA) return true;
+    return now - lastDraftMs >= MIN_DRAFT_INTERVAL_MS;
+  }
 
   async function pushLegacy(text) {
     if (legacyMessageId) {
@@ -232,40 +333,49 @@ export function safeSliceHtml(text, length) {
 }
 
 /**
- * Builds progressively-growing HTML prefixes for the typewriter reveal.
- * Frame count scales with text length (same algorithm as Чайка
- * ``_typewriter_chunks``); the last frame is always the full text.
+ * Partial HTML prefixes for draft typewriter animation — mirrors Чайка
+ * ``_typewriter_chunks`` (no final full-text frame; finish/sendMessage does that).
  *
  * @param {string} text
- * @param {{ maxFrames?: number; minLen?: number; minChunk?: number; caret?: string }} [options]
+ * @param {{ maxFrames?: number; minLen?: number; minChunk?: number }} [options]
  * @returns {string[]}
  */
-export function buildTypewriterFrames(text, options = {}) {
+export function typewriterChunks(text, options = {}) {
   const maxFrames = options.maxFrames ?? TYPEWRITER_MAX_FRAMES;
   const minLen = options.minLen ?? TYPEWRITER_MIN_LEN;
   const minChunk = options.minChunk ?? TYPEWRITER_MIN_CHUNK;
-  const caret = options.caret ?? TYPEWRITER_CARET;
-  if (!text || text.length < minLen) return [text];
+  const clipped = clipTelegramText(text);
+  if (!clipped || clipped.length < minLen) return [];
   const targetFrames = Math.min(
     maxFrames,
-    Math.max(2, Math.floor(text.length / minChunk))
+    Math.max(2, Math.floor(clipped.length / minChunk))
   );
-  const step = Math.max(minChunk, Math.floor(text.length / targetFrames));
+  const step = Math.max(minChunk, Math.floor(clipped.length / targetFrames));
   /** @type {string[]} */
-  const frames = [];
+  const chunks = [];
   let cursor = step;
-  while (cursor < text.length && frames.length < maxFrames - 1) {
-    const slice = safeSliceHtml(text, cursor);
-    const frame = slice ? slice + caret : "";
-    if (frame && frame !== frames[frames.length - 1]) {
-      frames.push(frame);
-    }
+  while (cursor < clipped.length) {
+    chunks.push(safeSliceHtml(clipped, cursor));
     cursor += step;
   }
-  if (frames[frames.length - 1] !== text) {
-    frames.push(text);
+  return chunks;
+}
+
+/**
+ * Frames for legacy in-chat ``editMessageText`` typewriter (includes final text).
+ *
+ * @param {string} text
+ * @param {{ maxFrames?: number; minLen?: number; minChunk?: number }} [options]
+ * @returns {string[]}
+ */
+export function buildTypewriterFrames(text, options = {}) {
+  const clipped = clipTelegramText(text);
+  const chunks = typewriterChunks(clipped, options);
+  if (!chunks.length) return [clipped];
+  if (chunks[chunks.length - 1] !== clipped) {
+    chunks.push(clipped);
   }
-  return frames.length ? frames : [text];
+  return chunks;
 }
 
 /**
@@ -306,12 +416,12 @@ export async function typewriterDraftAnimate({
   minChunk = TYPEWRITER_MIN_CHUNK,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
 }) {
-  if (!text) return false;
-  const frames = buildTypewriterFrames(text, { maxFrames, minLen, minChunk });
-  if (frames.length < 2) return false;
+  const clipped = clipTelegramText(text);
+  if (!clipped) return false;
+  const chunks = typewriterChunks(clipped, { maxFrames, minLen, minChunk });
+  if (!chunks.length) return false;
   let lastPushed = "";
-  for (let i = 0; i < frames.length; i++) {
-    const chunk = frames[i];
+  for (const chunk of chunks) {
     if (chunk === lastPushed) continue;
     try {
       await telegram.sendMessageDraft({ chatId, draftId, text: chunk });
@@ -326,8 +436,9 @@ export async function typewriterDraftAnimate({
       logger.debug?.("typewriterDraftAnimate: frame failed", {
         error: String(err?.message || err),
       });
+      return false;
     }
-    if (i < frames.length - 1 && frameMs > 0) await sleep(frameMs);
+    if (frameMs > 0) await sleep(frameMs);
   }
   return true;
 }
@@ -395,6 +506,47 @@ export async function typewriterReveal({
       error: String(err?.message || err),
     });
     return null;
+  }
+}
+
+/**
+ * Cycles loading frames through the draft stream (Чайка draft-only path).
+ */
+export class DraftLoadingPulse {
+  /**
+   * @param {{
+   *   delivery: ReturnType<typeof createSyncProgressDelivery>;
+   *   frames: string[];
+   *   frameMs?: number;
+   * }} params
+   */
+  constructor({ delivery, frames, frameMs = 1400 }) {
+    this._delivery = delivery;
+    this._frames = frames.length > 0 ? frames : null;
+    this._frameMs = frameMs;
+    this._timer = null;
+    this._idx = 0;
+    this._stopped = true;
+  }
+
+  start() {
+    if (!this._frames) return;
+    this._stopped = false;
+    void this._delivery.pushProgress(this._frames[0]);
+    this._timer = setInterval(() => {
+      if (this._stopped) return;
+      this._idx = (this._idx + 1) % this._frames.length;
+      void this._delivery.pushProgress(this._frames[this._idx]);
+    }, this._frameMs);
+    if (typeof this._timer.unref === "function") this._timer.unref();
+  }
+
+  stop() {
+    this._stopped = true;
+    if (this._timer) {
+      clearInterval(this._timer);
+      this._timer = null;
+    }
   }
 }
 

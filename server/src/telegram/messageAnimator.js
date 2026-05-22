@@ -26,7 +26,9 @@
 
 import { logger } from "../logger.js";
 import {
+  clipTelegramText,
   stableDraftId,
+  tryOpenDraft,
   typewriterDraftAnimate,
 } from "./streamingDelivery.js";
 import { TypingIndicator } from "./telegramVisual.js";
@@ -74,7 +76,7 @@ export function createMessageAnimator({
 }) {
   return {
     async send({ chatId, text, replyMarkup = null, messageEffectId = null }) {
-      const finalText = String(text ?? "");
+      const finalText = clipTelegramText(String(text ?? ""));
       if (!finalText) return null;
 
       if (finalText.length < minLen) {
@@ -91,6 +93,7 @@ export function createMessageAnimator({
       typing.start();
       try {
         const draftId = stableDraftId(chatId, nowMs());
+        await tryOpenDraft({ telegram, chatId, draftId, initialText: "" });
         await typewriterDraftAnimate({
           telegram,
           chatId,

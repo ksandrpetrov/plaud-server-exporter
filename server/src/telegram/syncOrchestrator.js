@@ -45,9 +45,11 @@ import {
   syncSummaryHtml,
 } from "./messages.js";
 import {
+  clipTelegramText,
   createSyncProgressDelivery,
+  DraftLoadingPulse,
   LoadingPulse,
-  stableDraftId,
+  tryOpenDraft,
   typewriterDraftAnimate,
 } from "./streamingDelivery.js";
 import { SYNC_ACTION_KEY, syncRunGuard } from "./syncGuards.js";
@@ -103,26 +105,46 @@ export async function runSyncWithReporting(params) {
   });
   const typing = new TypingIndicator({ telegram, chatId, nowMs });
   typing.start();
-  const draftId = stableDraftId(chatId, nowMs());
+  const draftId = delivery.draftId;
+  const draftLive = await tryOpenDraft({
+    telegram,
+    chatId,
+    draftId,
+    initialText: clipTelegramText(loadingHtml),
+  });
+  if (draftLive) {
+    delivery.markDraftActive();
+  }
+  const callbackMessageId = params.loadingMessageId ?? null;
 
   let sentOk = false;
-  /** @type {LoadingPulse | null} */
+  /** @type {LoadingPulse | DraftLoadingPulse | null} */
   let pulse = null;
   try {
-    const messageId = await sendOrEditLoading({
-      telegram,
-      chatId,
-      loadingMessageId: params.loadingMessageId,
-      text: loadingHtml,
-    });
+    let messageId = callbackMessageId;
+    if (!draftLive || callbackMessageId) {
+      messageId = await sendOrEditLoading({
+        telegram,
+        chatId,
+        loadingMessageId: callbackMessageId,
+        text: loadingHtml,
+      });
+    }
 
-    pulse = new LoadingPulse({
-      telegram,
-      chatId,
-      messageId,
-      frames: syncLoadingPulseFrames(source),
-      frameMs: pulseFrameMs,
-    });
+    const pulseFrames = syncLoadingPulseFrames(source);
+    pulse = draftLive
+      ? new DraftLoadingPulse({
+          delivery,
+          frames: pulseFrames,
+          frameMs: pulseFrameMs,
+        })
+      : new LoadingPulse({
+          telegram,
+          chatId,
+          messageId,
+          frames: pulseFrames,
+          frameMs: pulseFrameMs,
+        });
     pulse.start();
 
     const session = await sessionLoader();
@@ -138,6 +160,7 @@ export async function runSyncWithReporting(params) {
         frameMs: typewriterFrameMs,
         sleep,
         delivery,
+        editInPlace: Boolean(callbackMessageId),
       });
       logger.warn("Sync skipped: no Plaud session snapshot", { source });
       return { status: "no_session", summaryMessageId: messageId ?? undefined };
@@ -155,7 +178,9 @@ export async function runSyncWithReporting(params) {
       lastEditMs = now;
       const progressText = syncProgressHtml(stats);
       void delivery.pushProgress(progressText);
-      void editProgressBestEffort({ telegram, chatId, messageId, stats });
+      if (!draftLive) {
+        void editProgressBestEffort({ telegram, chatId, messageId, stats });
+      }
     };
 
     const startMs = nowMs();
@@ -175,6 +200,7 @@ export async function runSyncWithReporting(params) {
         delivery,
         sleep,
         typewriterFrameMs,
+        editInPlace: Boolean(callbackMessageId),
       });
     }
 
@@ -200,6 +226,7 @@ export async function runSyncWithReporting(params) {
       frameMs: typewriterFrameMs,
       sleep,
       delivery,
+      editInPlace: Boolean(callbackMessageId),
     });
     logger.info("Sync reported to Telegram", {
       source,
@@ -340,9 +367,9 @@ async function editProgressBestEffort({ telegram, chatId, messageId, stats }) {
 
 /**
  * Reveals the final sync message in the Чайка style: a smooth `sendMessageDraft`
- * typewriter in the user's input field, followed by a single instant edit of
- * the in-chat loading bubble into the final text. Falls back to `delivery`
- * (sendMessage or legacy edit) if the in-chat edit cannot land.
+ * typewriter in the user's input field, then `delivery.finish` (sendMessage) when
+ * the draft stream is active. When the user tapped sync on an existing inline
+ * message, we edit that bubble instead. Legacy/no-draft paths use edit/send fallback.
  *
  * @param {{
  *   telegram: import("./telegramClient.js").TelegramClient;
@@ -355,6 +382,7 @@ async function editProgressBestEffort({ telegram, chatId, messageId, stats }) {
  *   frameMs?: number;
  *   sleep?: (ms: number) => Promise<void>;
  *   delivery: ReturnType<typeof createSyncProgressDelivery>;
+ *   editInPlace?: boolean;
  * }} params
  * @returns {Promise<number | null>}
  */
@@ -369,21 +397,34 @@ async function revealFinal({
   frameMs = TYPEWRITER_FRAME_MS,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   delivery,
+  editInPlace = false,
 }) {
+  const clipped = clipTelegramText(text);
   await typewriterDraftAnimate({
     telegram,
     chatId,
     draftId,
-    text,
+    text: clipped,
     frameMs,
     sleep,
   });
+  if (delivery.isDraftMode() && !editInPlace) {
+    return finishDelivery({
+      delivery,
+      telegram,
+      chatId,
+      messageId,
+      text: clipped,
+      keyboard: keyboard ?? null,
+      messageEffectId: messageEffectId ?? null,
+    });
+  }
   if (messageId) {
     try {
       await telegram.editMessageText({
         chatId,
         messageId,
-        text,
+        text: clipped,
         replyMarkup: keyboard ?? null,
         messageEffectId: messageEffectId ?? null,
       });
@@ -399,7 +440,7 @@ async function revealFinal({
     telegram,
     chatId,
     messageId,
-    text,
+    text: clipped,
     keyboard: keyboard ?? null,
     messageEffectId: messageEffectId ?? null,
   });
@@ -482,6 +523,7 @@ async function handleSyncError({
   delivery,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   typewriterFrameMs = TYPEWRITER_FRAME_MS,
+  editInPlace = false,
 }) {
   const failure = classifySyncFailure(err);
   const backToMenu = buildBackToMenuKeyboard();
@@ -497,6 +539,7 @@ async function handleSyncError({
       frameMs: typewriterFrameMs,
       sleep,
       delivery,
+      editInPlace,
     });
 
   if (failure.kind === SYNC_FAILURE_LOCK) {

@@ -257,7 +257,7 @@ test("manual sync success may attach message effect in private chat", async () =
   syncRunGuard.reset();
 });
 
-test("Чайка-style reveal: draft frames animate, then a single final edit lands the summary", async () => {
+test("Чайка-style reveal: draft typewriter then sendMessage (no final edit snap)", async () => {
   syncRunGuard.reset();
   syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
   const telegram = fakeTelegram();
@@ -281,19 +281,27 @@ test("Чайка-style reveal: draft frames animate, then a single final edit la
     }),
   });
   const summaryDrafts = telegram.events.filter(
-    (e) => e.type === "draft" && /Автозапуск синка/.test(e.text)
+    (e) => e.type === "draft" && /Автозапуск|Новых/i.test(e.text)
   );
   assert.ok(
     summaryDrafts.length >= 2,
     `expected several smooth draft frames, got ${summaryDrafts.length}`
   );
+  const summarySends = telegram.events.filter(
+    (e) => e.type === "send" && /Новых: 1200/.test(e.text)
+  );
+  assert.equal(
+    summarySends.length,
+    1,
+    "draft-mode finish must land the summary via sendMessage like Чайка"
+  );
   const summaryEdits = telegram.events.filter(
-    (e) => e.type === "edit" && /Автозапуск синка/.test(e.text)
+    (e) => e.type === "edit" && /Новых: 1200/.test(e.text)
   );
   assert.equal(
     summaryEdits.length,
-    1,
-    "exactly one final edit lands the summary in the loading bubble"
+    0,
+    "draft-mode finish must not snap the summary via editMessageText"
   );
   syncRunGuard.reset();
 });
