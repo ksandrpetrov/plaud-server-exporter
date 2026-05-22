@@ -50,8 +50,9 @@ import {
   createSyncProgressDelivery,
   DraftLoadingPulse,
   LoadingPulse,
+  runDraftTypewriterPreview,
   tryOpenDraft,
-  typewriterDraftAnimate,
+  TYPEWRITER_FRAME_MS,
 } from "./streamingDelivery.js";
 import { SYNC_ACTION_MANUAL, syncActionKey, syncRunGuard } from "./syncGuards.js";
 import {
@@ -62,7 +63,6 @@ import {
 
 const PROGRESS_THROTTLE_MS = 2000;
 const LOADING_PULSE_FRAME_MS = 900;
-const TYPEWRITER_FRAME_MS = 160;
 
 /**
  * @typedef {{
@@ -403,13 +403,14 @@ async function revealFinal({
   editInPlace = false,
 }) {
   const clipped = clipTelegramText(text);
-  await typewriterDraftAnimate({
+  await runDraftTypewriterPreview({
     telegram,
     chatId,
-    draftId,
     text: clipped,
+    draftId,
     frameMs,
     sleep,
+    withTyping: false,
   });
   // Draft path: always `sendMessage` into chat (Чайка `StreamingReply.finish`), even
   // when the user tapped sync on an inline menu message.

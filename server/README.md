@@ -168,6 +168,7 @@ Telegram-слой бота сознательно повторяет UX сосе
 | Inline-меню (одна кнопка на ряд) | `keyboards.js` | ✅ на активном интервале автосинка |
 | ActionGuard | `actionGuard.js`, `syncGuards.js` | Повторный тап «🔄» → toast; cooldown ~35 с после успеха |
 | Потоковый прогресс | `streamingDelivery.js` | `sendMessageDraft` с fallback на edit |
+| Typewriter reveal | `messageAnimator.js`, `streamingDelivery.js` | Превью в поле ввода (`sendMessageDraft`) перед `sendMessage` / `editMessageText`; порог ~60 символов; короткие toast и `animate: false` — мгновенно |
 | HTML blockquote | `htmlFormat.js` | Длинная справка; retry без blockquote при 400 |
 | Typing + message effect | `telegramVisual.js` | `typing` на синке/дереве; ✨ после ручного успеха в личке |
 | Dedup callback | `bot.js` | Тот же `callback_query_id` не обрабатывается дважды |

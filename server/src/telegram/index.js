@@ -84,7 +84,7 @@ export async function runBot() {
         "Skipping scheduled sync — ActionGuard busy or post-success cooldown"
       );
       try {
-        await telegram.sendMessage({
+        await messageAnimator.send({
           chatId,
           text: syncBusyText("scheduled"),
         });

@@ -383,7 +383,7 @@ test("dispatch: with messageAnimator wired in, /menu sends ONE sendMessage + dra
   });
 });
 
-test("dispatch: with messageAnimator wired in, status callback edits the same message multiple times", async () => {
+test("dispatch: with messageAnimator wired in, status callback drafts then edits once", async () => {
   await withOwnerChatDir(async () => {
     syncRunGuard.reset();
     const tg = makeFakeTelegram();
@@ -399,9 +399,11 @@ test("dispatch: with messageAnimator wired in, status callback edits the same me
       privateCallback({ data: "status", from: OWNER })
     );
     const sends = tg.calls.filter((c) => c.name === "sendMessage");
+    const drafts = tg.calls.filter((c) => c.name === "sendMessageDraft");
     const edits = tg.calls.filter((c) => c.name === "editMessageText");
     assert.equal(sends.length, 0, "status callback must never sendMessage; only edit");
-    assert.ok(edits.length >= 1, "status callback must edit at least once");
+    assert.ok(drafts.length >= 1, "status callback should preview via sendMessageDraft");
+    assert.equal(edits.length, 1, "status callback should edit the menu bubble once");
     syncRunGuard.reset();
   });
 });

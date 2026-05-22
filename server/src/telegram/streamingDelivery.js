@@ -9,6 +9,7 @@
 
 import { logger } from "../logger.js";
 import { TelegramError } from "./telegramClient.js";
+import { TypingIndicator } from "./telegramVisual.js";
 
 const MIN_DRAFT_INTERVAL_MS = 280;
 const MIN_DRAFT_CHAR_DELTA = 24;
@@ -28,10 +29,10 @@ const EMPTY_TEXT_REJECTED_MARKERS = [
 ];
 
 // Aligned with satellite/telegram_bot/streaming_delivery.py (Чайка UX).
-const TYPEWRITER_MIN_LEN = 120;
-const TYPEWRITER_MAX_FRAMES = 9;
-const TYPEWRITER_MIN_CHUNK = 60;
-const TYPEWRITER_FRAME_MS = 160;
+export const TYPEWRITER_MIN_LEN = 60;
+export const TYPEWRITER_MAX_FRAMES = 9;
+export const TYPEWRITER_MIN_CHUNK = 60;
+export const TYPEWRITER_FRAME_MS = 160;
 
 const HTML_TAG_RE = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)(\s[^<>]*)?>/g;
 
@@ -441,6 +442,64 @@ export async function typewriterDraftAnimate({
     if (frameMs > 0) await sleep(frameMs);
   }
   return true;
+}
+
+/**
+ * Чайка-style draft preview in the user's input field before a final
+ * `sendMessage` or `editMessageText`. Returns whether draft frames ran.
+ *
+ * @param {{
+ *   telegram: import("./telegramClient.js").TelegramClient;
+ *   chatId: number;
+ *   text: string;
+ *   draftId?: number;
+ *   frameMs?: number;
+ *   maxFrames?: number;
+ *   minLen?: number;
+ *   minChunk?: number;
+ *   sleep?: (ms: number) => Promise<void>;
+ *   nowMs?: () => number;
+ *   withTyping?: boolean;
+ * }} params
+ * @returns {Promise<boolean>}
+ */
+export async function runDraftTypewriterPreview({
+  telegram,
+  chatId,
+  text,
+  draftId,
+  frameMs = TYPEWRITER_FRAME_MS,
+  maxFrames = TYPEWRITER_MAX_FRAMES,
+  minLen = TYPEWRITER_MIN_LEN,
+  minChunk = TYPEWRITER_MIN_CHUNK,
+  sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+  nowMs = () => Date.now(),
+  withTyping = true,
+}) {
+  const clipped = clipTelegramText(String(text ?? ""));
+  if (!clipped || clipped.length < minLen) return false;
+
+  const typing = withTyping
+    ? new TypingIndicator({ telegram, chatId, nowMs })
+    : null;
+  typing?.start();
+  try {
+    const resolvedDraftId = draftId ?? stableDraftId(chatId, nowMs());
+    await tryOpenDraft({ telegram, chatId, draftId: resolvedDraftId, initialText: "" });
+    return await typewriterDraftAnimate({
+      telegram,
+      chatId,
+      draftId: resolvedDraftId,
+      text: clipped,
+      frameMs,
+      maxFrames,
+      minLen,
+      minChunk,
+      sleep,
+    });
+  } finally {
+    typing?.stop();
+  }
 }
 
 /**

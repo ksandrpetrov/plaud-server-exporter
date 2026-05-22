@@ -12,13 +12,13 @@
  *
  * If `ctx.messageAnimator` is set (production wiring in
  * `server/src/telegram/index.js`), both `safeSend` and `editToMenuScreen`
- * route through it to render the ChatGPT-style typewriter reveal. When the
- * animator is absent (e.g. in unit tests that build a minimal `ctx`), both
- * helpers fall back to a single bare Telegram call — preserving the previous
- * one-`sendMessage`-per-reply contract that those tests check.
+ * route through it: long copy is previewed via `sendMessageDraft` in the
+ * input field (Чайка/GPT style), then one `sendMessage` or `editMessageText`.
+ * When the animator is absent (e.g. in unit tests that build a minimal `ctx`),
+ * both helpers fall back to a single bare Telegram call.
  *
- * Pass `{ animate: false }` to either helper to force the bare path even when
- * an animator is wired in (used for tiny system toasts).
+ * Pass `{ animate: false }` to `safeSend` to force the bare path even when an
+ * animator is wired in (used for tiny system toasts, e.g. sync busy).
  */
 
 import { logger } from "../logger.js";

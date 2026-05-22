@@ -4,19 +4,15 @@
  * Two methods that the dispatcher can use instead of bare `sendMessage` /
  * `editMessageText`:
  *
- *  - `send({ chatId, text, replyMarkup, messageEffectId })` — long messages
- *    are previewed in the user's input field via `sendMessageDraft` (Telegram
- *    natively animates a draft with the same `draftId`, interpolating
- *    smoothly between frames), then delivered as a single `sendMessage` that
- *    stays in chat. Short messages (< `minLen`) and chats where draft is
- *    unavailable fall back to a single `sendMessage` — no in-chat typewriter
- *    via edits, because `editMessageText` is not animated by clients and
- *    looks jumpy.
+ *  - `send({ chatId, text, replyMarkup, messageEffectId })` — messages at or
+ *    above `minLen` are previewed in the user's input field via
+ *    `sendMessageDraft`, then delivered as a single `sendMessage`. Shorter
+ *    copy and unavailable draft API fall back to one bare `sendMessage`.
  *
  *  - `edit({ chatId, messageId, text, replyMarkup, messageEffectId })` —
- *    a single `editMessageText` (instant). Menu navigation should never look
- *    animated: clients don't interpolate edits, so any "typewriter" via
- *    edits is visually worse than a snap.
+ *    same draft preview for long text, then a single `editMessageText` on the
+ *    inline menu bubble (no multi-frame in-chat edits — clients don't
+ *    interpolate those smoothly).
  *
  * The wiring is opt-in via `ctx.messageAnimator`: if the dispatcher's context
  * has no animator (e.g. in tests) the call sites fall back to a single
@@ -27,15 +23,11 @@
 import { logger } from "../logger.js";
 import {
   clipTelegramText,
-  stableDraftId,
-  tryOpenDraft,
-  typewriterDraftAnimate,
+  runDraftTypewriterPreview,
+  TYPEWRITER_FRAME_MS,
+  TYPEWRITER_MAX_FRAMES,
+  TYPEWRITER_MIN_LEN,
 } from "./streamingDelivery.js";
-import { TypingIndicator } from "./telegramVisual.js";
-
-const DEFAULT_FRAME_MS = 160;
-const DEFAULT_MAX_FRAMES = 9;
-const DEFAULT_MIN_LEN = 120;
 
 /**
  * @typedef {{
@@ -68,58 +60,37 @@ const DEFAULT_MIN_LEN = 120;
  */
 export function createMessageAnimator({
   telegram,
-  frameMs = DEFAULT_FRAME_MS,
-  maxFrames = DEFAULT_MAX_FRAMES,
-  minLen = DEFAULT_MIN_LEN,
+  frameMs = TYPEWRITER_FRAME_MS,
+  maxFrames = TYPEWRITER_MAX_FRAMES,
+  minLen = TYPEWRITER_MIN_LEN,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   nowMs = () => Date.now(),
 }) {
+  const previewOpts = { telegram, frameMs, maxFrames, minLen, sleep, nowMs };
+
   return {
     async send({ chatId, text, replyMarkup = null, messageEffectId = null }) {
       const finalText = clipTelegramText(String(text ?? ""));
       if (!finalText) return null;
 
-      if (finalText.length < minLen) {
-        return sendDirect({
-          telegram,
-          chatId,
-          text: finalText,
-          replyMarkup,
-          messageEffectId,
-        });
-      }
+      await runDraftTypewriterPreview({ ...previewOpts, chatId, text: finalText });
 
-      const typing = new TypingIndicator({ telegram, chatId, nowMs });
-      typing.start();
-      try {
-        const draftId = stableDraftId(chatId, nowMs());
-        await tryOpenDraft({ telegram, chatId, draftId, initialText: "" });
-        await typewriterDraftAnimate({
-          telegram,
-          chatId,
-          draftId,
-          text: finalText,
-          frameMs,
-          maxFrames,
-          minLen,
-          sleep,
-        });
-        return sendDirect({
-          telegram,
-          chatId,
-          text: finalText,
-          replyMarkup,
-          messageEffectId,
-        });
-      } finally {
-        typing.stop();
-      }
+      return sendDirect({
+        telegram,
+        chatId,
+        text: finalText,
+        replyMarkup,
+        messageEffectId,
+      });
     },
 
     async edit({ chatId, messageId, text, replyMarkup = null, messageEffectId = null }) {
       if (!messageId) return null;
-      const finalText = String(text ?? "");
+      const finalText = clipTelegramText(String(text ?? ""));
       if (!finalText) return null;
+
+      await runDraftTypewriterPreview({ ...previewOpts, chatId, text: finalText });
+
       try {
         await telegram.editMessageText({
           chatId,

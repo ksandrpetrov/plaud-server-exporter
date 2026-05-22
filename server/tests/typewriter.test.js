@@ -27,12 +27,12 @@ test("buildTypewriterFrames returns single frame for short text", () => {
   assert.deepEqual(frames, ["short"]);
 });
 
-test("buildTypewriterFrames skips animation below default minLen (120)", () => {
-  const frames = buildTypewriterFrames("x".repeat(80));
-  assert.deepEqual(frames, ["x".repeat(80)]);
+test("buildTypewriterFrames skips animation below default minLen (60)", () => {
+  const frames = buildTypewriterFrames("x".repeat(50));
+  assert.deepEqual(frames, ["x".repeat(50)]);
 });
 
-test("typewriterChunks matches Чайка: empty below 120 chars, partial prefixes only", () => {
+test("typewriterChunks matches Чайка: empty below 60 chars, partial prefixes only", () => {
   assert.deepEqual(typewriterChunks("hi"), []);
   assert.deepEqual(typewriterChunks("x".repeat(50)), []);
   const text = "<b>Заголовок</b>\n" + "Длинный текст. ".repeat(30);

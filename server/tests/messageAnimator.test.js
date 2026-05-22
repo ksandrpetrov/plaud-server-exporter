@@ -7,8 +7,8 @@
  *  - short text → single bare API call, no typewriter
  *  - long text via `send` → multiple `sendMessageDraft` frames (Telegram-native
  *    smooth animation in the user's input field) + one final `sendMessage`
- *  - any text via `edit` → a single instant `editMessageText` (menu navigation
- *    should never look animated, since clients don't interpolate edits)
+ *  - long text via `edit` → draft preview in the input field, then one
+ *    `editMessageText` on the menu bubble (no multi-frame in-chat edits)
  *
  * The animator's `safeSend` integration (production wiring in
  * `server/src/telegram/index.js`) is covered separately by
@@ -97,7 +97,7 @@ test("animator.send: long text streams via sendMessageDraft + final sendMessage"
   assert.equal(sends[0].payload.messageEffectId, "fxA", "final delivery keeps the effect");
 });
 
-test("animator.edit: long text uses a single instant editMessageText", async () => {
+test("animator.edit: long text drafts then a single editMessageText", async () => {
   const telegram = fakeTelegram();
   const animator = createMessageAnimator({
     telegram,
@@ -117,9 +117,9 @@ test("animator.edit: long text uses a single instant editMessageText", async () 
   const sends = telegram.calls.filter((c) => c.name === "sendMessage");
   assert.equal(sends.length, 0, "edit must never call sendMessage");
   const drafts = telegram.calls.filter((c) => c.name === "sendMessageDraft");
-  assert.equal(drafts.length, 0, "edit must never animate via draft");
+  assert.ok(drafts.length >= 1, `edit should preview via sendMessageDraft, got ${drafts.length}`);
   const edits = telegram.calls.filter((c) => c.name === "editMessageText");
-  assert.equal(edits.length, 1, "edit is instant: exactly one editMessageText");
+  assert.equal(edits.length, 1, "edit lands with exactly one editMessageText");
   const payload = edits[0].payload;
   assert.equal(payload.text, longText);
   assert.deepEqual(payload.replyMarkup, { reply: 1 });
