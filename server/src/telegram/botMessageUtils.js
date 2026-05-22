@@ -46,11 +46,14 @@ export async function editToMenuScreen(ctx, { chatId, messageId, text, keyboard 
   }
 }
 
-export async function answerBestEffort(ctx, callback) {
+export async function answerBestEffort(ctx, callback, options = {}) {
   const id = String(callback?.id || "");
   if (!id) return;
   try {
-    await ctx.telegram.answerCallbackQuery({ callbackQueryId: id });
+    await ctx.telegram.answerCallbackQuery({
+      callbackQueryId: id,
+      text: options.text ?? undefined,
+    });
   } catch (err) {
     logger.info("answerCallbackQuery failed", {
       error: String(err?.message || err),

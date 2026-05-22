@@ -17,6 +17,11 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { Agent } from "node:https";
+import {
+  isHtmlEntitiesRejected,
+  stripUnsupportedHtml,
+} from "./htmlFormat.js";
+import { isMessageEffectRejected } from "./telegramVisual.js";
 
 const TELEGRAM_API = "https://api.telegram.org";
 
@@ -118,19 +123,26 @@ export class TelegramClient {
    * }} params
    */
   async sendMessage(params) {
-    const data = {
-      chat_id: params.chatId,
+    return this._sendOrEditWithFallback({
+      methodName: "sendMessage",
       text: params.text,
-    };
-    if (params.parseMode !== null) data.parse_mode = params.parseMode || "HTML";
-    if (params.disableWebPagePreview !== false) {
-      data.disable_web_page_preview = "true";
-    }
-    if (params.replyMarkup != null) {
-      data.reply_markup = JSON.stringify(params.replyMarkup);
-    }
-    return this._call("sendMessage", {
-      data,
+      buildData: (text, { dropEffect = false } = {}) => {
+        const data = {
+          chat_id: params.chatId,
+          text,
+        };
+        if (params.parseMode !== null) data.parse_mode = params.parseMode || "HTML";
+        if (params.disableWebPagePreview !== false) {
+          data.link_preview_options = JSON.stringify({ is_disabled: true });
+        }
+        if (params.replyMarkup != null) {
+          data.reply_markup = JSON.stringify(params.replyMarkup);
+        }
+        if (!dropEffect && params.messageEffectId) {
+          data.message_effect_id = params.messageEffectId;
+        }
+        return data;
+      },
       timeoutMs: SEND_MESSAGE_TIMEOUT_MS,
       maxRetries: SEND_MESSAGE_MAX_RETRIES,
     });
@@ -147,22 +159,51 @@ export class TelegramClient {
    * }} params
    */
   async editMessageText(params) {
+    return this._sendOrEditWithFallback({
+      methodName: "editMessageText",
+      text: params.text,
+      buildData: (text, { dropEffect = false } = {}) => {
+        const data = {
+          chat_id: params.chatId,
+          message_id: params.messageId,
+          text,
+        };
+        if (params.parseMode !== null) data.parse_mode = params.parseMode || "HTML";
+        if (params.disableWebPagePreview !== false) {
+          data.link_preview_options = JSON.stringify({ is_disabled: true });
+        }
+        if (params.replyMarkup != null) {
+          data.reply_markup = JSON.stringify(params.replyMarkup);
+        }
+        if (!dropEffect && params.messageEffectId) {
+          data.message_effect_id = params.messageEffectId;
+        }
+        return data;
+      },
+      timeoutMs: EDIT_MESSAGE_TIMEOUT_MS,
+      maxRetries: EDIT_MESSAGE_MAX_RETRIES,
+    });
+  }
+
+  /**
+   * @param {{
+   *   chatId: number | string;
+   *   draftId: number;
+   *   text: string;
+   *   parseMode?: string | null;
+   * }} params
+   */
+  async sendMessageDraft(params) {
     const data = {
       chat_id: params.chatId,
-      message_id: params.messageId,
+      draft_id: params.draftId,
       text: params.text,
     };
     if (params.parseMode !== null) data.parse_mode = params.parseMode || "HTML";
-    if (params.disableWebPagePreview !== false) {
-      data.disable_web_page_preview = "true";
-    }
-    if (params.replyMarkup != null) {
-      data.reply_markup = JSON.stringify(params.replyMarkup);
-    }
-    return this._call("editMessageText", {
+    return this._call("sendMessageDraft", {
       data,
       timeoutMs: EDIT_MESSAGE_TIMEOUT_MS,
-      maxRetries: EDIT_MESSAGE_MAX_RETRIES,
+      maxRetries: 0,
     });
   }
 
@@ -256,6 +297,36 @@ export class TelegramClient {
   }
 
   // --- internals ---------------------------------------------------------
+
+  async _sendOrEditWithFallback({ methodName, text, buildData, timeoutMs, maxRetries }) {
+    try {
+      return await this._call(methodName, {
+        data: buildData(text),
+        timeoutMs,
+        maxRetries,
+      });
+    } catch (err) {
+      if (!(err instanceof TelegramError)) throw err;
+      if (isHtmlEntitiesRejected(err)) {
+        const stripped = stripUnsupportedHtml(text);
+        if (stripped !== text) {
+          return this._call(methodName, {
+            data: buildData(stripped),
+            timeoutMs,
+            maxRetries: 0,
+          });
+        }
+      }
+      if (isMessageEffectRejected(err)) {
+        return this._call(methodName, {
+          data: buildData(text, { dropEffect: true }),
+          timeoutMs,
+          maxRetries: 0,
+        });
+      }
+      throw err;
+    }
+  }
 
   async _callMultipart(methodName, { form, timeoutMs, maxRetries }) {
     const url = `${this._baseUrl}/${methodName}`;

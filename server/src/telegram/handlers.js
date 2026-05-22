@@ -55,6 +55,7 @@ import {
   BOT_WELCOME_HTML,
   MENU_CLOSED_TEXT,
   MENU_HEADER,
+  SYNC_BUSY_TOAST,
   filesMenuHtml,
   filesStatsHtml,
   lastSyncSummaryLine,
@@ -62,6 +63,7 @@ import {
   settingsScreenHtml,
   statusScreenHtml,
 } from "./messages.js";
+import { SYNC_ACTION_KEY, syncRunGuard } from "./syncGuards.js";
 import {
   extractCommandName,
   isHelpCommand,
@@ -204,22 +206,37 @@ async function handleCallbackQuery(ctx, callback) {
     return;
   }
 
+  let callbackAnswered = false;
   try {
-    await routeCallback(ctx, { chatId, messageId, data });
+    callbackAnswered = await routeCallback(ctx, {
+      chatId,
+      messageId,
+      data,
+      callback,
+    });
   } catch (err) {
     logger.error("Callback handler failed", {
       data,
       error: String(err?.message || err),
     });
   } finally {
-    await answerBestEffort(ctx, callback);
+    if (!callbackAnswered) {
+      await answerBestEffort(ctx, callback);
+    }
   }
 }
 
-async function routeCallback(ctx, { chatId, messageId, data }) {
+/**
+ * @returns {Promise<boolean>} true when answerCallbackQuery was already sent
+ */
+async function routeCallback(ctx, { chatId, messageId, data, callback }) {
   if (data === CB_RUN_SYNC) {
+    if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_KEY)) {
+      await answerBestEffort(ctx, callback, { text: SYNC_BUSY_TOAST });
+      return true;
+    }
     await ctx.runManualSync({ chatId, loadingMessageId: messageId });
-    return;
+    return false;
   }
   if (data === CB_STATUS) {
     const status = await readStatus();
@@ -312,6 +329,7 @@ async function routeCallback(ctx, { chatId, messageId, data }) {
     return;
   }
   logger.info("Unknown callback_data", { data });
+  return false;
 }
 
 async function handleStart(ctx, { chatId, from }) {

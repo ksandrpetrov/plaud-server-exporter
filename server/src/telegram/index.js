@@ -23,6 +23,7 @@ import { TelegramBotLoop } from "./bot.js";
 import { logPersistenceDiagnostics } from "./persistenceDiagnostics.js";
 import { BotScheduler } from "./scheduler.js";
 import { TelegramClient } from "./telegramClient.js";
+import { SYNC_ACTION_KEY, syncRunGuard } from "./syncGuards.js";
 import { runSyncSilent, runSyncWithReporting } from "./syncOrchestrator.js";
 
 const MENU_COMMANDS = [
@@ -65,47 +66,31 @@ export async function runBot() {
   const telegram = new TelegramClient(token);
   await registerMenuCommandsSafely(telegram);
 
-  let inFlightSyncs = 0;
-  const runManualSync = async ({ chatId, loadingMessageId }) => {
-    inFlightSyncs++;
-    try {
-      return await runSyncWithReporting({
-        telegram,
-        chatId,
-        loadingMessageId,
-        source: "manual",
-      });
-    } finally {
-      inFlightSyncs--;
-    }
-  };
+  const runManualSync = async ({ chatId, loadingMessageId }) =>
+    runSyncWithReporting({
+      telegram,
+      chatId,
+      loadingMessageId,
+      source: "manual",
+    });
+
   const runScheduledSync = async ({ chatId }) => {
-    if (inFlightSyncs > 0) {
+    if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_KEY)) {
       logger.info(
-        "Skipping scheduled sync — another sync is already running in this process"
+        "Skipping scheduled sync — ActionGuard busy or post-success cooldown"
       );
       return;
     }
-    inFlightSyncs++;
-    try {
-      return await runSyncWithReporting({
-        telegram,
-        chatId,
-        loadingMessageId: null,
-        source: "scheduled",
-      });
-    } finally {
-      inFlightSyncs--;
-    }
+    return runSyncWithReporting({
+      telegram,
+      chatId,
+      loadingMessageId: null,
+      source: "scheduled",
+    });
   };
-  const runSyncQuiet = async () => {
-    inFlightSyncs++;
-    try {
-      return await runSyncSilent();
-    } finally {
-      inFlightSyncs--;
-    }
-  };
+
+  const runSyncQuiet = async ({ chatId } = {}) =>
+    runSyncSilent({ chatId: chatId ?? null });
 
   const scheduler = new BotScheduler({
     telegram,

@@ -19,6 +19,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dispatchUpdate } from "../src/telegram/handlers.js";
+import { SYNC_ACTION_KEY, syncRunGuard } from "../src/telegram/syncGuards.js";
 
 function makeFakeTelegram() {
   const calls = [];
@@ -278,6 +279,7 @@ test("dispatch: callback_query from owner in a GROUP is silent except answerCall
 
 test("dispatch: owner callback_query in private chat triggers runManualSync", async () => {
   await withOwnerChatDir(async () => {
+    syncRunGuard.reset();
     const tg = makeFakeTelegram();
     let manualSyncRan = false;
     await dispatchUpdate(
@@ -289,6 +291,30 @@ test("dispatch: owner callback_query in private chat triggers runManualSync", as
       privateCallback({ data: "run_sync", from: OWNER })
     );
     assert.equal(manualSyncRan, true);
+    syncRunGuard.reset();
+  });
+});
+
+test("dispatch: duplicate run_sync shows busy toast without second runManualSync", async () => {
+  await withOwnerChatDir(async () => {
+    syncRunGuard.reset();
+    const tg = makeFakeTelegram();
+    let runs = 0;
+    assert.equal(syncRunGuard.tryAcquire(OWNER.id, SYNC_ACTION_KEY), true);
+    await dispatchUpdate(
+      ctx(tg, {
+        runManualSync: async () => {
+          runs += 1;
+        },
+      }),
+      privateCallback({ data: "run_sync", from: OWNER })
+    );
+    assert.equal(runs, 0);
+    const answer = tg.calls.find((c) => c.name === "answerCallbackQuery");
+    assert.ok(answer, "should answer callback");
+    const answerPayload = answer.args?.[0] || {};
+    assert.match(String(answerPayload.text || ""), /синк/i);
+    syncRunGuard.reset();
   });
 });
 

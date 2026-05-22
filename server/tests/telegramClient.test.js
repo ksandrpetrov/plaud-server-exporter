@@ -183,3 +183,25 @@ test("network errors are retried up to maxRetries then thrown without leaking th
   assert.equal(calls.length, 2);
   client.close();
 });
+
+test("sendMessage retries without blockquote when Telegram rejects HTML entities", async () => {
+  const { client, calls } = makeClient({
+    responses: [
+      jsonResponse({
+        status: 400,
+        body: { ok: false, description: "Bad Request: can't parse entities" },
+      }),
+      jsonResponse({
+        body: { ok: true, result: { message_id: 7 } },
+      }),
+    ],
+  });
+
+  const html = "<blockquote>tip</blockquote>";
+  const result = await client.sendMessage({ chatId: 1, text: html });
+  assert.deepEqual(result, { message_id: 7 });
+  assert.equal(calls.length, 2);
+  const secondBody = calls[1].options?.body?.toString?.() || "";
+  assert.doesNotMatch(secondBody, /blockquote/);
+  client.close();
+});

@@ -12,32 +12,46 @@
  * single short status line, single concise instruction, HTML where needed.
  */
 
-export const BOT_WELCOME_HTML =
-  "🛰 <b>Plaud-экспортер на связи.</b>\n\n" +
-  "Этот бот приватный: команды доступны только владельцу.\n" +
-  "Что умею:\n" +
-  "🔄 запустить синк по кнопке\n" +
-  "📊 показать статус последнего синка\n" +
-  "📁 открыть дерево синка и скачать .md по номеру в чате\n" +
-  "⚙️ настроить интервал автоматического запуска\n\n" +
+import { blockquote, expandableBlockquote } from "./htmlFormat.js";
+
+const BOT_COMMANDS_BLOCK =
   "Команды:\n" +
   "/menu — главное меню\n" +
   "/status — статус последнего синка\n" +
   "/help — справка";
 
-export const BOT_HELP_HTML =
-  "🛰 <b>Как пользоваться</b>\n\n" +
-  "Команды:\n" +
-  "/menu — открыть главное меню\n" +
-  "/status — посмотреть, когда был последний синк\n" +
-  "/help — эта справка\n\n" +
+const BOT_FEATURES_BLOCK =
+  "Что умею:\n" +
+  "🔄 запустить синк по кнопке\n" +
+  "📊 показать статус последнего синка\n" +
+  "📁 открыть дерево синка и скачать .md по номеру в чате\n" +
+  "⚙️ настроить интервал автоматического запуска";
+
+const BOT_MENU_BLOCK =
   "Через /menu доступно:\n" +
   "🔄 запуск синка вручную\n" +
   "📊 статус последнего синка\n" +
   "📁 файлы: дерево синка и сводка vault\n" +
-  "⚙️ настройки расписания (интервал автозапуска)\n\n" +
+  "⚙️ настройки расписания (интервал автозапуска)";
+
+const TREE_PICK_TIP =
   "В <b>Дереве синка</b> открой папку — у записей будут номера. " +
   "Отправь цифру (1–30 на странице), чтобы получить .md: если файла ещё нет на сервере, я сначала запущу синк, а потом пришлю его.";
+
+export const BOT_WELCOME_HTML =
+  "🛰 <b>Plaud-экспортер на связи.</b>\n\n" +
+  "Этот бот приватный: команды доступны только владельцу.\n\n" +
+  expandableBlockquote(BOT_FEATURES_BLOCK, { threshold: 3 }) +
+  "\n\n" +
+  expandableBlockquote(BOT_COMMANDS_BLOCK, { threshold: 3 });
+
+export const BOT_HELP_HTML =
+  "🛰 <b>Как пользоваться</b>\n\n" +
+  expandableBlockquote(BOT_COMMANDS_BLOCK, { threshold: 3 }) +
+  "\n\n" +
+  expandableBlockquote(BOT_MENU_BLOCK, { threshold: 3 }) +
+  "\n\n" +
+  blockquote(TREE_PICK_TIP);
 
 export const BOT_PRIVATE_HINT =
   "🛰 Этот бот приватный. Команды доступны только владельцу.";
@@ -51,6 +65,8 @@ export const SYNC_LOADING_HTML =
   "🛰 <b>Запускаю синк…</b>\nЭто может занять до минуты.";
 export const SYNC_LOADING_SCHEDULED_HTML =
   "🕒 <b>Автозапуск синка по расписанию.</b>\nЭто может занять до минуты.";
+export const SYNC_BUSY_TOAST = "Уже идёт синк — подожди немного";
+
 export const SYNC_LOCK_BUSY_HTML =
   "🔒 Уже идёт другой синк. Попробуй через минуту.";
 export const SYNC_NO_SESSION_HTML =
@@ -402,11 +418,26 @@ export function treeFilePickOutOfRangeHtml(pick, shown) {
 export const TREE_FILE_PICK_AUTO_SYNC_STARTED_HTML =
   "🌳 Файл не найден на сервере. Запустил синк через 🔄. Скоро пришлю вам файл.";
 
-export const TREE_FILE_PICK_AUTO_SYNC_FAILED_HTML =
-  "⚠️ Не удалось дотянуть файл — синк не завершился. Подробности — в логах сервиса.";
+export const ERR_TREE_AUTO_SYNC_FAILED_HTML =
+  "⚠️ Не удалось дотянуть файл — синк не завершился.\n" +
+  "Попробуй 🔄 в меню или повтори цифру через минуту.";
 
-export const TREE_FILE_PICK_STILL_MISSING_HTML =
-  "🌳 Синк прошёл, но файл так и не появился. Попробуй позже.";
+/** @deprecated use ERR_TREE_AUTO_SYNC_FAILED_HTML */
+export const TREE_FILE_PICK_AUTO_SYNC_FAILED_HTML = ERR_TREE_AUTO_SYNC_FAILED_HTML;
+
+export const ERR_TREE_FILE_STILL_MISSING_HTML =
+  "🌳 Синк прошёл, но файл так и не появился.\n" +
+  "Проверь, что запись есть в Plaud, и запусти синк ещё раз.";
+
+/** @deprecated use ERR_TREE_FILE_STILL_MISSING_HTML */
+export const TREE_FILE_PICK_STILL_MISSING_HTML = ERR_TREE_FILE_STILL_MISSING_HTML;
+
+export const ERR_TREE_SEND_DOCUMENT_HTML =
+  "⚠️ Не смог отправить файл в Telegram.\n" +
+  "Проверь, что .md на диске доступен серверу, и попробуй снова.";
+
+export const ERR_TREE_LOAD_HTML =
+  "⚠️ Не удалось загрузить дерево синка.\nПопробуй через минуту или запусти 🔄.";
 
 /**
  * Root view of the tree: folder list with counts. Each folder is rendered as

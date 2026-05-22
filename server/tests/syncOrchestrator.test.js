@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runSyncWithReporting } from "../src/telegram/syncOrchestrator.js";
+import { SYNC_ACTION_KEY, syncRunGuard } from "../src/telegram/syncGuards.js";
 import { SyncLockError } from "../src/sync/syncRunner.js";
 import { PlaudAuthError } from "../src/plaud/plaudApiClient.js";
 
@@ -10,9 +11,16 @@ function fakeTelegram({ failFirstEdit = false } = {}) {
   let firstEdit = true;
   return {
     events,
-    sendMessage: async ({ chatId, text, replyMarkup }) => {
+    sendMessage: async ({ chatId, text, replyMarkup, messageEffectId }) => {
       const id = nextMessageId++;
-      events.push({ type: "send", chatId, text, replyMarkup, messageId: id });
+      events.push({
+        type: "send",
+        chatId,
+        text,
+        replyMarkup,
+        messageEffectId,
+        messageId: id,
+      });
       return { message_id: id };
     },
     editMessageText: async ({ chatId, messageId, text, replyMarkup }) => {
@@ -25,6 +33,11 @@ function fakeTelegram({ failFirstEdit = false } = {}) {
       events.push({ type: "edit", chatId, messageId, text, replyMarkup });
       return { message_id: messageId };
     },
+    sendMessageDraft: async ({ chatId, text }) => {
+      events.push({ type: "draft", chatId, text });
+      return true;
+    },
+    sendChatAction: async () => true,
     answerCallbackQuery: async () => true,
     close: () => {},
   };
@@ -33,6 +46,8 @@ function fakeTelegram({ failFirstEdit = false } = {}) {
 const okSession = { token: "fake" };
 
 test("manual sync edits the loading message into the final summary", async () => {
+  syncRunGuard.reset();
+  syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
   const telegram = fakeTelegram();
   let now = 0;
   const result = await runSyncWithReporting({
@@ -65,16 +80,20 @@ test("manual sync edits the loading message into the final summary", async () =>
   assert.ok(firstEdit, "should edit loading message first");
   assert.equal(firstEdit.messageId, 555);
 
-  // Final edit carries the summary on the same message.
-  const finalEdit = telegram.events
-    .filter((e) => e.type === "edit" && /Синк завершён/.test(e.text))
+  const finalMessage = telegram.events
+    .filter(
+      (e) =>
+        (e.type === "edit" || e.type === "send") && /Синк завершён/.test(e.text)
+    )
     .at(-1);
-  assert.ok(finalEdit, "should send a final summary edit");
-  assert.equal(finalEdit.messageId, 555);
-  assert.match(finalEdit.text, /Новых: 1/);
+  assert.ok(finalMessage, "should send a final summary message");
+  assert.match(finalMessage.text, /Новых: 1/);
+  syncRunGuard.reset();
 });
 
 test("scheduled sync sends a fresh message instead of editing", async () => {
+  syncRunGuard.reset();
+  syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
   const telegram = fakeTelegram();
   const result = await runSyncWithReporting({
     telegram,
@@ -98,9 +117,12 @@ test("scheduled sync sends a fresh message instead of editing", async () => {
   // First "loading" sendMessage, then a final edit replaces it.
   assert.ok(sends.length >= 1);
   assert.match(sends[0].text, /Автозапуск/);
+  syncRunGuard.reset();
 });
 
 test("SyncLockError turns into a friendly busy message", async () => {
+  syncRunGuard.reset();
+  syncRunGuard.tryAcquire(1, SYNC_ACTION_KEY);
   const telegram = fakeTelegram();
   const result = await runSyncWithReporting({
     telegram,
@@ -120,9 +142,12 @@ test("SyncLockError turns into a friendly busy message", async () => {
       /Уже идёт другой синк/.test(e.text)
   );
   assert.ok(final, "should surface the lock-busy message");
+  syncRunGuard.reset();
 });
 
 test("missing session reports SYNC_NO_SESSION_HTML", async () => {
+  syncRunGuard.reset();
+  syncRunGuard.tryAcquire(1, SYNC_ACTION_KEY);
   const telegram = fakeTelegram();
   let syncCalled = false;
   const result = await runSyncWithReporting({
@@ -144,9 +169,12 @@ test("missing session reports SYNC_NO_SESSION_HTML", async () => {
       /Нет сохранённой сессии/.test(e.text)
   );
   assert.ok(final);
+  syncRunGuard.reset();
 });
 
 test("PlaudAuthError reports the auth-rejected message", async () => {
+  syncRunGuard.reset();
+  syncRunGuard.tryAcquire(1, SYNC_ACTION_KEY);
   const telegram = fakeTelegram();
   const result = await runSyncWithReporting({
     telegram,
@@ -165,4 +193,31 @@ test("PlaudAuthError reports the auth-rejected message", async () => {
       /Plaud отверг сессию/.test(e.text)
   );
   assert.ok(final);
+  syncRunGuard.reset();
+});
+
+test("manual sync success may attach message effect in private chat", async () => {
+  syncRunGuard.reset();
+  syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
+  const telegram = fakeTelegram();
+  await runSyncWithReporting({
+    telegram,
+    chatId: 42,
+    source: "manual",
+    loadingMessageId: null,
+    sessionLoader: async () => okSession,
+    syncRunner: async () => ({
+      status: "completed",
+      new: 0,
+      updated: 0,
+      unchanged: 0,
+      skipped: 0,
+      errors: 0,
+    }),
+  });
+  const withEffect = telegram.events.find(
+    (e) => e.type === "send" && e.messageEffectId
+  );
+  assert.ok(withEffect, "expected sparkle effect on final send");
+  syncRunGuard.reset();
 });

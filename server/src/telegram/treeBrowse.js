@@ -23,18 +23,22 @@ import { config, effectiveVaultRoot } from "../config/config.js";
 import { logger } from "../logger.js";
 import { loadSyncIndex } from "../sync/serverSyncIndex.js";
 import {
+  buildBackToMenuKeyboard,
   buildFilesTreeFolderKeyboard,
   buildFilesTreeRootKeyboard,
 } from "./keyboards.js";
 import {
+  ERR_TREE_AUTO_SYNC_FAILED_HTML,
+  ERR_TREE_FILE_STILL_MISSING_HTML,
+  ERR_TREE_LOAD_HTML,
+  ERR_TREE_SEND_DOCUMENT_HTML,
   filesTreeFolderHtml,
   filesTreeRootHtml,
-  TREE_FILE_PICK_AUTO_SYNC_FAILED_HTML,
   TREE_FILE_PICK_AUTO_SYNC_STARTED_HTML,
   TREE_FILE_PICK_NO_CONTEXT_HTML,
-  TREE_FILE_PICK_STILL_MISSING_HTML,
   treeFilePickOutOfRangeHtml,
 } from "./messages.js";
+import { TypingIndicator } from "./telegramVisual.js";
 import { editToMenuScreen, safeSend } from "./botMessageUtils.js";
 import { loadPlaudLiveSyncTree } from "./plaudLiveTree.js";
 import {
@@ -71,42 +75,74 @@ export async function loadTreeSource() {
 
 export async function showFilesTreeRoot(ctx, { chatId, messageId }) {
   await clearTreeBrowseState(chatId);
-  const idx = await loadTreeSource();
-  const root = buildSyncIndexTreeRoot(idx, {
-    vaultRoot: effectiveVaultRoot(),
-    subfolder: config.obsidianSubfolder,
-  });
-  await editToMenuScreen(ctx, {
-    chatId,
-    messageId,
-    text: filesTreeRootHtml(root),
-    keyboard: buildFilesTreeRootKeyboard(root),
-  });
+  const typing = new TypingIndicator({ telegram: ctx.telegram, chatId });
+  typing.start();
+  try {
+    const idx = await loadTreeSource();
+    const root = buildSyncIndexTreeRoot(idx, {
+      vaultRoot: effectiveVaultRoot(),
+      subfolder: config.obsidianSubfolder,
+    });
+    await editToMenuScreen(ctx, {
+      chatId,
+      messageId,
+      text: filesTreeRootHtml(root),
+      keyboard: buildFilesTreeRootKeyboard(root),
+    });
+  } catch (err) {
+    logger.warn("showFilesTreeRoot failed", {
+      error: String(err?.message || err),
+    });
+    await editToMenuScreen(ctx, {
+      chatId,
+      messageId,
+      text: ERR_TREE_LOAD_HTML,
+      keyboard: buildBackToMenuKeyboard(),
+    });
+  } finally {
+    typing.stop();
+  }
 }
 
 export async function showFilesTreeFolder(ctx, { chatId, messageId, folderIndex, page }) {
-  const idx = await loadTreeSource();
-  const folderPage = buildSyncIndexFolderPage(idx, {
-    folderIndex,
-    page,
-    vaultRoot: effectiveVaultRoot(),
-    subfolder: config.obsidianSubfolder,
-  });
-  if (!folderPage.exists) {
-    await showFilesTreeRoot(ctx, { chatId, messageId });
-    return;
+  const typing = new TypingIndicator({ telegram: ctx.telegram, chatId });
+  typing.start();
+  try {
+    const idx = await loadTreeSource();
+    const folderPage = buildSyncIndexFolderPage(idx, {
+      folderIndex,
+      page,
+      vaultRoot: effectiveVaultRoot(),
+      subfolder: config.obsidianSubfolder,
+    });
+    if (!folderPage.exists) {
+      await showFilesTreeRoot(ctx, { chatId, messageId });
+      return;
+    }
+    await setTreeBrowseState(chatId, {
+      folderIndex: folderPage.folderIndex,
+      page: folderPage.page,
+      items: folderPage.items,
+    });
+    await editToMenuScreen(ctx, {
+      chatId,
+      messageId,
+      text: filesTreeFolderHtml(folderPage),
+      keyboard: buildFilesTreeFolderKeyboard(folderPage),
+    });
+  } catch (err) {
+    logger.warn("showFilesTreeFolder failed", {
+      error: String(err?.message || err),
+    });
+    await editToMenuScreen(ctx, {
+      chatId,
+      messageId,
+      text: ERR_TREE_LOAD_HTML,
+      keyboard: buildBackToMenuKeyboard(),
+    });
+  } finally {
+    typing.stop();
   }
-  await setTreeBrowseState(chatId, {
-    folderIndex: folderPage.folderIndex,
-    page: folderPage.page,
-    items: folderPage.items,
-  });
-  await editToMenuScreen(ctx, {
-    chatId,
-    messageId,
-    text: filesTreeFolderHtml(folderPage),
-    keyboard: buildFilesTreeFolderKeyboard(folderPage),
-  });
 }
 
 /**
@@ -138,24 +174,24 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
 
   await safeSend(ctx, chatId, TREE_FILE_PICK_AUTO_SYNC_STARTED_HTML);
 
-  const syncResult = await runQuietSyncSafely(ctx);
+  const syncResult = await runQuietSyncSafely(ctx, chatId);
   if (syncResult.status !== "ok") {
     logger.info("Auto-sync from tree pick did not deliver", {
       chatId,
       stableId: item.stableId,
       status: syncResult.status,
     });
-    await safeSend(ctx, chatId, TREE_FILE_PICK_AUTO_SYNC_FAILED_HTML);
+    await safeSend(ctx, chatId, ERR_TREE_AUTO_SYNC_FAILED_HTML);
     return;
   }
 
   const freshPath = await resolveSummaryPathAfterSync(item.stableId);
   if (!freshPath) {
-    await safeSend(ctx, chatId, TREE_FILE_PICK_STILL_MISSING_HTML);
+    await safeSend(ctx, chatId, ERR_TREE_FILE_STILL_MISSING_HTML);
     return;
   }
   if (!(await trySendDocument(ctx, chatId, freshPath))) {
-    await safeSend(ctx, chatId, TREE_FILE_PICK_STILL_MISSING_HTML);
+    await safeSend(ctx, chatId, ERR_TREE_SEND_DOCUMENT_HTML);
   }
 }
 
@@ -181,13 +217,13 @@ async function trySendDocument(ctx, chatId, documentPath) {
   }
 }
 
-async function runQuietSyncSafely(ctx) {
+async function runQuietSyncSafely(ctx, chatId) {
   if (typeof ctx.runSyncQuiet !== "function") {
     logger.warn("Auto-sync requested but runSyncQuiet is not wired into the bot");
     return { status: "failed" };
   }
   try {
-    const result = await ctx.runSyncQuiet();
+    const result = await ctx.runSyncQuiet({ chatId });
     return result || { status: "failed" };
   } catch (err) {
     logger.warn("runSyncQuiet threw", {

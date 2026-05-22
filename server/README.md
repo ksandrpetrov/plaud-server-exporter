@@ -145,6 +145,23 @@ systemd-юниты живут в [`deploy/systemd/`](../deploy/systemd/):
 
 Подробный деплой — [docs/server-deploy.md](../docs/server-deploy.md).
 
+### UX (паттерны из [satellite](https://github.com/aleksandr/Developer/satellite))
+
+Telegram-слой бота сознательно повторяет UX соседнего проекта «Чайка»
+(`satellite/telegram_bot/`, `docs/telegram-ux.md`):
+
+| Паттерн | Модуль | Поведение |
+|---------|--------|-----------|
+| Централизованные RU-строки | `src/telegram/messages.js` | Копирайт и `ERR_*` без stack trace в чат |
+| Inline-меню (одна кнопка на ряд) | `keyboards.js` | ✅ на активном интервале автосинка |
+| ActionGuard | `actionGuard.js`, `syncGuards.js` | Повторный тап «🔄» → toast; cooldown ~35 с после успеха |
+| Потоковый прогресс | `streamingDelivery.js` | `sendMessageDraft` с fallback на edit |
+| HTML blockquote | `htmlFormat.js` | Длинная справка; retry без blockquote при 400 |
+| Typing + message effect | `telegramVisual.js` | `typing` на синке/дереве; ✨ после ручного успеха в личке |
+| Dedup callback | `bot.js` | Тот же `callback_query_id` не обрабатывается дважды |
+
+Не переносим: reply-клавиатуру, Web App, персону «Чайка», PNG-аналитику.
+
 ## Разработка
 
 ```bash
