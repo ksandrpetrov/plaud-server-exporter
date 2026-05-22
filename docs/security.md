@@ -52,7 +52,10 @@ scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
 # на сервере: install + chown plaud (см. getting-started.md)
 ```
 
-После замены сессии перезапустите бот: `sudo systemctl restart plaud-exporter.service`.
+После замены сессии перезапустите бот:
+
+- systemd: `sudo systemctl restart plaud-exporter.service`
+- Docker: `cd /opt/plaud-exporter && docker compose restart` (или `docker compose up -d` после смены `session.json` в volume)
 
 ## Удалить сессию
 
@@ -72,7 +75,7 @@ rm -rf server/.data/playwright-profile
 2. Смените пароль Plaud в веб-интерфейсе.
 3. Снова `server:auth` и разверните новый `session.json`.
 
-Если утёк `TELEGRAM_BOT_TOKEN` — отзовите в BotFather, обновите `.env`, `systemctl restart plaud-exporter.service`.
+Если утёк `TELEGRAM_BOT_TOKEN` — отзовите в BotFather, обновите `.env`, перезапустите бот (systemd или `docker compose` — см. выше).
 
 ## Безопасная работа на сервере
 

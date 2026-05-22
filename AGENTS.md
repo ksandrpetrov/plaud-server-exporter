@@ -8,7 +8,7 @@
 
 - `server/` — Node 20+ ESM CLI + Telegram-бот (long-polling). Точка входа: [`server/src/cli/index.js`](server/src/cli/index.js); бот: [`server/src/telegram/index.js`](server/src/telegram/index.js).
 - `plaud-exporter/` — Chrome MV3 расширение. **Не** git-submodule, вендорный код в монорепо. Точки входа: `background.js`, `content.js`, `popup/`.
-- `docs/`, `deploy/`, `scripts/` — документация, systemd, верификация.
+- `docs/`, `deploy/`, `scripts/` — документация, systemd/Docker/Ansible, верификация, `ci-deploy-remote.sh`.
 
 Сервер **не** качает аудио (только саммари). Расширение — качает и то и другое.
 
@@ -34,7 +34,7 @@ npm run test:submodule   # extension tests (alias: test:extension)
 npm run test:extension   # same
 ```
 
-Extension отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`. CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) гоняет всё на Node 22.
+Extension отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`. CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — тесты на Node 22; [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — образ GHCR + опциональный Docker deploy (`PRODUCTION_DOCKER_DEPLOY`).
 
 ## Файлы, которые нельзя трогать целиком без плана
 

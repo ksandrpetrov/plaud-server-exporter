@@ -45,6 +45,9 @@ npm run server:sync
 | `PLAUD_LOG_LEVEL` | `debug` / `info` / `warn` / `error` |
 | `PLAUD_API_CONCURRENCY` | Параллельные запросы API (по умолчанию `4`) |
 | `PLAUD_WEB_ORIGIN` | Origin Plaud Web (по умолчанию `https://web.plaud.ai`) |
+| `WEBAPP_HOST` | Адрес HTTP в процессе бота (Docker: `0.0.0.0`) |
+| `WEBAPP_PORT` | Порт HTTP (по умолчанию `8080`; healthcheck `/healthz`) |
+| `WEBAPP_BASE_URL` | Публичный HTTPS URL для `/connect` (nginx), не локальный путь |
 
 Не коммитьте `.env` и `server/.data/session.json`.
 
@@ -87,12 +90,21 @@ npm run server:sync
 
 ## Продакшен на VPS
 
-- `server:auth` — **только на Mac**; `session.json` копируйте на сервер (`scp`).
-- `server:bot` — основной долгоживущий процесс на VPS (systemd, см. ниже).
-- `server:sync` остаётся для ручных запусков; общий файловый лок не даст ему столкнуться с ботом.
+Два режима (не смешивать с одним `TELEGRAM_BOT_TOKEN`):
+
+| Режим | Документ |
+|-------|----------|
+| **systemd** + Node на хосте (`/srv/plaud-exporter`) | [docs/server-deploy.md](../docs/server-deploy.md) |
+| **Docker** + nginx TLS (`/opt/plaud-exporter`, GHCR, CI deploy) | [deploy/README.md](../deploy/README.md) |
+
+Общее:
+
+- `server:auth` — **только на Mac**; `session.json` копируйте на сервер (`scp`) или в Docker volume.
+- `server:bot` — основной долгоживущий процесс (systemd или контейнер); вместе с ним поднимается HTTP `/healthz`.
+- `server:sync` — ручные запуски; общий файловый лок не даст столкнуться с ботом.
 - Playwright на VPS с 1 GB RAM не запускайте.
 
-См. [docs/server-deploy.md](../docs/server-deploy.md), [docs/security.md](../docs/security.md), [docs/troubleshooting.md](../docs/troubleshooting.md).
+См. [docs/security.md](../docs/security.md), [docs/troubleshooting.md](../docs/troubleshooting.md).
 
 ## Telegram-бот
 

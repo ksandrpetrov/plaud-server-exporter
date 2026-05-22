@@ -11,7 +11,7 @@
 | [`server/`](server/) | Node CLI, Playwright-авторизация, Plaud API, Telegram-бот |
 | [`plaud-exporter/`](plaud-exporter/) | Расширение Chrome MV3 + общий код sync/путей |
 | [`docs/`](docs/) | Установка, деплой, Syncthing, безопасность |
-| [`deploy/`](deploy/) | systemd (`plaud-exporter.service`), logrotate |
+| [`deploy/`](deploy/) | systemd, logrotate, Docker Compose, Ansible, nginx-пример |
 
 Отдельный репозиторий расширения (исторически): [ksandrpetrov/plaud-exporter](https://github.com/ksandrpetrov/plaud-exporter).
 
@@ -32,7 +32,8 @@
 |----------|------------|
 | **[docs/getting-started.md](docs/getting-started.md)** | Mac, VPS, первый sync, Telegram-бот, systemd |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Карта кода, общие модули, потоки sync, что трогать при изменении X |
-| [docs/server-deploy.md](docs/server-deploy.md) | Продакшен-деплой (чеклист) |
+| [docs/server-deploy.md](docs/server-deploy.md) | Продакшен: systemd или Docker (чеклист) |
+| [deploy/README.md](deploy/README.md) | Docker + Ansible, GHCR, CI deploy |
 | [docs/obsidian-sync.md](docs/obsidian-sync.md) | Syncthing: сервер → Mac |
 | [docs/troubleshooting.md](docs/troubleshooting.md) | Коды выхода, сессия, `scp`, lock, Telegram |
 | [docs/security.md](docs/security.md) | Секреты, логи, ротация сессии |
@@ -76,6 +77,10 @@ npm run verify           # импорты server → plaud-exporter/common/*
 
 Расширение отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`.
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) гоняет всё то же самое на Node 22 при push/PR в `main`.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — lint, verify, тесты на Node 22 при push/PR в `main`.
+
+Deploy ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) на push в `main`: сборка образа в GHCR (`:sha-*`), smoke; SSH-выкат на VPS **только** если в GitHub Variables задано `PRODUCTION_DOCKER_DEPLOY=true` (иначе systemd-бот на сервере не трогается). См. [deploy/README.md](deploy/README.md).
+
+Локальный Docker: `cp .env.example .env` → `make docker-up` → `curl -s http://127.0.0.1:8080/healthz`.
 
 > Каталог [`plaud-exporter/`](plaud-exporter/) — **не git-submodule**, а вендорный код в монорепо. Скрипт `npm run verify` (исторически `verify-submodule`) проверяет, что `plaud-exporter/common/*.js` существуют и относительные импорты из `server/src/` резолвятся.

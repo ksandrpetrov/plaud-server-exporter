@@ -2,6 +2,13 @@
 
 Пошаговая установка на Ubuntu. Первый sync и auth на Mac — в [getting-started.md](./getting-started.md).
 
+| Режим | Когда | Документ |
+|-------|--------|----------|
+| **systemd** | Node на хосте, `/srv/plaud-exporter` | Этот файл (ниже) |
+| **Docker** | Образ в GHCR, nginx, `/opt/plaud-exporter` | [deploy/README.md](../deploy/README.md) |
+
+Не запускайте оба режима с одним `TELEGRAM_BOT_TOKEN`. CI SSH-deploy включается только переменной `PRODUCTION_DOCKER_DEPLOY=true` — иначе push в `main` не трогает systemd.
+
 ## Целевой сервер
 
 | Параметр | Типичное значение |

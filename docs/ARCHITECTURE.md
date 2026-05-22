@@ -16,6 +16,7 @@ plaud-server-exporter/
 │   │   ├── errors/              Классификация ошибок + report в _errors/
 │   │   ├── telegram/            Бот: loop, handlers, копии UI, дерево, scheduler
 │   │   ├── security/            redact для логов и отчётов
+│   │   ├── http/                webServer: /healthz, /connect (Docker + nginx)
 │   │   └── logger.js
 │   └── tests/                   node:test (см. ниже)
 ├── plaud-exporter/              Chrome MV3 extension
@@ -26,8 +27,9 @@ plaud-server-exporter/
 │   ├── content.js               onMessage → audioExport
 │   └── popup/                   UI расширения
 ├── docs/                        Документация (RU)
-├── deploy/                      systemd, logrotate
-└── scripts/                     verify-submodule.js, server-as-plaud.sh
+├── deploy/                      systemd, logrotate, docker-compose, Ansible
+├── Dockerfile                   Production image (бот + HTTP)
+└── scripts/                     verify-submodule.js, ci-deploy-remote.sh, migrate-legacy-data.sh
 ```
 
 ## Общий код (shared common)
@@ -163,7 +165,9 @@ npm run verify           # shared common imports + файлы существую
 npm run test:submodule   # plaud-exporter (node:test)
 ```
 
-CI ([`/.github/workflows/ci.yml`](../.github/workflows/ci.yml)) гоняет всё то же самое на Node 22 при push/PR в `main`.
+CI ([`/.github/workflows/ci.yml`](../.github/workflows/ci.yml)) — lint, verify, тесты на Node 22 при push/PR в `main`.
+
+Deploy ([`/.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) на push в `main`: образ в GHCR, docker-smoke; опциональный SSH deploy через [`scripts/ci-deploy-remote.sh`](../scripts/ci-deploy-remote.sh) при `PRODUCTION_DOCKER_DEPLOY=true`. Подробности — [deploy/README.md](../deploy/README.md).
 
 ## Что **не** трогаем в этом репо
 
@@ -177,4 +181,5 @@ CI ([`/.github/workflows/ci.yml`](../.github/workflows/ci.yml)) гоняет в�
 - [`docs/server-exporter-research.md`](./server-exporter-research.md) — обоснование портирования расширения в серверный CLI.
 - [`docs/stabilization-audit.md`](./stabilization-audit.md), [`docs/stabilization-result.md`](./stabilization-result.md) — аудит и результат стабилизации (май 2026).
 - [`docs/getting-started.md`](./getting-started.md) — установка и первый запуск.
-- [`docs/server-deploy.md`](./server-deploy.md) — продакшен-деплой на VPS.
+- [`docs/server-deploy.md`](./server-deploy.md) — продакшен на VPS (systemd или Docker).
+- [`deploy/README.md`](../deploy/README.md) — Docker, Ansible, rolling deploy из CI.

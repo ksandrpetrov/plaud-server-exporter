@@ -82,7 +82,7 @@ CLI выгружает **саммари** записей Plaud в Markdown дл�
    ```
    Код выхода `0`, в каталоге — новые `.md`.
 
-**После успешного ручного sync** включите Telegram-бот как основной сервис — раздел [Сервер: автозапуск через Telegram-бот](#сервер-автозапуск-через-telegram-бот) ниже. Полный чеклист и сценарии обновления — в [server-deploy.md](./server-deploy.md). Для Obsidian на Mac настройте Syncthing — [obsidian-sync.md](obsidian-sync.md).
+**После успешного ручного sync** включите Telegram-бот как основной сервис — раздел [Сервер: автозапуск через Telegram-бот](#сервер-автозапуск-через-telegram-бот) ниже. Полный чеклист и сценарии обновления — в [server-deploy.md](./server-deploy.md). Альтернатива без Node на хосте — Docker + nginx: [deploy/README.md](../deploy/README.md). Для Obsidian на Mac настройте Syncthing — [obsidian-sync.md](obsidian-sync.md).
 
 | Код выхода | Значение |
 |------------|----------|
@@ -226,9 +226,11 @@ systemctl --no-pager status plaud-exporter.service   # Active: active (running)
 
 Логи: `journalctl -u plaud-exporter.service -n 50` и `/var/log/plaud-exporter/bot.log`. Sync-логи one-shot'а (`plaud-exporter-sync.service`, бэкап-раннер) — `/var/log/plaud-exporter/sync.log`. Детально — в [server-deploy.md](./server-deploy.md).
 
-**Обновление кода:** полный чеклист — [server-deploy.md § Обновление кода](./server-deploy.md#обновление-кода) (`stop` → `reset --hard` → `chown` → `npm` → unit + `restart`).
+**Обновление кода (systemd):** полный чеклист — [server-deploy.md § Обновление кода](./server-deploy.md#обновление-кода) (`stop` → `reset --hard` → `chown` → `npm` → unit + `restart`).
 
-На сервере все `git`/`npm` — от пользователя `plaud` (`sudo -u plaud …`), путь `/srv/plaud-exporter`. Не запускайте `npm run server:auth` на сервере.
+**Docker:** push в `main` собирает образ в GHCR; автоматический SSH-deploy только при `PRODUCTION_DOCKER_DEPLOY=true` в GitHub Variables — см. [deploy/README.md](../deploy/README.md). Пока бот на systemd, эту переменную **не** включайте (иначе CI может переключить хост на Docker).
+
+На сервере все `git`/`npm` — от пользователя `plaud` (`sudo -u plaud …`), путь `/srv/plaud-exporter` (Docker bootstrap часто `/opt/plaud-exporter`). Не запускайте `npm run server:auth` на сервере.
 
 ---
 
