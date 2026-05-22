@@ -31,7 +31,7 @@ jobs:
 
             cd "${{ secrets.DEPLOY_PATH }}"
 
-            git remote set-url origin git@github.com:ksandrpetrov/plaud-server-exporter.git
+            git remote set-url origin https://github.com/ksandrpetrov/plaud-server-exporter.git
             git fetch origin
 
             CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
