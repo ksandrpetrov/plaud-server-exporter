@@ -23,14 +23,27 @@ function fakeTelegram({ failFirstEdit = false } = {}) {
       });
       return { message_id: id };
     },
-    editMessageText: async ({ chatId, messageId, text, replyMarkup }) => {
+    editMessageText: async ({
+      chatId,
+      messageId,
+      text,
+      replyMarkup,
+      messageEffectId,
+    }) => {
       if (failFirstEdit && firstEdit) {
         firstEdit = false;
         const err = new Error("forced edit failure");
         throw err;
       }
       firstEdit = false;
-      events.push({ type: "edit", chatId, messageId, text, replyMarkup });
+      events.push({
+        type: "edit",
+        chatId,
+        messageId,
+        text,
+        replyMarkup,
+        messageEffectId,
+      });
       return { message_id: messageId };
     },
     sendMessageDraft: async ({ chatId, text }) => {
@@ -45,6 +58,9 @@ function fakeTelegram({ failFirstEdit = false } = {}) {
 
 const okSession = { token: "fake" };
 
+const noSleep = () => Promise.resolve();
+const HUGE_PULSE = 10_000_000;
+
 test("manual sync edits the loading message into the final summary", async () => {
   syncRunGuard.reset();
   syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
@@ -57,6 +73,9 @@ test("manual sync edits the loading message into the final summary", async () =>
     loadingMessageId: 555,
     sessionLoader: async () => okSession,
     nowMs: () => (now += 1000),
+    sleep: noSleep,
+    pulseFrameMs: HUGE_PULSE,
+    typewriterFrameMs: 0,
     syncRunner: async ({ onProgress }) => {
       onProgress?.({ processed: 1, total: 2 });
       now += 3_000; // pass the 2s throttle on the next call
@@ -102,6 +121,9 @@ test("scheduled sync sends a fresh message instead of editing", async () => {
     loadingMessageId: null,
     sessionLoader: async () => okSession,
     nowMs: () => Date.now(),
+    sleep: noSleep,
+    pulseFrameMs: HUGE_PULSE,
+    typewriterFrameMs: 0,
     syncRunner: async () => ({
       status: "completed",
       new: 0,
@@ -131,6 +153,9 @@ test("SyncLockError turns into a friendly busy message", async () => {
     loadingMessageId: null,
     sessionLoader: async () => okSession,
     nowMs: () => Date.now(),
+    sleep: noSleep,
+    pulseFrameMs: HUGE_PULSE,
+    typewriterFrameMs: 0,
     syncRunner: async () => {
       throw new SyncLockError("busy", null);
     },
@@ -156,6 +181,9 @@ test("missing session reports SYNC_NO_SESSION_HTML", async () => {
     source: "manual",
     loadingMessageId: null,
     sessionLoader: async () => null,
+    sleep: noSleep,
+    pulseFrameMs: HUGE_PULSE,
+    typewriterFrameMs: 0,
     syncRunner: async () => {
       syncCalled = true;
       return {};
@@ -182,6 +210,9 @@ test("PlaudAuthError reports the auth-rejected message", async () => {
     source: "manual",
     loadingMessageId: null,
     sessionLoader: async () => okSession,
+    sleep: noSleep,
+    pulseFrameMs: HUGE_PULSE,
+    typewriterFrameMs: 0,
     syncRunner: async () => {
       throw new PlaudAuthError("token expired");
     },
@@ -206,6 +237,9 @@ test("manual sync success may attach message effect in private chat", async () =
     source: "manual",
     loadingMessageId: null,
     sessionLoader: async () => okSession,
+    sleep: noSleep,
+    pulseFrameMs: HUGE_PULSE,
+    typewriterFrameMs: 0,
     syncRunner: async () => ({
       status: "completed",
       new: 0,
@@ -216,8 +250,41 @@ test("manual sync success may attach message effect in private chat", async () =
     }),
   });
   const withEffect = telegram.events.find(
-    (e) => e.type === "send" && e.messageEffectId
+    (e) =>
+      (e.type === "edit" || e.type === "send") && e.messageEffectId
   );
-  assert.ok(withEffect, "expected sparkle effect on final send");
+  assert.ok(withEffect, "expected sparkle effect on final reveal");
+  syncRunGuard.reset();
+});
+
+test("typewriter reveal produces multiple intermediate edits for long summary", async () => {
+  syncRunGuard.reset();
+  syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
+  const telegram = fakeTelegram();
+  await runSyncWithReporting({
+    telegram,
+    chatId: 42,
+    source: "manual",
+    loadingMessageId: null,
+    sessionLoader: async () => okSession,
+    sleep: noSleep,
+    pulseFrameMs: HUGE_PULSE,
+    typewriterFrameMs: 0,
+    syncRunner: async () => ({
+      status: "completed",
+      new: 12,
+      updated: 3,
+      unchanged: 4,
+      skipped: 0,
+      errors: 0,
+    }),
+  });
+  const summaryEdits = telegram.events.filter(
+    (e) => e.type === "edit" && /Синк завершён/.test(e.text)
+  );
+  assert.ok(
+    summaryEdits.length >= 2,
+    `expected several typewriter edits, got ${summaryEdits.length}`
+  );
   syncRunGuard.reset();
 });

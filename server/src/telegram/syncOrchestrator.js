@@ -40,10 +40,15 @@ import {
   SYNC_LOADING_SCHEDULED_HTML,
   SYNC_LOCK_BUSY_HTML,
   SYNC_NO_SESSION_HTML,
+  syncLoadingPulseFrames,
   syncProgressHtml,
   syncSummaryHtml,
 } from "./messages.js";
-import { createSyncProgressDelivery } from "./streamingDelivery.js";
+import {
+  createSyncProgressDelivery,
+  LoadingPulse,
+  typewriterReveal,
+} from "./streamingDelivery.js";
 import { SYNC_ACTION_KEY, syncRunGuard } from "./syncGuards.js";
 import {
   EFFECT_SPARKLES,
@@ -52,6 +57,8 @@ import {
 } from "./telegramVisual.js";
 
 const PROGRESS_THROTTLE_MS = 2000;
+const LOADING_PULSE_FRAME_MS = 1400;
+const TYPEWRITER_FRAME_MS = 550;
 
 /**
  * @typedef {{
@@ -62,6 +69,9 @@ const PROGRESS_THROTTLE_MS = 2000;
  *   sessionLoader?: () => Promise<object | null>;
  *   syncRunner?: typeof runSync;
  *   nowMs?: () => number;
+ *   sleep?: (ms: number) => Promise<void>;
+ *   pulseFrameMs?: number;
+ *   typewriterFrameMs?: number;
  * }} OrchestratorParams
  */
 
@@ -77,6 +87,9 @@ export async function runSyncWithReporting(params) {
     sessionLoader = defaultSessionLoader,
     syncRunner = runSync,
     nowMs = () => Date.now(),
+    sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+    pulseFrameMs = LOADING_PULSE_FRAME_MS,
+    typewriterFrameMs = TYPEWRITER_FRAME_MS,
   } = params;
 
   const loadingHtml =
@@ -91,6 +104,8 @@ export async function runSyncWithReporting(params) {
   typing.start();
 
   let sentOk = false;
+  /** @type {LoadingPulse | null} */
+  let pulse = null;
   try {
     const messageId = await sendOrEditLoading({
       telegram,
@@ -99,22 +114,38 @@ export async function runSyncWithReporting(params) {
       text: loadingHtml,
     });
 
+    pulse = new LoadingPulse({
+      telegram,
+      chatId,
+      messageId,
+      frames: syncLoadingPulseFrames(source),
+      frameMs: pulseFrameMs,
+    });
+    pulse.start();
+
     const session = await sessionLoader();
     if (!session) {
-      await finishDelivery({
-        delivery,
+      pulse.stop();
+      await typewriterReveal({
         telegram,
         chatId,
         messageId,
         text: SYNC_NO_SESSION_HTML,
-        keyboard: buildBackToMenuKeyboard(),
+        replyMarkup: buildBackToMenuKeyboard(),
+        frameMs: typewriterFrameMs,
+        sleep,
       });
       logger.warn("Sync skipped: no Plaud session snapshot", { source });
       return { status: "no_session", summaryMessageId: messageId ?? undefined };
     }
 
     let lastEditMs = 0;
+    let firstProgress = true;
     const onProgress = (stats) => {
+      if (firstProgress) {
+        firstProgress = false;
+        pulse?.stop();
+      }
       const now = nowMs();
       if (now - lastEditMs < PROGRESS_THROTTLE_MS) return;
       lastEditMs = now;
@@ -128,6 +159,7 @@ export async function runSyncWithReporting(params) {
     try {
       stats = await syncRunner({ session, onProgress });
     } catch (err) {
+      pulse?.stop();
       return handleSyncError({
         telegram,
         chatId,
@@ -136,8 +168,12 @@ export async function runSyncWithReporting(params) {
         source,
         durationSec: (nowMs() - startMs) / 1000,
         delivery,
+        sleep,
+        typewriterFrameMs,
       });
     }
+
+    pulse.stop();
 
     const summaryText = syncSummaryHtml(stats, {
       source,
@@ -147,15 +183,28 @@ export async function runSyncWithReporting(params) {
       source === "manual"
         ? privateMessageEffect(EFFECT_SPARKLES, chatId)
         : undefined;
-    const finalMessageId = await finishDelivery({
-      delivery,
+
+    const revealedId = await typewriterReveal({
       telegram,
       chatId,
       messageId,
       text: summaryText,
-      keyboard: buildSyncFinishedKeyboard(),
-      messageEffectId: effectId,
+      replyMarkup: buildSyncFinishedKeyboard(),
+      messageEffectId: effectId ?? null,
+      frameMs: typewriterFrameMs,
+      sleep,
     });
+    const finalMessageId =
+      revealedId ??
+      (await finishDelivery({
+        delivery,
+        telegram,
+        chatId,
+        messageId,
+        text: summaryText,
+        keyboard: buildSyncFinishedKeyboard(),
+        messageEffectId: effectId,
+      }));
     logger.info("Sync reported to Telegram", {
       source,
       chatId,
@@ -168,6 +217,7 @@ export async function runSyncWithReporting(params) {
     return { status: "ok", summaryMessageId: finalMessageId ?? undefined };
   } finally {
     typing.stop();
+    pulse?.stop();
     syncRunGuard.release(chatId, SYNC_ACTION_KEY, { sent: sentOk });
   }
 }
@@ -366,32 +416,42 @@ async function handleSyncError({
   source,
   durationSec,
   delivery,
+  sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+  typewriterFrameMs = TYPEWRITER_FRAME_MS,
 }) {
   const failure = classifySyncFailure(err);
   const backToMenu = buildBackToMenuKeyboard();
 
-  if (failure.kind === SYNC_FAILURE_LOCK) {
-    await finishDelivery({
-      delivery,
+  const reveal = (text) =>
+    typewriterReveal({
       telegram,
       chatId,
       messageId,
-      text: SYNC_LOCK_BUSY_HTML,
-      keyboard: backToMenu,
-    });
+      text,
+      replyMarkup: backToMenu,
+      frameMs: typewriterFrameMs,
+      sleep,
+    }).then(
+      (id) =>
+        id ??
+        finishDelivery({
+          delivery,
+          telegram,
+          chatId,
+          messageId,
+          text,
+          keyboard: backToMenu,
+        })
+    );
+
+  if (failure.kind === SYNC_FAILURE_LOCK) {
+    await reveal(SYNC_LOCK_BUSY_HTML);
     logger.info("Sync skipped: lock held by another process", { source });
     return { status: "lock_busy", summaryMessageId: messageId ?? undefined };
   }
 
   if (failure.kind === SYNC_FAILURE_AUTH) {
-    await finishDelivery({
-      delivery,
-      telegram,
-      chatId,
-      messageId,
-      text: SYNC_AUTH_REJECTED_HTML,
-      keyboard: backToMenu,
-    });
+    await reveal(SYNC_AUTH_REJECTED_HTML);
     logger.error("Sync failed: Plaud rejected the session", redactError(err));
     return { status: "auth_rejected", summaryMessageId: messageId ?? undefined };
   }
@@ -405,26 +465,12 @@ async function handleSyncError({
       errors: 0,
       plaudChanged: true,
     };
-    await finishDelivery({
-      delivery,
-      telegram,
-      chatId,
-      messageId,
-      text: syncSummaryHtml(stats, { source, durationSec }),
-      keyboard: backToMenu,
-    });
+    await reveal(syncSummaryHtml(stats, { source, durationSec }));
     logger.error("Sync detected Plaud API changes", redactError(err));
     return { status: "failed", summaryMessageId: messageId ?? undefined };
   }
 
-  await finishDelivery({
-    delivery,
-    telegram,
-    chatId,
-    messageId,
-    text: SYNC_GENERIC_ERROR_HTML,
-    keyboard: backToMenu,
-  });
+  await reveal(SYNC_GENERIC_ERROR_HTML);
   logger.error("Sync failed in bot orchestrator", redactError(err));
   return { status: "failed", summaryMessageId: messageId ?? undefined };
 }

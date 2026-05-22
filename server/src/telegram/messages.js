@@ -65,6 +65,26 @@ export const SYNC_LOADING_HTML =
   "🛰 <b>Запускаю синк…</b>\nЭто может занять до минуты.";
 export const SYNC_LOADING_SCHEDULED_HTML =
   "🕒 <b>Автозапуск синка по расписанию.</b>\nЭто может занять до минуты.";
+
+/**
+ * Frames for the loading pulse — each one replaces the loading message so the
+ * user sees the bot "thinking" while we wait for Plaud / sync to start.
+ *
+ * @param {"manual" | "scheduled"} source
+ * @returns {string[]}
+ */
+export function syncLoadingPulseFrames(source) {
+  const header =
+    source === "scheduled"
+      ? "🕒 <b>Автозапуск синка</b>"
+      : "🛰 <b>Запускаю синк</b>";
+  return [
+    `${header}\n<i>Это может занять до минуты.</i>`,
+    `${header} .\n<i>Подключаюсь к Plaud…</i>`,
+    `${header} . .\n<i>Получаю список записей…</i>`,
+    `${header} . . .\n<i>Скачиваю саммари…</i>`,
+  ];
+}
 export const SYNC_BUSY_TOAST = "Уже идёт синк — подожди немного";
 
 export const SYNC_LOCK_BUSY_HTML =
