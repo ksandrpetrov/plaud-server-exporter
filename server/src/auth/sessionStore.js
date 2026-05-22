@@ -1,6 +1,7 @@
-import { mkdir, readFile, writeFile, chmod, stat, unlink } from "node:fs/promises";
+import { mkdir, readFile, chmod, stat, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
 import { config } from "../config/config.js";
+import { writeJsonAtomic } from "../util/atomicJson.js";
 
 const SNAPSHOT_VERSION = 1;
 
@@ -37,13 +38,11 @@ export async function saveSessionSnapshot(snapshot) {
     version: SNAPSHOT_VERSION,
     savedAt: new Date().toISOString(),
   };
+  // The session lives in `server/.data/` which the helper already chmods to
+  // 0o700, but a fresh PLAUD_DATA_DIR may have looser permissions; tightening
+  // the directory before the write matches the sync-index path exactly.
   await ensureSecureDir(dirname(config.sessionPath));
-  await writeFile(config.sessionPath, JSON.stringify(payload, null, 2), "utf8");
-  try {
-    await chmod(config.sessionPath, 0o600);
-  } catch {
-    // non-fatal on Windows
-  }
+  await writeJsonAtomic(config.sessionPath, payload);
 }
 
 /**

@@ -1,5 +1,4 @@
-import { writeFile, mkdir, stat } from "node:fs/promises";
-import { dirname } from "node:path";
+import { stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { config } from "../config/config.js";
 import { logger } from "../logger.js";
@@ -7,6 +6,7 @@ import { redactError } from "../security/redact.js";
 import { reportError } from "../errors/errorReporter.js";
 import { ERROR_KIND_PLAUD_CHANGED } from "../errors/errorClassifier.js";
 import { PlaudAuthError, PlaudChangedError } from "../plaud/errors.js";
+import { writeJsonAtomic } from "../util/atomicJson.js";
 import {
   buildAudioSignature,
   buildStableId,
@@ -435,11 +435,7 @@ async function writeStatusFile({ stats, lastAuthError } = {}) {
     lastAuthError: lastAuthError || null,
     updatedAt: new Date().toISOString(),
   };
-  await mkdir(dirname(config.statusPath), { recursive: true });
-  const tmp = `${config.statusPath}.tmp-${process.pid}`;
-  await writeFile(tmp, JSON.stringify(payload, null, 2), "utf8");
-  const { rename } = await import("node:fs/promises");
-  await rename(tmp, config.statusPath);
+  await writeJsonAtomic(config.statusPath, payload);
 }
 
 export async function recordAuthError(message) {
@@ -455,6 +451,5 @@ export async function recordAuthError(message) {
     lastAuthError: { message: String(message || "").slice(0, 500), at: new Date().toISOString() },
     updatedAt: new Date().toISOString(),
   };
-  await mkdir(dirname(config.statusPath), { recursive: true });
-  await writeFile(config.statusPath, JSON.stringify(payload, null, 2), "utf8");
+  await writeJsonAtomic(config.statusPath, payload);
 }

@@ -329,86 +329,64 @@ export class TelegramClient {
   }
 
   async _callMultipart(methodName, { form, timeoutMs, maxRetries }) {
-    const url = `${this._baseUrl}/${methodName}`;
-    const effectiveTimeout = timeoutMs || this._requestTimeoutMs;
-    const effectiveMaxRetries = Math.max(0, maxRetries ?? this._maxRetries);
-
-    let attempt = 0;
-    while (true) {
-      attempt++;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), effectiveTimeout);
-      let response;
-      try {
-        response = await this._fetch(url, {
-          method: "POST",
-          body: form,
-          signal: controller.signal,
-          agent: this._defaultAgent,
-        });
-      } catch (err) {
-        clearTimeout(timer);
-        const safeError = this.sanitize(String(err?.message || err));
-        if (attempt > effectiveMaxRetries) {
-          throw new TelegramError(
-            `${methodName}: network error after ${effectiveMaxRetries} retries: ${safeError}`
-          );
-        }
-        const wait = this._computeBackoffMs(attempt);
-        await this._sleep(wait);
-        continue;
-      } finally {
-        clearTimeout(timer);
-      }
-
-      const parsed = await this._parseResponse(response, methodName);
-      if (parsed.kind === "ok") return parsed.result;
-      if (parsed.kind === "rate_limited") {
-        if (attempt > effectiveMaxRetries) {
-          throw new TelegramError(
-            `${methodName}: still rate-limited after ${effectiveMaxRetries} retries`
-          );
-        }
-        await this._sleep(parsed.waitMs);
-        continue;
-      }
-      if (parsed.kind === "retryable") {
-        if (attempt > effectiveMaxRetries) {
-          throw new TelegramError(
-            `${methodName}: HTTP ${parsed.status} after ${effectiveMaxRetries} retries`
-          );
-        }
-        await this._sleep(this._computeBackoffMs(attempt));
-        continue;
-      }
-      throw new TelegramError(
-        `${methodName}: HTTP ${parsed.status}: ${this.sanitize(parsed.bodySnippet)}`
-      );
-    }
+    // `FormData` already sets the multipart boundary on the request body, so
+    // we explicitly clear any `content-type` the transport would add.
+    return this._retryingFetch(methodName, {
+      buildInit: () => ({ method: "POST", body: form }),
+      agent: this._defaultAgent,
+      timeoutMs,
+      maxRetries,
+    });
   }
 
   async _call(methodName, { data, timeoutMs, maxRetries }) {
+    // Node's undici fetch reads `dispatcher`, but `agent` is still honored by
+    // some test mocks; we set both so neither pool gets mixed up in
+    // production or in tests using `node:http` shims.
+    const agent =
+      methodName === LONG_POLL_METHOD ? this._longPollAgent : this._defaultAgent;
+    return this._retryingFetch(methodName, {
+      buildInit: () => ({
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams(stringifyForm(data)).toString(),
+      }),
+      agent,
+      timeoutMs,
+      maxRetries,
+    });
+  }
+
+  /**
+   * Shared retry loop for both URL-encoded and multipart calls. Owns
+   * timeout, abort, response classification, and back-off — the only thing
+   * the caller varies is the request body (`buildInit`) and the connection
+   * pool (`agent`).
+   *
+   * @param {string} methodName
+   * @param {{
+   *   buildInit: () => { method?: string; headers?: Record<string, string>; body: unknown };
+   *   agent: import("node:https").Agent;
+   *   timeoutMs?: number;
+   *   maxRetries?: number;
+   * }} params
+   */
+  async _retryingFetch(methodName, { buildInit, agent, timeoutMs, maxRetries }) {
     const url = `${this._baseUrl}/${methodName}`;
     const effectiveTimeout = timeoutMs || this._requestTimeoutMs;
     const effectiveMaxRetries = Math.max(0, maxRetries ?? this._maxRetries);
-    const agent =
-      methodName === LONG_POLL_METHOD ? this._longPollAgent : this._defaultAgent;
 
     let attempt = 0;
     while (true) {
       attempt++;
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), effectiveTimeout);
+
       let response;
       try {
         response = await this._fetch(url, {
-          method: "POST",
-          headers: { "content-type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams(stringifyForm(data)).toString(),
+          ...buildInit(),
           signal: controller.signal,
-          // Node's undici fetch reads `dispatcher`, but `agent` is still
-          // honored by some test mocks; we set both so neither pool gets
-          // mixed up in production or in tests using `node:http` shims.
           agent,
         });
       } catch (err) {
@@ -419,8 +397,7 @@ export class TelegramClient {
             `${methodName}: network error after ${effectiveMaxRetries} retries: ${safeError}`
           );
         }
-        const wait = this._computeBackoffMs(attempt);
-        await this._sleep(wait);
+        await this._sleep(this._computeBackoffMs(attempt));
         continue;
       } finally {
         clearTimeout(timer);

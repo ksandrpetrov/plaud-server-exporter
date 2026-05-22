@@ -89,6 +89,22 @@ const CB_INTERVAL_VALUES = {
 };
 
 /**
+ * Each callback handler returns `true` when it has already replied to the
+ * callback (so the dispatcher should NOT also call `answerCallbackQuery`)
+ * and `false` otherwise — explicit signal beats the previous
+ * "undefined ⇒ answer-best-effort" trick that hid which branches still
+ * needed the spinner cleared.
+ *
+ * @typedef {(args: {
+ *   ctx: HandlerContext;
+ *   chatId: number;
+ *   messageId: number;
+ *   data: string;
+ *   callback: object;
+ * }) => Promise<boolean>} CallbackHandler
+ */
+
+/**
  * @typedef {{
  *   telegram: import("./telegramClient.js").TelegramClient;
  *   allowedUsername: string;
@@ -226,109 +242,142 @@ async function handleCallbackQuery(ctx, callback) {
   }
 }
 
+/** @type {Record<string, CallbackHandler>} */
+const CALLBACK_HANDLERS = {
+  [CB_RUN_SYNC]: handleRunSyncCallback,
+  [CB_STATUS]: handleStatusCallback,
+  [CB_FILES]: handleFilesCallback,
+  [CB_FILES_TREE]: handleFilesTreeCallback,
+  [CB_FILES_STATS]: handleFilesStatsCallback,
+  [CB_SETTINGS]: handleSettingsCallback,
+  [CB_BACK]: handleBackCallback,
+  [CB_HELP]: handleHelpCallback,
+  [CB_CLOSE]: handleCloseCallback,
+};
+
 /**
  * @returns {Promise<boolean>} true when answerCallbackQuery was already sent
  */
-async function routeCallback(ctx, { chatId, messageId, data, callback }) {
-  if (data === CB_RUN_SYNC) {
-    if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_KEY)) {
-      await answerBestEffort(ctx, callback, { text: SYNC_BUSY_TOAST });
-      return true;
-    }
-    await ctx.runManualSync({ chatId, loadingMessageId: messageId });
-    return false;
+async function routeCallback(ctx, params) {
+  const { data } = params;
+
+  const directHandler = CALLBACK_HANDLERS[data];
+  if (directHandler) return directHandler({ ctx, ...params });
+
+  if (data in CB_INTERVAL_VALUES) {
+    return handleIntervalCallback({ ctx, ...params });
   }
-  if (data === CB_STATUS) {
-    const status = await readStatus();
-    await editToMenuScreen(ctx, {
-      chatId,
-      messageId,
-      text: statusScreenHtml(status),
-      keyboard: buildBackToMenuKeyboard(),
-    });
-    return;
-  }
-  if (data === CB_FILES) {
-    await editToMenuScreen(ctx, {
-      chatId,
-      messageId,
-      text: filesMenuHtml(),
-      keyboard: buildFilesMenuKeyboard(),
-    });
-    return;
-  }
-  if (data === CB_FILES_TREE) {
-    await showFilesTreeRoot(ctx, { chatId, messageId });
-    return;
-  }
+
   const folderHit = parseFilesTreeFolderCallback(data);
   if (folderHit) {
     await showFilesTreeFolder(ctx, {
-      chatId,
-      messageId,
+      chatId: params.chatId,
+      messageId: params.messageId,
       folderIndex: folderHit.folderIndex,
       page: folderHit.page,
     });
-    return;
+    return false;
   }
-  if (data === CB_FILES_STATS) {
-    const stats = await scanVaultSummary({
-      vaultRoot: effectiveVaultRoot(),
-      subfolder: config.obsidianSubfolder,
-    });
-    await editToMenuScreen(ctx, {
-      chatId,
-      messageId,
-      text: filesStatsHtml(stats),
-      keyboard: buildBackToMenuKeyboard(),
-    });
-    return;
-  }
-  if (data === CB_SETTINGS) {
-    const intervalMin = await loadEffectiveIntervalMin();
-    const status = await readStatus();
-    await editToMenuScreen(ctx, {
-      chatId,
-      messageId,
-      text: settingsScreenHtml({
-        intervalMin,
-        lastSyncAt: status?.lastSyncAt || null,
-      }),
-      keyboard: buildSettingsKeyboard(intervalMin),
-    });
-    return;
-  }
-  if (data in CB_INTERVAL_VALUES) {
-    await handleSetInterval(ctx, {
-      chatId,
-      messageId,
-      intervalMin: CB_INTERVAL_VALUES[data],
-    });
-    return;
-  }
-  if (data === CB_BACK) {
-    await openMenuAtMessage(ctx, { chatId, messageId });
-    return;
-  }
-  if (data === CB_HELP) {
-    await editToMenuScreen(ctx, {
-      chatId,
-      messageId,
-      text: BOT_HELP_HTML,
-      keyboard: buildBackToMenuKeyboard(),
-    });
-    return;
-  }
-  if (data === CB_CLOSE) {
-    await editToMenuScreen(ctx, {
-      chatId,
-      messageId,
-      text: MENU_CLOSED_TEXT,
-      keyboard: null,
-    });
-    return;
-  }
+
   logger.info("Unknown callback_data", { data });
+  return false;
+}
+
+async function handleRunSyncCallback({ ctx, chatId, messageId, callback }) {
+  if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_KEY)) {
+    await answerBestEffort(ctx, callback, { text: SYNC_BUSY_TOAST });
+    return true;
+  }
+  await ctx.runManualSync({ chatId, loadingMessageId: messageId });
+  return false;
+}
+
+async function handleStatusCallback({ ctx, chatId, messageId }) {
+  const status = await readStatus();
+  await editToMenuScreen(ctx, {
+    chatId,
+    messageId,
+    text: statusScreenHtml(status),
+    keyboard: buildBackToMenuKeyboard(),
+  });
+  return false;
+}
+
+async function handleFilesCallback({ ctx, chatId, messageId }) {
+  await editToMenuScreen(ctx, {
+    chatId,
+    messageId,
+    text: filesMenuHtml(),
+    keyboard: buildFilesMenuKeyboard(),
+  });
+  return false;
+}
+
+async function handleFilesTreeCallback({ ctx, chatId, messageId }) {
+  await showFilesTreeRoot(ctx, { chatId, messageId });
+  return false;
+}
+
+async function handleFilesStatsCallback({ ctx, chatId, messageId }) {
+  const stats = await scanVaultSummary({
+    vaultRoot: effectiveVaultRoot(),
+    subfolder: config.obsidianSubfolder,
+  });
+  await editToMenuScreen(ctx, {
+    chatId,
+    messageId,
+    text: filesStatsHtml(stats),
+    keyboard: buildBackToMenuKeyboard(),
+  });
+  return false;
+}
+
+async function handleSettingsCallback({ ctx, chatId, messageId }) {
+  const intervalMin = await loadEffectiveIntervalMin();
+  const status = await readStatus();
+  await editToMenuScreen(ctx, {
+    chatId,
+    messageId,
+    text: settingsScreenHtml({
+      intervalMin,
+      lastSyncAt: status?.lastSyncAt || null,
+    }),
+    keyboard: buildSettingsKeyboard(intervalMin),
+  });
+  return false;
+}
+
+async function handleIntervalCallback({ ctx, chatId, messageId, data }) {
+  await handleSetInterval(ctx, {
+    chatId,
+    messageId,
+    intervalMin: CB_INTERVAL_VALUES[data],
+  });
+  return false;
+}
+
+async function handleBackCallback({ ctx, chatId, messageId }) {
+  await openMenuAtMessage(ctx, { chatId, messageId });
+  return false;
+}
+
+async function handleHelpCallback({ ctx, chatId, messageId }) {
+  await editToMenuScreen(ctx, {
+    chatId,
+    messageId,
+    text: BOT_HELP_HTML,
+    keyboard: buildBackToMenuKeyboard(),
+  });
+  return false;
+}
+
+async function handleCloseCallback({ ctx, chatId, messageId }) {
+  await editToMenuScreen(ctx, {
+    chatId,
+    messageId,
+    text: MENU_CLOSED_TEXT,
+    keyboard: null,
+  });
   return false;
 }
 

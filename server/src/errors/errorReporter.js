@@ -84,21 +84,6 @@ export async function reportError(error, context = {}) {
   const dir = errorsDir();
   await mkdir(dir, { recursive: true });
 
-  const stableName = `plaud-export-error-${dedupeKey.slice(0, 16)}.md`;
-  const stablePath = join(dir, stableName);
-  try {
-    const existingText = await readFile(stablePath, "utf8");
-    if (existingText.includes(`dedupe_key: ${dedupeKey}`)) {
-      logger.warn("Error report already exists for this failure; skipping duplicate.", {
-        path: stablePath,
-        kind: classified.kind,
-      });
-      return { path: stablePath, classified, skipped: true };
-    }
-  } catch (err) {
-    if (err?.code !== "ENOENT") throw err;
-  }
-
   const existing = await findExistingReport(dedupeKey);
   if (existing) {
     logger.warn("Error report already exists for this failure; skipping duplicate.", {
@@ -109,7 +94,7 @@ export async function reportError(error, context = {}) {
   }
 
   const { date, time, fileStamp } = formatTimestamp();
-  const filename = `${fileStamp}-${stableName}`;
+  const filename = `${fileStamp}-plaud-export-error-${dedupeKey.slice(0, 16)}.md`;
   const absolutePath = join(dir, filename);
 
   const body = [
