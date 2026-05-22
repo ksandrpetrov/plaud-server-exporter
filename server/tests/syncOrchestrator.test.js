@@ -257,7 +257,7 @@ test("manual sync success may attach message effect in private chat", async () =
   syncRunGuard.reset();
 });
 
-test("typewriter reveal produces multiple intermediate edits for long summary", async () => {
+test("Чайка-style reveal: draft frames animate, then a single final edit lands the summary", async () => {
   syncRunGuard.reset();
   syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
   const telegram = fakeTelegram();
@@ -280,12 +280,20 @@ test("typewriter reveal produces multiple intermediate edits for long summary", 
       plaudChanged: true,
     }),
   });
+  const summaryDrafts = telegram.events.filter(
+    (e) => e.type === "draft" && /Автозапуск синка/.test(e.text)
+  );
+  assert.ok(
+    summaryDrafts.length >= 2,
+    `expected several smooth draft frames, got ${summaryDrafts.length}`
+  );
   const summaryEdits = telegram.events.filter(
     (e) => e.type === "edit" && /Автозапуск синка/.test(e.text)
   );
-  assert.ok(
-    summaryEdits.length >= 2,
-    `expected several typewriter edits, got ${summaryEdits.length}`
+  assert.equal(
+    summaryEdits.length,
+    1,
+    "exactly one final edit lands the summary in the loading bubble"
   );
   syncRunGuard.reset();
 });

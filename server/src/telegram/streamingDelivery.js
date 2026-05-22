@@ -38,12 +38,16 @@ function isDraftUnavailable(err) {
 }
 
 /**
+ * Stable, non-zero draft id Telegram uses to animate updates of the same
+ * draft. Different sessions must produce different ids, otherwise animations
+ * leak between unrelated streams.
+ *
  * @param {number} chatId
  * @param {number} seed
  * @returns {number}
  */
-function stableDraftId(chatId, seed) {
-  const mixed = chatId * 1_000_003 ^ seed;
+export function stableDraftId(chatId, seed) {
+  const mixed = (chatId * 1_000_003) ^ seed;
   return (mixed % 2_147_483_646) + 1;
 }
 
@@ -265,8 +269,76 @@ export function buildTypewriterFrames(text, options = {}) {
 }
 
 /**
+ * Animates a typewriter through `sendMessageDraft` — Telegram-native smooth
+ * interpolation of a draft in the input field, identical to satellite/Чайка
+ * ``_run_typewriter``.
+ *
+ * Unlike `typewriterReveal` (which uses `editMessageText` and looks jumpy
+ * because Telegram does not animate edits), this function leans on the
+ * built-in draft animation: subsequent `sendMessageDraft` calls with the
+ * same `draftId` are interpolated client-side at ~60 fps.
+ *
+ * Returns `true` if the draft animation ran end-to-end; `false` if the
+ * `sendMessageDraft` method is unavailable (caller should skip animation
+ * and deliver the final message directly).
+ *
+ * @param {{
+ *   telegram: import("./telegramClient.js").TelegramClient;
+ *   chatId: number;
+ *   draftId: number;
+ *   text: string;
+ *   frameMs?: number;
+ *   maxFrames?: number;
+ *   minLen?: number;
+ *   minChunk?: number;
+ *   sleep?: (ms: number) => Promise<void>;
+ * }} params
+ * @returns {Promise<boolean>}
+ */
+export async function typewriterDraftAnimate({
+  telegram,
+  chatId,
+  draftId,
+  text,
+  frameMs = TYPEWRITER_FRAME_MS,
+  maxFrames = TYPEWRITER_MAX_FRAMES,
+  minLen = TYPEWRITER_MIN_LEN,
+  minChunk = TYPEWRITER_MIN_CHUNK,
+  sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+}) {
+  if (!text) return false;
+  const frames = buildTypewriterFrames(text, { maxFrames, minLen, minChunk });
+  if (frames.length < 2) return false;
+  let lastPushed = "";
+  for (let i = 0; i < frames.length; i++) {
+    const chunk = frames[i];
+    if (chunk === lastPushed) continue;
+    try {
+      await telegram.sendMessageDraft({ chatId, draftId, text: chunk });
+      lastPushed = chunk;
+    } catch (err) {
+      if (isDraftUnavailable(err)) {
+        logger.info("typewriterDraftAnimate: draft unavailable, skipping", {
+          error: String(err?.message || err),
+        });
+        return false;
+      }
+      logger.debug?.("typewriterDraftAnimate: frame failed", {
+        error: String(err?.message || err),
+      });
+    }
+    if (i < frames.length - 1 && frameMs > 0) await sleep(frameMs);
+  }
+  return true;
+}
+
+/**
  * Animates the final message by editing it through a sequence of growing
  * HTML prefixes. Best-effort: individual frame failures are swallowed.
+ *
+ * Note: `editMessageText` is NOT animated by Telegram clients — each frame
+ * snaps. Use `typewriterDraftAnimate` for smooth Чайка-style reveal in the
+ * input field; this helper remains for legacy/in-chat edit fallback.
  *
  * @param {{
  *   telegram: import("./telegramClient.js").TelegramClient;

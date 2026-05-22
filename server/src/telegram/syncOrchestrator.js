@@ -47,7 +47,8 @@ import {
 import {
   createSyncProgressDelivery,
   LoadingPulse,
-  typewriterReveal,
+  stableDraftId,
+  typewriterDraftAnimate,
 } from "./streamingDelivery.js";
 import { SYNC_ACTION_KEY, syncRunGuard } from "./syncGuards.js";
 import {
@@ -102,6 +103,7 @@ export async function runSyncWithReporting(params) {
   });
   const typing = new TypingIndicator({ telegram, chatId, nowMs });
   typing.start();
+  const draftId = stableDraftId(chatId, nowMs());
 
   let sentOk = false;
   /** @type {LoadingPulse | null} */
@@ -126,14 +128,16 @@ export async function runSyncWithReporting(params) {
     const session = await sessionLoader();
     if (!session) {
       pulse.stop();
-      await typewriterReveal({
+      await revealFinal({
         telegram,
         chatId,
         messageId,
+        draftId,
         text: SYNC_NO_SESSION_HTML,
-        replyMarkup: buildBackToMenuKeyboard(),
+        keyboard: buildBackToMenuKeyboard(),
         frameMs: typewriterFrameMs,
         sleep,
+        delivery,
       });
       logger.warn("Sync skipped: no Plaud session snapshot", { source });
       return { status: "no_session", summaryMessageId: messageId ?? undefined };
@@ -164,6 +168,7 @@ export async function runSyncWithReporting(params) {
         telegram,
         chatId,
         messageId,
+        draftId,
         err,
         source,
         durationSec: (nowMs() - startMs) / 1000,
@@ -184,27 +189,18 @@ export async function runSyncWithReporting(params) {
         ? privateMessageEffect(EFFECT_SPARKLES, chatId)
         : undefined;
 
-    const revealedId = await typewriterReveal({
+    const finalMessageId = await revealFinal({
       telegram,
       chatId,
       messageId,
+      draftId,
       text: summaryText,
-      replyMarkup: buildSyncFinishedKeyboard(),
-      messageEffectId: effectId ?? null,
+      keyboard: buildSyncFinishedKeyboard(),
+      messageEffectId: effectId,
       frameMs: typewriterFrameMs,
       sleep,
+      delivery,
     });
-    const finalMessageId =
-      revealedId ??
-      (await finishDelivery({
-        delivery,
-        telegram,
-        chatId,
-        messageId,
-        text: summaryText,
-        keyboard: buildSyncFinishedKeyboard(),
-        messageEffectId: effectId,
-      }));
     logger.info("Sync reported to Telegram", {
       source,
       chatId,
@@ -342,6 +338,73 @@ async function editProgressBestEffort({ telegram, chatId, messageId, stats }) {
   }
 }
 
+/**
+ * Reveals the final sync message in the Чайка style: a smooth `sendMessageDraft`
+ * typewriter in the user's input field, followed by a single instant edit of
+ * the in-chat loading bubble into the final text. Falls back to `delivery`
+ * (sendMessage or legacy edit) if the in-chat edit cannot land.
+ *
+ * @param {{
+ *   telegram: import("./telegramClient.js").TelegramClient;
+ *   chatId: number;
+ *   messageId: number | null;
+ *   draftId: number;
+ *   text: string;
+ *   keyboard?: object | null;
+ *   messageEffectId?: string | null;
+ *   frameMs?: number;
+ *   sleep?: (ms: number) => Promise<void>;
+ *   delivery: ReturnType<typeof createSyncProgressDelivery>;
+ * }} params
+ * @returns {Promise<number | null>}
+ */
+async function revealFinal({
+  telegram,
+  chatId,
+  messageId,
+  draftId,
+  text,
+  keyboard = null,
+  messageEffectId = null,
+  frameMs = TYPEWRITER_FRAME_MS,
+  sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+  delivery,
+}) {
+  await typewriterDraftAnimate({
+    telegram,
+    chatId,
+    draftId,
+    text,
+    frameMs,
+    sleep,
+  });
+  if (messageId) {
+    try {
+      await telegram.editMessageText({
+        chatId,
+        messageId,
+        text,
+        replyMarkup: keyboard ?? null,
+        messageEffectId: messageEffectId ?? null,
+      });
+      return messageId;
+    } catch (err) {
+      logger.info("Final edit failed; falling back to delivery", {
+        error: String(err?.message || err),
+      });
+    }
+  }
+  return finishDelivery({
+    delivery,
+    telegram,
+    chatId,
+    messageId,
+    text,
+    keyboard: keyboard ?? null,
+    messageEffectId: messageEffectId ?? null,
+  });
+}
+
 async function finishDelivery({
   delivery,
   telegram,
@@ -412,6 +475,7 @@ async function handleSyncError({
   telegram,
   chatId,
   messageId,
+  draftId,
   err,
   source,
   durationSec,
@@ -423,26 +487,17 @@ async function handleSyncError({
   const backToMenu = buildBackToMenuKeyboard();
 
   const reveal = (text) =>
-    typewriterReveal({
+    revealFinal({
       telegram,
       chatId,
       messageId,
+      draftId,
       text,
-      replyMarkup: backToMenu,
+      keyboard: backToMenu,
       frameMs: typewriterFrameMs,
       sleep,
-    }).then(
-      (id) =>
-        id ??
-        finishDelivery({
-          delivery,
-          telegram,
-          chatId,
-          messageId,
-          text,
-          keyboard: backToMenu,
-        })
-    );
+      delivery,
+    });
 
   if (failure.kind === SYNC_FAILURE_LOCK) {
     await reveal(SYNC_LOCK_BUSY_HTML);

@@ -34,8 +34,10 @@ function makeFakeTelegram() {
     calls,
     sendMessage: record("sendMessage"),
     editMessageText: record("editMessageText"),
+    sendMessageDraft: record("sendMessageDraft"),
     answerCallbackQuery: record("answerCallbackQuery"),
     sendDocument: record("sendDocument"),
+    sendChatAction: record("sendChatAction"),
   };
 }
 
@@ -342,7 +344,7 @@ test("dispatch: username-only legacy mode still works for the matching username"
   });
 });
 
-test("dispatch: with messageAnimator wired in, /menu still produces ONE sendMessage + typewriter edits", async () => {
+test("dispatch: with messageAnimator wired in, /menu sends ONE sendMessage + draft typewriter frames", async () => {
   await withOwnerChatDir(async () => {
     const tg = makeFakeTelegram();
     const animator = createMessageAnimator({
@@ -357,13 +359,22 @@ test("dispatch: with messageAnimator wired in, /menu still produces ONE sendMess
       privateMessage({ text: "/menu", from: OWNER })
     );
     const sends = tg.calls.filter((c) => c.name === "sendMessage");
+    const drafts = tg.calls.filter((c) => c.name === "sendMessageDraft");
     const edits = tg.calls.filter((c) => c.name === "editMessageText");
     assert.equal(
       sends.length,
       1,
-      "animated /menu must still send exactly one new message (placeholder), then edit it"
+      "animated /menu must send exactly one new message (the final delivery)"
     );
-    assert.ok(edits.length >= 1, "animated /menu must produce at least one edit frame");
+    assert.equal(
+      edits.length,
+      0,
+      "animated /menu must never use editMessageText (snaps look jumpy)"
+    );
+    assert.ok(
+      drafts.length >= 1,
+      `animated /menu should preview the reply via sendMessageDraft, got ${drafts.length}`
+    );
   });
 });
 

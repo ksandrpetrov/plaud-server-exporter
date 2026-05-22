@@ -1,19 +1,18 @@
 /**
- * Unit tests for the central GPT-style typewriter wrapper used by
+ * Unit tests for the Чайка-style typewriter wrapper used by
  * `botMessageUtils.safeSend` / `editToMenuScreen` when the dispatcher has
  * `ctx.messageAnimator` wired in.
  *
- * These exercise the three behavioural branches of the animator:
- *  - short text → single bare API call, no typewriter frames
- *  - long text via `send` → exactly one `sendMessage` (placeholder) followed
- *    by several `editMessageText` frames, last frame carries the keyboard
- *  - long text via `edit` → only `editMessageText` calls, last frame carries
- *    the keyboard and the optional `messageEffectId`
+ * Three behavioural branches:
+ *  - short text → single bare API call, no typewriter
+ *  - long text via `send` → multiple `sendMessageDraft` frames (Telegram-native
+ *    smooth animation in the user's input field) + one final `sendMessage`
+ *  - any text via `edit` → a single instant `editMessageText` (menu navigation
+ *    should never look animated, since clients don't interpolate edits)
  *
  * The animator's `safeSend` integration (production wiring in
  * `server/src/telegram/index.js`) is covered separately by
- * `tests/telegramDispatch.test.js`, which still demands one `sendMessage`
- * per `/menu` even when the animator is active.
+ * `tests/telegramDispatch.test.js`.
  */
 
 import assert from "node:assert/strict";
@@ -34,6 +33,10 @@ function fakeTelegram() {
       calls.push({ name: "editMessageText", payload });
       return { message_id: payload.messageId };
     },
+    sendMessageDraft: async (payload) => {
+      calls.push({ name: "sendMessageDraft", payload });
+      return true;
+    },
     sendChatAction: async () => true,
   };
 }
@@ -41,7 +44,8 @@ function fakeTelegram() {
 const longText =
   "<b>Plaud экспортер.</b>\n\n" +
   "Готов помочь: смотри меню, выбирай действие, я подсвечу прогресс. " +
-  "Эта строка достаточно длинная, чтобы пройти порог typewriter.";
+  "Эта строка достаточно длинная, чтобы пройти порог typewriter, " +
+  "потому что иначе плавная Чайка-style анимация в поле ввода не запустится.";
 
 test("animator.send: short text falls through to a single sendMessage", async () => {
   const telegram = fakeTelegram();
@@ -58,7 +62,7 @@ test("animator.send: short text falls through to a single sendMessage", async ()
   assert.equal(telegram.calls[0].payload.text, "ОК");
 });
 
-test("animator.send: long text sends placeholder + animated frames", async () => {
+test("animator.send: long text streams via sendMessageDraft + final sendMessage", async () => {
   const telegram = fakeTelegram();
   const animator = createMessageAnimator({
     telegram,
@@ -72,21 +76,25 @@ test("animator.send: long text sends placeholder + animated frames", async () =>
     chatId: 42,
     text: longText,
     replyMarkup,
+    messageEffectId: "fxA",
   });
   assert.ok(Number.isInteger(finalId));
   const sends = telegram.calls.filter((c) => c.name === "sendMessage");
+  const drafts = telegram.calls.filter((c) => c.name === "sendMessageDraft");
   const edits = telegram.calls.filter((c) => c.name === "editMessageText");
-  assert.equal(sends.length, 1, "exactly one sendMessage (placeholder)");
-  assert.ok(edits.length >= 2, `expected several edit frames, got ${edits.length}`);
-  const last = edits[edits.length - 1].payload;
-  assert.equal(last.text, longText, "final edit carries the full text");
-  assert.deepEqual(last.replyMarkup, replyMarkup, "final frame keeps keyboard");
-  for (const e of edits.slice(0, -1)) {
-    assert.equal(e.payload.replyMarkup, null, "intermediate frames keep no keyboard");
-  }
+  assert.equal(sends.length, 1, "exactly one sendMessage (final delivery)");
+  assert.equal(edits.length, 0, "must never edit; jumpy editMessageText path is gone");
+  assert.ok(drafts.length >= 2, `expected several draft frames, got ${drafts.length}`);
+  const draftIds = new Set(drafts.map((d) => d.payload.draftId));
+  assert.equal(draftIds.size, 1, "all draft frames share one draft_id for smooth animation");
+  const lastDraft = drafts[drafts.length - 1].payload;
+  assert.equal(lastDraft.text, longText, "last draft frame is the full text");
+  assert.equal(sends[0].payload.text, longText, "final sendMessage carries the full text");
+  assert.deepEqual(sends[0].payload.replyMarkup, replyMarkup, "final delivery keeps the keyboard");
+  assert.equal(sends[0].payload.messageEffectId, "fxA", "final delivery keeps the effect");
 });
 
-test("animator.edit: long text edits the same message through frames", async () => {
+test("animator.edit: long text uses a single instant editMessageText", async () => {
   const telegram = fakeTelegram();
   const animator = createMessageAnimator({
     telegram,
@@ -105,12 +113,14 @@ test("animator.edit: long text edits the same message through frames", async () 
   assert.equal(id, 999);
   const sends = telegram.calls.filter((c) => c.name === "sendMessage");
   assert.equal(sends.length, 0, "edit must never call sendMessage");
+  const drafts = telegram.calls.filter((c) => c.name === "sendMessageDraft");
+  assert.equal(drafts.length, 0, "edit must never animate via draft");
   const edits = telegram.calls.filter((c) => c.name === "editMessageText");
-  assert.ok(edits.length >= 2);
-  const last = edits[edits.length - 1].payload;
-  assert.equal(last.text, longText);
-  assert.deepEqual(last.replyMarkup, { reply: 1 });
-  assert.equal(last.messageEffectId, "fx123");
+  assert.equal(edits.length, 1, "edit is instant: exactly one editMessageText");
+  const payload = edits[0].payload;
+  assert.equal(payload.text, longText);
+  assert.deepEqual(payload.replyMarkup, { reply: 1 });
+  assert.equal(payload.messageEffectId, "fx123");
 });
 
 test("animator.edit: short text uses one editMessageText", async () => {
@@ -131,13 +141,10 @@ test("animator.edit: short text uses one editMessageText", async () => {
   assert.equal(edits.length, 1);
 });
 
-test("animator.send: placeholder failure falls back to direct sendMessage", async () => {
+test("animator.send: draft errors do not block the final sendMessage", async () => {
   const telegram = fakeTelegram();
-  let sendCalls = 0;
-  telegram.sendMessage = async (_payload) => {
-    sendCalls++;
-    if (sendCalls === 1) throw new Error("simulated placeholder failure");
-    return { message_id: 1234 };
+  telegram.sendMessageDraft = async () => {
+    throw new Error("sendMessageDraft: method not found");
   };
   const animator = createMessageAnimator({
     telegram,
@@ -146,6 +153,8 @@ test("animator.send: placeholder failure falls back to direct sendMessage", asyn
     frameMs: 0,
   });
   const id = await animator.send({ chatId: 1, text: longText });
-  assert.equal(id, 1234, "fallback send returns its message_id");
-  assert.equal(sendCalls, 2, "fallback retried sendMessage with the full text");
+  assert.ok(Number.isInteger(id), "final sendMessage still delivers when draft is unavailable");
+  const sends = telegram.calls.filter((c) => c.name === "sendMessage");
+  assert.equal(sends.length, 1);
+  assert.equal(sends[0].payload.text, longText);
 });

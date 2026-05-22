@@ -1,21 +1,22 @@
 /**
- * Central GPT-style typewriter for every bot reply.
+ * Central Чайка-style typewriter wrapper for bot replies.
  *
- * Wraps a `TelegramClient` in two methods that the dispatcher can use instead
- * of bare `sendMessage` / `editMessageText`:
+ * Two methods that the dispatcher can use instead of bare `sendMessage` /
+ * `editMessageText`:
  *
- *  - `send({ chatId, text, replyMarkup, messageEffectId })` — sends a tiny
- *    placeholder, then animates the final text in growing prefixes via
- *    `editMessageText`. Short messages (< `minLen`) bypass the animation so
- *    toasts and one-line errors stay instant.
+ *  - `send({ chatId, text, replyMarkup, messageEffectId })` — long messages
+ *    are previewed in the user's input field via `sendMessageDraft` (Telegram
+ *    natively animates a draft with the same `draftId`, interpolating
+ *    smoothly between frames), then delivered as a single `sendMessage` that
+ *    stays in chat. Short messages (< `minLen`) and chats where draft is
+ *    unavailable fall back to a single `sendMessage` — no in-chat typewriter
+ *    via edits, because `editMessageText` is not animated by clients and
+ *    looks jumpy.
  *
  *  - `edit({ chatId, messageId, text, replyMarkup, messageEffectId })` —
- *    animates an existing inline-button message into new text, keeping the
- *    keyboard only on the final frame to avoid flicker.
- *
- * The animator also keeps the chat-header "typing…" indicator alive
- * throughout animation, so the user sees the bot is working even before the
- * first frame lands.
+ *    a single `editMessageText` (instant). Menu navigation should never look
+ *    animated: clients don't interpolate edits, so any "typewriter" via
+ *    edits is visually worse than a snap.
  *
  * The wiring is opt-in via `ctx.messageAnimator`: if the dispatcher's context
  * has no animator (e.g. in tests) the call sites fall back to a single
@@ -24,13 +25,15 @@
  */
 
 import { logger } from "../logger.js";
-import { typewriterReveal } from "./streamingDelivery.js";
+import {
+  stableDraftId,
+  typewriterDraftAnimate,
+} from "./streamingDelivery.js";
 import { TypingIndicator } from "./telegramVisual.js";
 
 const DEFAULT_FRAME_MS = 160;
 const DEFAULT_MAX_FRAMES = 9;
 const DEFAULT_MIN_LEN = 120;
-const PLACEHOLDER_HTML = "▌";
 
 /**
  * @typedef {{
@@ -75,58 +78,35 @@ export function createMessageAnimator({
       if (!finalText) return null;
 
       if (finalText.length < minLen) {
-        try {
-          const res = await telegram.sendMessage({
-            chatId,
-            text: finalText,
-            replyMarkup: replyMarkup ?? null,
-            messageEffectId: messageEffectId ?? null,
-          });
-          const mid = Number(res?.message_id);
-          return Number.isInteger(mid) ? mid : null;
-        } catch (err) {
-          logger.warn("animator: short sendMessage failed", {
-            error: String(err?.message || err),
-          });
-          return null;
-        }
+        return sendDirect({
+          telegram,
+          chatId,
+          text: finalText,
+          replyMarkup,
+          messageEffectId,
+        });
       }
 
       const typing = new TypingIndicator({ telegram, chatId, nowMs });
       typing.start();
       try {
-        let messageId = null;
-        try {
-          const res = await telegram.sendMessage({
-            chatId,
-            text: PLACEHOLDER_HTML,
-            replyMarkup: null,
-          });
-          const mid = Number(res?.message_id);
-          messageId = Number.isInteger(mid) ? mid : null;
-        } catch (err) {
-          logger.warn("animator: placeholder send failed; falling back", {
-            error: String(err?.message || err),
-          });
-          return sendDirect({
-            telegram,
-            chatId,
-            text: finalText,
-            replyMarkup,
-            messageEffectId,
-          });
-        }
-        if (!messageId) return null;
-        return await typewriterReveal({
+        const draftId = stableDraftId(chatId, nowMs());
+        await typewriterDraftAnimate({
           telegram,
           chatId,
-          messageId,
+          draftId,
           text: finalText,
-          replyMarkup: replyMarkup ?? null,
-          messageEffectId: messageEffectId ?? null,
           frameMs,
           maxFrames,
+          minLen,
           sleep,
+        });
+        return sendDirect({
+          telegram,
+          chatId,
+          text: finalText,
+          replyMarkup,
+          messageEffectId,
         });
       } finally {
         typing.stop();
@@ -137,41 +117,20 @@ export function createMessageAnimator({
       if (!messageId) return null;
       const finalText = String(text ?? "");
       if (!finalText) return null;
-
-      if (finalText.length < minLen) {
-        try {
-          await telegram.editMessageText({
-            chatId,
-            messageId,
-            text: finalText,
-            replyMarkup: replyMarkup ?? null,
-            messageEffectId: messageEffectId ?? null,
-          });
-          return messageId;
-        } catch (err) {
-          logger.info("animator: short edit ignored", {
-            error: String(err?.message || err),
-          });
-          return null;
-        }
-      }
-
-      const typing = new TypingIndicator({ telegram, chatId, nowMs });
-      typing.start();
       try {
-        return await typewriterReveal({
-          telegram,
+        await telegram.editMessageText({
           chatId,
           messageId,
           text: finalText,
           replyMarkup: replyMarkup ?? null,
           messageEffectId: messageEffectId ?? null,
-          frameMs,
-          maxFrames,
-          sleep,
         });
-      } finally {
-        typing.stop();
+        return messageId;
+      } catch (err) {
+        logger.info("animator: edit ignored", {
+          error: String(err?.message || err),
+        });
+        return null;
       }
     },
   };
@@ -188,7 +147,7 @@ async function sendDirect({ telegram, chatId, text, replyMarkup, messageEffectId
     const mid = Number(res?.message_id);
     return Number.isInteger(mid) ? mid : null;
   } catch (err) {
-    logger.warn("animator: direct fallback send failed", {
+    logger.warn("animator: sendMessage failed", {
       error: String(err?.message || err),
     });
     return null;
