@@ -228,7 +228,7 @@ systemctl --no-pager status plaud-exporter.service   # Active: active (running)
 
 **Обновление кода (systemd):** полный чеклист — [server-deploy.md § Обновление кода](./server-deploy.md#обновление-кода) (`stop` → `reset --hard` → `chown` → `npm` → unit + `restart`).
 
-**Docker:** push в `main` собирает образ в GHCR; автоматический SSH-deploy только при `PRODUCTION_DOCKER_DEPLOY=true` в GitHub Variables — см. [deploy/README.md](../deploy/README.md). Пока бот на systemd, эту переменную **не** включайте (иначе CI может переключить хост на Docker).
+**Docker:** push в `main` собирает образ в GHCR; SSH-deploy в Docker только при `PRODUCTION_DOCKER_DEPLOY=true` — см. [deploy/README.md](../deploy/README.md). Пока бот на **systemd** (`/srv/plaud-exporter`), эту переменную **не** включайте: CI вместо этого крутит job **Deploy to production (systemd)** (см. [server-deploy.md](./server-deploy.md#обновление-кода)).
 
 На сервере все `git`/`npm` — от пользователя `plaud` (`sudo -u plaud …`), путь `/srv/plaud-exporter` (Docker bootstrap часто `/opt/plaud-exporter`). Не запускайте `npm run server:auth` на сервере.
 

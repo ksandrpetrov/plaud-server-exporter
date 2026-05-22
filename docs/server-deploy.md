@@ -199,7 +199,9 @@ sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
 
 ## Обновление кода
 
-С Mac сначала: `git push origin main`. На сервере — полный чеклист (короткий `git pull` часто не хватает: висят локальные правки, root владелец файлов, бот держит процесс):
+**Автоматически (рекомендуется):** push в `main` → GitHub Actions job **Deploy to production (systemd)** (`scripts/ci-deploy-systemd-remote.sh`): `git reset --hard origin/main`, `npm install`, `systemctl restart plaud-exporter.service`. Job запускается, пока в Variables **не** стоит `PRODUCTION_DOCKER_DEPLOY=true` (Docker — отдельный opt-in). Нужны secrets `DEPLOY_HOST`, `DEPLOY_USER`, `SSH_PRIVATE_KEY`. Опционально variable `DEPLOY_REPO_DIR` (по умолчанию `/srv/plaud-exporter`).
+
+**Вручную на VPS**, если CI недоступен — с Mac сначала: `git push origin main`. На сервере — полный чеклист (короткий `git pull` часто не хватает: висят локальные правки, root владелец файлов, бот держит процесс):
 
 ```bash
 cd /srv/plaud-exporter

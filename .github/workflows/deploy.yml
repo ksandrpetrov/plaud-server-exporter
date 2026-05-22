@@ -39,6 +39,7 @@ jobs:
       - run: npm test
       - run: node scripts/smoke_container.mjs
       - run: bash scripts/ci-deploy-remote.test.sh
+      - run: bash scripts/ci-deploy-systemd-remote.test.sh
       - run: npm run test:submodule
 
   build:
@@ -117,10 +118,10 @@ jobs:
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.build.outputs.image_tag }}"
           SKIP_BUILD=1 bash scripts/docker-smoke-image.sh "$IMAGE"
 
-  deploy:
-    name: Deploy to production
+  deploy-docker:
+    name: Deploy to production (Docker)
     needs: [build, docker-smoke]
-    # Opt-in: systemd-only VPS must not get systemd stopped on every main push.
+    # Opt-in: only when Docker stack is bootstrapped under /opt/plaud-exporter.
     if: >-
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
       && vars.PRODUCTION_DOCKER_DEPLOY == 'true'
@@ -129,7 +130,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Deploy over SSH
+      - name: Deploy over SSH (Docker)
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
@@ -146,3 +147,30 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           export APP_IMAGE
           bash scripts/ci-deploy-remote.sh
+
+  deploy-systemd:
+    name: Deploy to production (systemd)
+    needs: checks
+    # Default for VPS on /srv/plaud-exporter: push to main updates code + restarts bot.
+    # Skipped when PRODUCTION_DOCKER_DEPLOY=true (Docker path owns production).
+    if: >-
+      (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+      && vars.PRODUCTION_DOCKER_DEPLOY != 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Deploy over SSH (systemd)
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          DEPLOY_REPO_DIR: ${{ vars.DEPLOY_REPO_DIR }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          export DEPLOY_REPO_DIR="${DEPLOY_REPO_DIR:-/srv/plaud-exporter}"
+          bash scripts/ci-deploy-systemd-remote.sh

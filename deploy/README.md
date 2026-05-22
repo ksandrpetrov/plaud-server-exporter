@@ -44,7 +44,7 @@ GitHub Actions on `push` to `main` builds `ghcr.io/<owner>/<repo>:sha-<short>`, 
 |----------|--------|---------|
 | `PRODUCTION_DOCKER_DEPLOY` | `true` | Run deploy job after `make deploy` / Ansible bootstrap |
 
-If this variable is unset or not `true`, CI still builds and smoke-tests the image but **does not SSH** — your **systemd** bot on `/srv/plaud-exporter` or `/opt/plaud-server-exporter` stays running.
+If this variable is unset or not `true`, CI still builds and smoke-tests the image, then runs **systemd SSH deploy** (`scripts/ci-deploy-systemd-remote.sh`): `git reset --hard origin/main`, `npm install`, `systemctl restart plaud-exporter.service` on `/srv/plaud-exporter` (override with variable `DEPLOY_REPO_DIR`). Set `PRODUCTION_DOCKER_DEPLOY=true` only after Ansible bootstrap under `/opt/plaud-exporter` — then systemd auto-deploy is skipped.
 
 `ci-deploy-remote.sh` also skips safely when `${DEPLOY_DIR}/docker-compose.yml` is missing (exit 0, systemd untouched).
 
