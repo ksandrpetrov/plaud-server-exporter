@@ -210,10 +210,18 @@ export function fitsPathLengthBudget(absolutePath, options = {}) {
 
 function maxFilenameLengthForDir(absoluteDir) {
   const overhead = absoluteDir.length + 1;
+
+  // Linux limits a single filename segment by bytes, not JS string length.
+  // Cyrillic and temporary suffixes like `.tmp-<pid>-<timestamp>` can overflow
+  // ext4's 255-byte segment limit even when character length looks safe.
+  // Keep this conservative until filename planning becomes byte-aware.
+  const SAFE_FILENAME_WITH_EXTENSION = 90;
+
   return Math.max(
     40,
     Math.min(
       MAX_FILENAME_WITH_EXTENSION,
+      SAFE_FILENAME_WITH_EXTENSION,
       MAX_FULL_PATH_LENGTH - overhead
     )
   );

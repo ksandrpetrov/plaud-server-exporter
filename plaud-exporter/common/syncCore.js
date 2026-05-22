@@ -106,6 +106,71 @@ export function hashStringSync(value) {
   return (hash >>> 0).toString(16).padStart(8, "0");
 }
 
+/**
+ * Reads the first non-empty value from `raw` under any of `keys`,
+ * trimmed and stringified. Plaud API responses vary between snake_case
+ * and camelCase across endpoints; this helper smooths that over.
+ */
+export function getRawField(raw, keys) {
+  if (!raw || typeof raw !== "object") return "";
+  for (const key of keys) {
+    const value = raw[key];
+    if (value != null && String(value).trim()) return String(value).trim();
+  }
+  return "";
+}
+
+const AUDIO_SIGNATURE_KEYS = {
+  size: ["size", "file_size", "fileSize", "audio_size", "audioSize", "bytes"],
+  duration: [
+    "duration",
+    "duration_ms",
+    "durationMs",
+    "audio_duration",
+    "audioDuration",
+  ],
+  createdAt: [
+    "created_at",
+    "createdAt",
+    "create_time",
+    "createTime",
+    "start_time",
+    "startTime",
+  ],
+  updatedAt: [
+    "updated_at",
+    "updatedAt",
+    "update_time",
+    "updateTime",
+    "modified_at",
+    "modifiedAt",
+  ],
+  checksum: ["md5", "sha256", "checksum", "etag"],
+};
+
+/**
+ * Stable per-recording audio fingerprint used by the sync index. Treats the
+ * Plaud `file.id` plus a small set of metadata fields as inputs. Output is
+ * deterministic — the same recording shape always yields the same signature.
+ * Shared between the Chrome extension and the server CLI so the index is
+ * interoperable.
+ *
+ * @param {{ id?: string; raw?: Record<string, unknown> } | null | undefined} file
+ * @returns {string}
+ */
+export function buildAudioSignature(file) {
+  const raw = file?.raw || {};
+  const payload = {
+    id: file?.id || "",
+    size: getRawField(raw, AUDIO_SIGNATURE_KEYS.size),
+    duration: getRawField(raw, AUDIO_SIGNATURE_KEYS.duration),
+    createdAt: getRawField(raw, AUDIO_SIGNATURE_KEYS.createdAt),
+    updatedAt: getRawField(raw, AUDIO_SIGNATURE_KEYS.updatedAt),
+    checksum: getRawField(raw, AUDIO_SIGNATURE_KEYS.checksum),
+  };
+  return `audio-meta:${hashStringSync(JSON.stringify(payload))}`;
+}
+
 export function buildFingerprint(fields = {}) {
   const sourceUrl = canonicalUrl(fields.sourceUrl);
   const audioUrl = canonicalUrl(fields.audioUrl);
@@ -267,10 +332,14 @@ export function determineSyncAction(existingRecord, candidate) {
       cleanString(candidate.normalizedFilename) ||
     cleanString(existingRecord.audioNormalizedFilename) !==
       cleanString(candidate.audioNormalizedFilename);
+  const folderChanged =
+    cleanString(existingRecord.folderSegment) !==
+    cleanString(candidate.folderSegment);
 
   if (
     titleChanged ||
     desiredFilenameChanged ||
+    folderChanged ||
     !sameIfPresent(existingRecord.sourceUrl, candidate.sourceUrl)
   ) {
     return {
@@ -332,6 +401,11 @@ export function updateExistingRecord(existingRecord, candidate, patch = {}) {
     status: patch.status || candidate.status || SYNC_STATUS_SUCCESS,
     summaryPath: patch.summaryPath || existingRecord?.summaryPath || "",
     audioPath: patch.audioPath || existingRecord?.audioPath || "",
+    folderSegment:
+      patch.folderSegment ||
+      candidate.folderSegment ||
+      existingRecord?.folderSegment ||
+      "",
     lastDownloadIds:
       patch.lastDownloadIds || existingRecord?.lastDownloadIds || [],
   };
@@ -380,12 +454,35 @@ export function sanitizeSyncSubdirectory(value) {
   return safeParts.join("/");
 }
 
-export function buildRelativeArtifactPath(subdirectory, artifactType, filename) {
+/**
+ * Downloads-relative path: `{syncSubdir}/{Plaud folder}/Audio|Summaries/{filename}`.
+ * `folderSegment` mirrors Plaud sidebar groups (Unfiled, Trash, user folders).
+ *
+ * @param {string} subdirectory
+ * @param {"audio"|"summary"} artifactType
+ * @param {string} filename
+ * @param {string} [folderSegment]
+ */
+export function buildRelativeArtifactPath(
+  subdirectory,
+  artifactType,
+  filename,
+  folderSegment = ""
+) {
   const folder = sanitizeSyncSubdirectory(subdirectory);
+  const segment = String(folderSegment || "").trim()
+    ? sanitizePathSegment(folderSegment, {
+        fallback: "Folder",
+        maxLength: 80,
+      })
+    : "";
   const kind = artifactType === "audio" ? "Audio" : "Summaries";
   const safeName = sanitizePathSegment(filename, {
     fallback: artifactType === "audio" ? "Plaud audio" : "Plaud summary",
     maxLength: 160,
   });
-  return `${folder}/${kind}/${safeName}`;
+  const parts = [folder];
+  if (segment) parts.push(segment);
+  parts.push(kind, safeName);
+  return parts.join("/");
 }

@@ -57,6 +57,18 @@ const RESERVED_WINDOWS_NAMES = new Set([
 export const MAX_PATH_COMPONENT_CHARS = 255;
 export const MAX_FILENAME_WITH_EXTENSION = Math.floor(MAX_PATH_COMPONENT_CHARS * 0.95);
 export const MARKDOWN_EXTENSION = ".md";
+export const UTF8_BOM = "\uFEFF";
+
+/**
+ * Prepends a UTF-8 BOM when missing. iOS Files / Quick Look often mis-detect
+ * BOM-less UTF-8 Cyrillic text as Windows-1251 and show mojibake.
+ */
+export function withUtf8Bom(text) {
+  const value = String(text ?? "");
+  if (value.length > 0 && value.charCodeAt(0) === 0xfeff) return value;
+  return `${UTF8_BOM}${value}`;
+}
+
 export const DEFAULT_DATE_PREFIX_LENGTH = 13; // "YYYY-MM-DD - "
 export const DEFAULT_FILENAME_MAX_LENGTH = Math.max(
   80,
