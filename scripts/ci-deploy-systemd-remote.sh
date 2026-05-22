@@ -92,11 +92,13 @@ echo "ci-deploy-systemd-remote: preflight ok (repo=$REPO unit=$UNIT)"
 
 sudo systemctl stop "$UNIT"
 
+# Git must run as plaud after ownership is fixed (avoids dubious ownership).
+sudo chown -R plaud:plaud "$REPO"
+sudo -u plaud git config --global --add safe.directory "$REPO" 2>/dev/null || true
+
 sudo -u plaud git -C "$REPO" fetch origin "$REF"
 sudo -u plaud git -C "$REPO" reset --hard "origin/$REF"
 sudo -u plaud git -C "$REPO" clean -fd
-
-sudo chown -R plaud:plaud "$REPO"
 
 sudo -u plaud bash -lc "cd '$REPO' && npm install --workspaces --ignore-scripts"
 if [[ -f "$REPO/plaud-exporter/package.json" ]]; then
@@ -108,6 +110,12 @@ if [[ ! -f "$UNIT_FILE" ]]; then
   UNIT_FILE="$REPO/deploy/systemd/plaud-exporter.service"
 fi
 sudo cp "$UNIT_FILE" "/etc/systemd/system/$UNIT"
+# Repo may live outside /srv/plaud-exporter — align unit paths with detected checkout.
+sudo sed -i "s|^WorkingDirectory=.*|WorkingDirectory=$REPO|" "/etc/systemd/system/$UNIT"
+sudo sed -i "s|^EnvironmentFile=.*|EnvironmentFile=$REPO/.env|" "/etc/systemd/system/$UNIT"
+if grep -q '^ReadWritePaths=' "/etc/systemd/system/$UNIT"; then
+  sudo sed -i "s|^ReadWritePaths=.*|ReadWritePaths=$REPO /var/log/plaud-exporter|" "/etc/systemd/system/$UNIT"
+fi
 sudo systemctl daemon-reload
 sudo systemctl restart "$UNIT"
 

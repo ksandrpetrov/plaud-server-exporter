@@ -9,6 +9,7 @@ bash -n "$SCRIPT"
 
 preflight_line="$(grep -n 'Preflight + deploy' "$SCRIPT" | head -1 | cut -d: -f1)"
 stop_line="$(grep -n 'systemctl stop' "$SCRIPT" | head -1 | cut -d: -f1)"
+chown_line="$(grep -n 'chown -R plaud:plaud' "$SCRIPT" | head -1 | cut -d: -f1)"
 fetch_line="$(grep -n 'git -C' "$SCRIPT" | head -1 | cut -d: -f1)"
 restart_line="$(grep -n 'systemctl restart' "$SCRIPT" | head -1 | cut -d: -f1)"
 
@@ -17,8 +18,13 @@ if [[ -z "$preflight_line" || -z "$stop_line" || -z "$fetch_line" || -z "$restar
   exit 1
 fi
 
-if [[ "$preflight_line" -ge "$stop_line" || "$stop_line" -ge "$fetch_line" || "$fetch_line" -ge "$restart_line" ]]; then
-  echo "ci-deploy-systemd-remote.test: wrong order (preflight < stop < fetch < restart)" >&2
+if [[ -z "$chown_line" ]]; then
+  echo "ci-deploy-systemd-remote.test: missing chown before git" >&2
+  exit 1
+fi
+
+if [[ "$preflight_line" -ge "$stop_line" || "$stop_line" -ge "$chown_line" || "$chown_line" -ge "$fetch_line" || "$fetch_line" -ge "$restart_line" ]]; then
+  echo "ci-deploy-systemd-remote.test: wrong order (preflight < stop < chown < fetch < restart)" >&2
   exit 1
 fi
 
