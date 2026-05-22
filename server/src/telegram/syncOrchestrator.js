@@ -57,8 +57,8 @@ import {
 } from "./telegramVisual.js";
 
 const PROGRESS_THROTTLE_MS = 2000;
-const LOADING_PULSE_FRAME_MS = 1400;
-const TYPEWRITER_FRAME_MS = 550;
+const LOADING_PULSE_FRAME_MS = 900;
+const TYPEWRITER_FRAME_MS = 650;
 
 /**
  * @typedef {{

@@ -9,15 +9,44 @@
  *    spinner on inline buttons.
  *
  * The contract: never throw to the caller, never block on Telegram retries.
+ *
+ * If `ctx.messageAnimator` is set (production wiring in
+ * `server/src/telegram/index.js`), both `safeSend` and `editToMenuScreen`
+ * route through it to render the ChatGPT-style typewriter reveal. When the
+ * animator is absent (e.g. in unit tests that build a minimal `ctx`), both
+ * helpers fall back to a single bare Telegram call — preserving the previous
+ * one-`sendMessage`-per-reply contract that those tests check.
+ *
+ * Pass `{ animate: false }` to either helper to force the bare path even when
+ * an animator is wired in (used for tiny system toasts).
  */
 
 import { logger } from "../logger.js";
 
 /**
- * @typedef {{ telegram: import("./telegramClient.js").TelegramClient }} HasTelegram
+ * @typedef {{
+ *   telegram: import("./telegramClient.js").TelegramClient;
+ *   messageAnimator?: import("./messageAnimator.js").MessageAnimator | null;
+ * }} HasTelegram
  */
 
 export async function safeSend(ctx, chatId, text, options = {}) {
+  const animator = options.animate === false ? null : ctx?.messageAnimator;
+  if (animator) {
+    try {
+      await animator.send({
+        chatId,
+        text,
+        replyMarkup: options.replyMarkup ?? null,
+        messageEffectId: options.messageEffectId ?? null,
+      });
+      return;
+    } catch (err) {
+      logger.warn("animator send failed; falling back to bare sendMessage", {
+        error: String(err?.message || err),
+      });
+    }
+  }
   try {
     await ctx.telegram.sendMessage({
       chatId,
@@ -31,7 +60,26 @@ export async function safeSend(ctx, chatId, text, options = {}) {
   }
 }
 
-export async function editToMenuScreen(ctx, { chatId, messageId, text, keyboard }) {
+export async function editToMenuScreen(
+  ctx,
+  { chatId, messageId, text, keyboard, animate }
+) {
+  const animator = animate === false ? null : ctx?.messageAnimator;
+  if (animator) {
+    try {
+      await animator.edit({
+        chatId,
+        messageId,
+        text,
+        replyMarkup: keyboard,
+      });
+      return;
+    } catch (err) {
+      logger.info("animator edit failed; falling back to bare editMessageText", {
+        error: String(err?.message || err),
+      });
+    }
+  }
   try {
     await ctx.telegram.editMessageText({
       chatId,

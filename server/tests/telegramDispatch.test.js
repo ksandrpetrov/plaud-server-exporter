@@ -19,6 +19,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dispatchUpdate } from "../src/telegram/handlers.js";
+import { createMessageAnimator } from "../src/telegram/messageAnimator.js";
 import { SYNC_ACTION_KEY, syncRunGuard } from "../src/telegram/syncGuards.js";
 
 function makeFakeTelegram() {
@@ -338,5 +339,53 @@ test("dispatch: username-only legacy mode still works for the matching username"
     );
     const sendMessages = tg.calls.filter((c) => c.name === "sendMessage");
     assert.equal(sendMessages.length, 1);
+  });
+});
+
+test("dispatch: with messageAnimator wired in, /menu still produces ONE sendMessage + typewriter edits", async () => {
+  await withOwnerChatDir(async () => {
+    const tg = makeFakeTelegram();
+    const animator = createMessageAnimator({
+      telegram: tg,
+      minLen: 1,
+      maxFrames: 4,
+      sleep: () => Promise.resolve(),
+      frameMs: 0,
+    });
+    await dispatchUpdate(
+      ctx(tg, { messageAnimator: animator }),
+      privateMessage({ text: "/menu", from: OWNER })
+    );
+    const sends = tg.calls.filter((c) => c.name === "sendMessage");
+    const edits = tg.calls.filter((c) => c.name === "editMessageText");
+    assert.equal(
+      sends.length,
+      1,
+      "animated /menu must still send exactly one new message (placeholder), then edit it"
+    );
+    assert.ok(edits.length >= 1, "animated /menu must produce at least one edit frame");
+  });
+});
+
+test("dispatch: with messageAnimator wired in, status callback edits the same message multiple times", async () => {
+  await withOwnerChatDir(async () => {
+    syncRunGuard.reset();
+    const tg = makeFakeTelegram();
+    const animator = createMessageAnimator({
+      telegram: tg,
+      minLen: 1,
+      maxFrames: 5,
+      sleep: () => Promise.resolve(),
+      frameMs: 0,
+    });
+    await dispatchUpdate(
+      ctx(tg, { messageAnimator: animator }),
+      privateCallback({ data: "status", from: OWNER })
+    );
+    const sends = tg.calls.filter((c) => c.name === "sendMessage");
+    const edits = tg.calls.filter((c) => c.name === "editMessageText");
+    assert.equal(sends.length, 0, "status callback must never sendMessage; only edit");
+    assert.ok(edits.length >= 1, "status callback must edit at least once");
+    syncRunGuard.reset();
   });
 });

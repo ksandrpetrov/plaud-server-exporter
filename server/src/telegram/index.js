@@ -20,6 +20,7 @@ import { startWebServer, stopWebServer } from "../http/webServer.js";
 import { logger } from "../logger.js";
 import { redactError } from "../security/redact.js";
 import { TelegramBotLoop } from "./bot.js";
+import { createMessageAnimator } from "./messageAnimator.js";
 import { logPersistenceDiagnostics } from "./persistenceDiagnostics.js";
 import { BotScheduler } from "./scheduler.js";
 import { TelegramClient } from "./telegramClient.js";
@@ -66,6 +67,8 @@ export async function runBot() {
   const telegram = new TelegramClient(token);
   await registerMenuCommandsSafely(telegram);
 
+  const messageAnimator = createMessageAnimator({ telegram });
+
   const runManualSync = async ({ chatId, loadingMessageId }) =>
     runSyncWithReporting({
       telegram,
@@ -105,6 +108,7 @@ export async function runBot() {
     runManualSync,
     runSyncQuiet,
     scheduler,
+    messageAnimator,
   });
 
   installSignalHandlers(loop);

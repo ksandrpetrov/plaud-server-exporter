@@ -19,9 +19,9 @@ const DRAFT_UNAVAILABLE_MARKERS = [
   "not implemented",
 ];
 
-const TYPEWRITER_MIN_LEN = 60;
-const TYPEWRITER_MAX_FRAMES = 6;
-const TYPEWRITER_FRAME_MS = 550;
+const TYPEWRITER_MIN_LEN = 40;
+const TYPEWRITER_MAX_FRAMES = 7;
+const TYPEWRITER_FRAME_MS = 650;
 const TYPEWRITER_CARET = " ▌";
 
 const HTML_TAG_RE = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)(\s[^<>]*)?>/g;
