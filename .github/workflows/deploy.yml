@@ -44,7 +44,7 @@ jobs:
     needs: checks
     runs-on: ubuntu-latest
     outputs:
-      image_tag: ${{ steps.meta.outputs.sha_tag }}
+      image_tag: ${{ steps.sha.outputs.sha_tag }}
     steps:
       - uses: actions/checkout@v5
 
