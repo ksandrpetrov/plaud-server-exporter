@@ -22,6 +22,7 @@ import {
   CB_SETTINGS_INTERVAL_240,
   CB_SETTINGS_INTERVAL_480,
   CB_SETTINGS_INTERVAL_60,
+  CB_SETTINGS_TOGGLE_SUMMARY,
   CB_STATUS,
   filesTreeFolderCallback,
 } from "./callbackData.js";
@@ -127,13 +128,19 @@ export function buildSyncRunningKeyboard() {
 }
 
 /**
- * Settings screen: interval presets + back button. Highlights the active one
- * with a leading checkmark, the same convention as digest_days_keyboard in
- * satellite.
+ * Settings screen: interval presets + scheduled-summary toggle + back button.
+ * Highlights the active interval with a leading checkmark, the same
+ * convention as digest_days_keyboard in satellite. The toggle button renders
+ * its own state in the label so the user sees what tapping it will switch to
+ * without re-reading the screen body.
  *
  * @param {number} activeIntervalMin
+ * @param {boolean} [scheduledSummaryVisible]
  */
-export function buildSettingsKeyboard(activeIntervalMin) {
+export function buildSettingsKeyboard(
+  activeIntervalMin,
+  scheduledSummaryVisible = false
+) {
   const presetToCallback = {
     60: CB_SETTINGS_INTERVAL_60,
     120: CB_SETTINGS_INTERVAL_120,
@@ -145,10 +152,14 @@ export function buildSettingsKeyboard(activeIntervalMin) {
     const label = isActive ? `✅ ${min} мин` : `${min} мин`;
     return { text: label, callback_data: presetToCallback[min] };
   });
+  const summaryLabel = scheduledSummaryVisible
+    ? "🔔 Сообщения автосинка: вкл"
+    : "🔕 Сообщения автосинка: выкл";
   return {
     inline_keyboard: [
       [buttons[0], buttons[1]],
       [buttons[2], buttons[3]],
+      [{ text: summaryLabel, callback_data: CB_SETTINGS_TOGGLE_SUMMARY }],
       [{ text: "⬅️ Назад", callback_data: CB_BACK }],
     ],
   };

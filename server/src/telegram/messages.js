@@ -240,9 +240,19 @@ export function statusScreenHtml(status) {
 }
 
 /**
- * @param {{ intervalMin: number; lastSyncAt: string | null; nowMs?: number }} params
+ * @param {{
+ *   intervalMin: number;
+ *   lastSyncAt: string | null;
+ *   nowMs?: number;
+ *   scheduledSummaryVisible?: boolean;
+ * }} params
  */
-export function settingsScreenHtml({ intervalMin, lastSyncAt, nowMs }) {
+export function settingsScreenHtml({
+  intervalMin,
+  lastSyncAt,
+  nowMs,
+  scheduledSummaryVisible = false,
+}) {
   const now = typeof nowMs === "number" ? nowMs : Date.now();
   let nextLine = "🕘 Следующий автозапуск: после ближайшей проверки.";
   if (lastSyncAt) {
@@ -256,12 +266,16 @@ export function settingsScreenHtml({ intervalMin, lastSyncAt, nowMs }) {
       }
     }
   }
+  const summaryLine = scheduledSummaryVisible
+    ? "🔔 Сообщения автосинка: <b>вкл</b> — пришлю сводку в чат."
+    : "🔕 Сообщения автосинка: <b>выкл</b> — автосинк работает тихо.";
   return [
     "⚙️ <b>Настройки расписания</b>",
     `🕒 Интервал автозапуска: ${intervalMin} мин`,
     nextLine,
+    summaryLine,
     "",
-    "Выбери интервал:",
+    "Выбери интервал или переключи уведомления:",
   ].join("\n");
 }
 

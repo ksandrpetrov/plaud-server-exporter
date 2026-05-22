@@ -24,7 +24,9 @@ import {
 } from "./auth.js";
 import {
   isAllowedInterval,
+  loadBotSettings,
   loadEffectiveIntervalMin,
+  loadEffectiveScheduledSummaryVisible,
   saveBotSettings,
 } from "./botSettings.js";
 import {
@@ -46,6 +48,7 @@ import {
   CB_SETTINGS_INTERVAL_240,
   CB_SETTINGS_INTERVAL_480,
   CB_SETTINGS_INTERVAL_60,
+  CB_SETTINGS_TOGGLE_SUMMARY,
   CB_STATUS,
   parseFilesTreeFolderCallback,
 } from "./callbackData.js";
@@ -250,6 +253,7 @@ const CALLBACK_HANDLERS = {
   [CB_FILES_TREE]: handleFilesTreeCallback,
   [CB_FILES_STATS]: handleFilesStatsCallback,
   [CB_SETTINGS]: handleSettingsCallback,
+  [CB_SETTINGS_TOGGLE_SUMMARY]: handleToggleSummaryCallback,
   [CB_BACK]: handleBackCallback,
   [CB_HELP]: handleHelpCallback,
   [CB_CLOSE]: handleCloseCallback,
@@ -336,6 +340,7 @@ async function handleFilesStatsCallback({ ctx, chatId, messageId }) {
 
 async function handleSettingsCallback({ ctx, chatId, messageId }) {
   const intervalMin = await loadEffectiveIntervalMin();
+  const scheduledSummaryVisible = await loadEffectiveScheduledSummaryVisible();
   const status = await readStatus();
   await editToMenuScreen(ctx, {
     chatId,
@@ -343,8 +348,9 @@ async function handleSettingsCallback({ ctx, chatId, messageId }) {
     text: settingsScreenHtml({
       intervalMin,
       lastSyncAt: status?.lastSyncAt || null,
+      scheduledSummaryVisible,
     }),
-    keyboard: buildSettingsKeyboard(intervalMin),
+    keyboard: buildSettingsKeyboard(intervalMin, scheduledSummaryVisible),
   });
   return false;
 }
@@ -354,6 +360,34 @@ async function handleIntervalCallback({ ctx, chatId, messageId, data }) {
     chatId,
     messageId,
     intervalMin: CB_INTERVAL_VALUES[data],
+  });
+  return false;
+}
+
+async function handleToggleSummaryCallback({ ctx, chatId, messageId }) {
+  const existing = await loadBotSettings();
+  const previous = existing?.scheduledSummaryVisible ?? false;
+  const next = !previous;
+  try {
+    await saveBotSettings({ scheduledSummaryVisible: next });
+    logger.info("Toggled scheduled-summary visibility", { value: next });
+  } catch (err) {
+    logger.warn("Failed to persist scheduled-summary toggle", {
+      error: String(err?.message || err),
+    });
+    return false;
+  }
+  const intervalMin = existing?.intervalMin ?? (await loadEffectiveIntervalMin());
+  const status = await readStatus();
+  await editToMenuScreen(ctx, {
+    chatId,
+    messageId,
+    text: settingsScreenHtml({
+      intervalMin,
+      lastSyncAt: status?.lastSyncAt || null,
+      scheduledSummaryVisible: next,
+    }),
+    keyboard: buildSettingsKeyboard(intervalMin, next),
   });
   return false;
 }
@@ -449,6 +483,7 @@ async function handleSetInterval(ctx, { chatId, messageId, intervalMin }) {
     });
     return;
   }
+  const scheduledSummaryVisible = await loadEffectiveScheduledSummaryVisible();
   const status = await readStatus();
   await editToMenuScreen(ctx, {
     chatId,
@@ -456,8 +491,9 @@ async function handleSetInterval(ctx, { chatId, messageId, intervalMin }) {
     text: settingsScreenHtml({
       intervalMin,
       lastSyncAt: status?.lastSyncAt || null,
+      scheduledSummaryVisible,
     }),
-    keyboard: buildSettingsKeyboard(intervalMin),
+    keyboard: buildSettingsKeyboard(intervalMin, scheduledSummaryVisible),
   });
 }
 

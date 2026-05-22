@@ -19,6 +19,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dispatchUpdate } from "../src/telegram/handlers.js";
+import { loadBotSettings } from "../src/telegram/botSettings.js";
 import { createMessageAnimator } from "../src/telegram/messageAnimator.js";
 import { SYNC_ACTION_MANUAL, syncRunGuard } from "../src/telegram/syncGuards.js";
 import { syncBusyText } from "../src/telegram/messages.js";
@@ -45,13 +46,18 @@ function makeFakeTelegram() {
 async function withOwnerChatDir(fn) {
   const dir = await mkdtemp(join(tmpdir(), "plaud-dispatch-"));
   const file = join(dir, "owner-chat.json");
-  const prev = process.env.PLAUD_OWNER_CHAT_PATH;
+  const settingsFile = join(dir, "bot-settings.json");
+  const prevOwner = process.env.PLAUD_OWNER_CHAT_PATH;
+  const prevSettings = process.env.PLAUD_BOT_SETTINGS_PATH;
   process.env.PLAUD_OWNER_CHAT_PATH = file;
+  process.env.PLAUD_BOT_SETTINGS_PATH = settingsFile;
   try {
-    return await fn({ dir, file });
+    return await fn({ dir, file, settingsFile });
   } finally {
-    if (prev === undefined) delete process.env.PLAUD_OWNER_CHAT_PATH;
-    else process.env.PLAUD_OWNER_CHAT_PATH = prev;
+    if (prevOwner === undefined) delete process.env.PLAUD_OWNER_CHAT_PATH;
+    else process.env.PLAUD_OWNER_CHAT_PATH = prevOwner;
+    if (prevSettings === undefined) delete process.env.PLAUD_BOT_SETTINGS_PATH;
+    else process.env.PLAUD_BOT_SETTINGS_PATH = prevSettings;
     await rm(dir, { recursive: true, force: true });
   }
 }
@@ -405,5 +411,60 @@ test("dispatch: with messageAnimator wired in, status callback drafts then edits
     assert.ok(drafts.length >= 1, "status callback should preview via sendMessageDraft");
     assert.equal(edits.length, 1, "status callback should edit the menu bubble once");
     syncRunGuard.reset();
+  });
+});
+
+test("dispatch: settings screen shows the silent default for scheduled summaries", async () => {
+  await withOwnerChatDir(async () => {
+    const tg = makeFakeTelegram();
+    await dispatchUpdate(
+      ctx(tg),
+      privateCallback({ data: "settings", from: OWNER })
+    );
+    const edit = tg.calls.find((c) => c.name === "editMessageText");
+    assert.ok(edit, "settings callback must edit the menu bubble");
+    const text = edit.args?.[0]?.text || "";
+    assert.match(
+      text,
+      /Сообщения автосинка/,
+      "settings screen must mention scheduled-sync visibility"
+    );
+    assert.match(
+      text,
+      /выкл/,
+      "default state must read as disabled (silent autosync)"
+    );
+  });
+});
+
+test("dispatch: toggling scheduled-summary flips persisted value and re-renders", async () => {
+  await withOwnerChatDir(async ({ settingsFile }) => {
+    const tg = makeFakeTelegram();
+    await dispatchUpdate(
+      ctx(tg),
+      privateCallback({ data: "settings_toggle_summary", from: OWNER })
+    );
+    const persisted = await loadBotSettings(settingsFile);
+    assert.ok(persisted, "toggle must create the settings file");
+    assert.equal(
+      persisted.scheduledSummaryVisible,
+      true,
+      "first tap opts the user in"
+    );
+    const edit = tg.calls.find((c) => c.name === "editMessageText");
+    assert.ok(edit);
+    assert.match(edit.args[0].text, /вкл/);
+
+    tg.calls.length = 0;
+    await dispatchUpdate(
+      ctx(tg),
+      privateCallback({ data: "settings_toggle_summary", from: OWNER })
+    );
+    const persistedAgain = await loadBotSettings(settingsFile);
+    assert.equal(
+      persistedAgain.scheduledSummaryVisible,
+      false,
+      "second tap returns to silent autosync"
+    );
   });
 });

@@ -116,7 +116,7 @@ flowchart LR
 | `server/.data/status.json` | Последний run (для `server:status` и бота) |
 | `server/.data/sync.lock` | Файловый лок |
 | `server/.data/owner-chat.json` | Chat ID владельца бота |
-| `server/.data/bot-settings.json` | Интервал автосинка |
+| `server/.data/bot-settings.json` | Интервал автосинка + флаг `scheduledSummaryVisible` (по умолчанию `false` — автосинк не пишет в чат) |
 | `server/.data/telegram-offset.json` | Offset long-poll |
 | `server/.data/tree-browse.json` | Per-chat browse state для `pick-by-number` в Telegram (TTL 30 мин) |
 | `{vault}/Plaud/...md` | Саммари |

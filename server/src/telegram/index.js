@@ -20,11 +20,16 @@ import { startWebServer, stopWebServer } from "../http/webServer.js";
 import { logger } from "../logger.js";
 import { redactError } from "../security/redact.js";
 import { TelegramBotLoop } from "./bot.js";
+import { loadEffectiveScheduledSummaryVisible } from "./botSettings.js";
 import { createMessageAnimator } from "./messageAnimator.js";
 import { logPersistenceDiagnostics } from "./persistenceDiagnostics.js";
 import { BotScheduler } from "./scheduler.js";
 import { TelegramClient } from "./telegramClient.js";
-import { SYNC_ACTION_SCHEDULED, syncRunGuard } from "./syncGuards.js";
+import {
+  SYNC_ACTION_SCHEDULED,
+  syncActionKey,
+  syncRunGuard,
+} from "./syncGuards.js";
 import { syncBusyText } from "./messages.js";
 import { runSyncSilent, runSyncWithReporting } from "./syncOrchestrator.js";
 
@@ -79,10 +84,12 @@ export async function runBot() {
     });
 
   const runScheduledSync = async ({ chatId }) => {
+    const summaryVisible = await loadEffectiveScheduledSummaryVisible();
     if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_SCHEDULED)) {
       logger.info(
         "Skipping scheduled sync — ActionGuard busy or post-success cooldown"
       );
+      if (!summaryVisible) return;
       try {
         await messageAnimator.send({
           chatId,
@@ -95,12 +102,28 @@ export async function runBot() {
       }
       return;
     }
-    return runSyncWithReporting({
-      telegram,
-      chatId,
-      loadingMessageId: null,
-      source: "scheduled",
-    });
+    if (summaryVisible) {
+      return runSyncWithReporting({
+        telegram,
+        chatId,
+        loadingMessageId: null,
+        source: "scheduled",
+      });
+    }
+    // Silent path: the user opted out of chat notifications for scheduled
+    // syncs. `runSyncSilent` would acquire its own (manual) guard if we
+    // passed a chatId — we already hold SYNC_ACTION_SCHEDULED, so we pass
+    // null and release it ourselves below.
+    let sentOk = false;
+    try {
+      const result = await runSyncSilent({ chatId: null });
+      sentOk = result?.status === "ok";
+      return result;
+    } finally {
+      syncRunGuard.release(chatId, syncActionKey("scheduled"), {
+        sent: sentOk,
+      });
+    }
   };
 
   const runSyncQuiet = async ({ chatId } = {}) =>

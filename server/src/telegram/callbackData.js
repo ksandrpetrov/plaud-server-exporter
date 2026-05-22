@@ -16,6 +16,7 @@ export const CB_SETTINGS_INTERVAL_60 = "settings_interval_60";
 export const CB_SETTINGS_INTERVAL_120 = "settings_interval_120";
 export const CB_SETTINGS_INTERVAL_240 = "settings_interval_240";
 export const CB_SETTINGS_INTERVAL_480 = "settings_interval_480";
+export const CB_SETTINGS_TOGGLE_SUMMARY = "settings_toggle_summary";
 export const CB_FILES = "files";
 export const CB_FILES_TREE = "files_tree";
 export const CB_FILES_TREE_FOLDER_PREFIX = "tf:";
