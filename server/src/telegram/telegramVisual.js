@@ -8,10 +8,16 @@ export const EFFECT_SPARKLES = "5089460564141278042";
 const CHAT_ACTION_REFRESH_MS = 4000;
 
 /**
+ * Telegram uses positive chat ids for one-to-one chats and negative ids for
+ * groups/channels. We only enable message effects in the former; the helper
+ * is named after the `chatId` shape, not the `chat.type` field that
+ * `auth.js::isPrivateChat` checks — keeping the two helpers distinguishable
+ * by signature avoids a footgun where one is imported in place of the other.
+ *
  * @param {number | null | undefined} chatId
  * @returns {boolean}
  */
-export function isPrivateChat(chatId) {
+export function isOneToOneChatId(chatId) {
   return Number.isInteger(chatId) && chatId > 0;
 }
 
@@ -21,7 +27,7 @@ export function isPrivateChat(chatId) {
  * @returns {string | undefined}
  */
 export function privateMessageEffect(effectId, chatId) {
-  if (effectId && isPrivateChat(chatId)) return effectId;
+  if (effectId && isOneToOneChatId(chatId)) return effectId;
   return undefined;
 }
 

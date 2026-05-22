@@ -9,16 +9,10 @@
  * Writes are atomic (tmp + rename, mode `0o600`), like `serverSyncIndex.js`.
  */
 
-import {
-  chmod,
-  mkdir,
-  readFile,
-  rename,
-  writeFile,
-} from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
 import { config } from "../config/config.js";
 import { logger } from "../logger.js";
+import { writeJsonAtomic } from "../util/atomicJson.js";
 
 /**
  * Allowed values for the scheduler interval (minutes). The bot's settings
@@ -70,16 +64,7 @@ export async function saveBotSettings(input, path = config.botSettingsPath) {
     intervalMin: Math.floor(interval),
     updatedAt: new Date().toISOString(),
   };
-  await mkdir(dirname(path), { recursive: true });
-  const payload = `${JSON.stringify(record, null, 2)}\n`;
-  const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(tmp, payload, "utf8");
-  await rename(tmp, path);
-  try {
-    await chmod(path, 0o600);
-  } catch {
-    // best-effort
-  }
+  await writeJsonAtomic(path, record);
   return record;
 }
 

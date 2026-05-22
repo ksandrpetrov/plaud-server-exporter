@@ -18,16 +18,10 @@
  * is mode `0o600`, and is git-ignored via the existing `server/.data/` entry.
  */
 
-import {
-  chmod,
-  mkdir,
-  readFile,
-  rename,
-  writeFile,
-} from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
 import { config } from "../config/config.js";
 import { logger } from "../logger.js";
+import { writeJsonAtomic } from "../util/atomicJson.js";
 
 /**
  * @typedef {{
@@ -105,15 +99,6 @@ export async function saveOwnerChat(input, path = config.ownerChatPath) {
     capturedAt: new Date().toISOString(),
   };
 
-  await mkdir(dirname(path), { recursive: true });
-  const payload = `${JSON.stringify(record, null, 2)}\n`;
-  const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile(tmp, payload, "utf8");
-  await rename(tmp, path);
-  try {
-    await chmod(path, 0o600);
-  } catch {
-    // best-effort on Windows / restricted filesystems
-  }
+  await writeJsonAtomic(path, record);
   return { status: "saved", record };
 }

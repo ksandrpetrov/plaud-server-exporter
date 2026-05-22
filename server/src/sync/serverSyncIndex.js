@@ -1,14 +1,10 @@
-import { mkdir, readFile, writeFile, chmod, stat, rename } from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile, writeFile, stat, rename } from "node:fs/promises";
 import { config } from "../config/config.js";
 import {
   createEmptySyncIndex,
   normalizeSyncIndex,
 } from "../../../plaud-exporter/common/syncCore.js";
-
-async function ensureDir(path) {
-  await mkdir(dirname(path), { recursive: true });
-}
+import { writeJsonAtomic } from "../util/atomicJson.js";
 
 export async function loadSyncIndex(path = config.syncIndexPath) {
   try {
@@ -34,31 +30,26 @@ export async function loadSyncIndex(path = config.syncIndexPath) {
 export async function saveSyncIndex(syncIndex, path = config.syncIndexPath) {
   const normalized = normalizeSyncIndex(syncIndex || createEmptySyncIndex());
   normalized.updatedAt = new Date().toISOString();
-  await ensureDir(path);
 
-  const payload = `${JSON.stringify(normalized, null, 2)}\n`;
-  const tmpPath = `${path}.tmp-${process.pid}-${Date.now()}`;
+  // Rotate the previous index to .bak before overwriting: corrupted writes
+  // (e.g. ENOSPC mid-rename) can then be recovered by `loadSyncIndex`.
+  await rotateSyncIndexBackup(path);
+  await writeJsonAtomic(path, normalized);
+  return normalized;
+}
+
+async function rotateSyncIndexBackup(path) {
   const backupPath = `${path}.bak`;
-
   try {
     await stat(path);
-    const existing = await readFile(path, "utf8");
-    const backupTmp = `${backupPath}.tmp-${process.pid}`;
-    await writeFile(backupTmp, existing, "utf8");
-    await rename(backupTmp, backupPath);
   } catch (err) {
-    if (err?.code !== "ENOENT") throw err;
+    if (err?.code === "ENOENT") return;
+    throw err;
   }
-
-  await writeFile(tmpPath, payload, "utf8");
-  await rename(tmpPath, path);
-
-  try {
-    await chmod(path, 0o600);
-  } catch {
-    // non-fatal on Windows
-  }
-  return normalized;
+  const existing = await readFile(path, "utf8");
+  const backupTmp = `${backupPath}.tmp-${process.pid}-${Date.now()}`;
+  await writeFile(backupTmp, existing, "utf8");
+  await rename(backupTmp, backupPath);
 }
 
 export async function syncIndexInfo(path = config.syncIndexPath) {

@@ -12,16 +12,10 @@
  * and self-contained — callers `await` set/get/clear.
  */
 
-import {
-  chmod,
-  mkdir,
-  readFile,
-  rename,
-  writeFile,
-} from "node:fs/promises";
-import { dirname } from "node:path";
+import { readFile } from "node:fs/promises";
 import { config } from "../config/config.js";
 import { logger } from "../logger.js";
+import { writeJsonAtomic } from "../util/atomicJson.js";
 
 /** @typedef {import("./vaultTree.js").TreeItem} TreeItem */
 
@@ -99,17 +93,8 @@ async function persist() {
   for (const [chatId, stored] of byChatId.entries()) {
     entries[chatId] = stored;
   }
-  const payload = `${JSON.stringify({ byChatId: entries }, null, 2)}\n`;
   try {
-    await mkdir(dirname(path), { recursive: true });
-    const tmp = `${path}.tmp-${process.pid}-${Date.now()}`;
-    await writeFile(tmp, payload, "utf8");
-    await rename(tmp, path);
-    try {
-      await chmod(path, 0o600);
-    } catch {
-      // best-effort
-    }
+    await writeJsonAtomic(path, { byChatId: entries });
   } catch (err) {
     logger.warn("Failed to persist tree-browse.json", {
       error: String(err?.message || err),
