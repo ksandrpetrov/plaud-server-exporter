@@ -73,7 +73,9 @@ async function fetchPlaudApiOnce(session, path, options = {}) {
     );
   } catch (error) {
     if (error?.name === "AbortError") {
-      throw new Error(`Plaud API timeout (${config.apiTimeoutMs} ms)`);
+      throw new Error(`Plaud API timeout (${config.apiTimeoutMs} ms)`, {
+        cause: error,
+      });
     }
     throw error;
   }

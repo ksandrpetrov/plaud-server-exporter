@@ -249,12 +249,10 @@ async function fetchRecordingsVariant(session, fixedParams, opts = {}) {
     pagesFetched++;
     if (pagesFetched >= maxPages) break;
 
-    let done = false;
-    if (serverTotal != null) {
-      done = rawLen === 0 || (skip + rawLen >= serverTotal && rawLen < pageLimit);
-    } else {
-      done = rawLen === 0 || rawLen < pageLimit;
-    }
+    const done =
+      serverTotal != null
+        ? rawLen === 0 || (skip + rawLen >= serverTotal && rawLen < pageLimit)
+        : rawLen === 0 || rawLen < pageLimit;
     if (done) break;
   }
 
@@ -275,7 +273,7 @@ function attachFolderSegments(files, tagById, unfiledIds) {
 
 async function enrichFilesWithFolderSegments(session, files) {
   if (!files.length) return files;
-  let tags = [];
+  let tags;
   try {
     tags = await fetchPlaudFiletagList(session);
   } catch {
@@ -334,7 +332,7 @@ export async function listAllRecordings(session, options = {}) {
     return listAllRecordingsSimple(session, options);
   }
 
-  let tags = [];
+  let tags;
   try {
     tags = await fetchPlaudFiletagList(session);
   } catch {

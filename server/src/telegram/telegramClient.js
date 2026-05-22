@@ -412,7 +412,7 @@ export class TelegramClient {
       }
       return { kind: "retryable", status };
     }
-    let bodySnippet = "";
+    let bodySnippet;
     try {
       bodySnippet = (await response.text()).slice(0, 500);
     } catch {

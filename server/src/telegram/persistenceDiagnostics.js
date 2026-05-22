@@ -25,7 +25,7 @@ const STATE_FILES = [
  * @returns {Promise<{ files: string[]; fingerprint: string }>}
  */
 async function dataDirFingerprint(dir) {
-  let entries = [];
+  let entries;
   try {
     entries = await readdir(dir);
   } catch (err) {

@@ -147,7 +147,7 @@ async function commandStatus() {
   const snapshot = session.exists ? await loadSessionSnapshot() : null;
   const sessionDescription = describeSnapshot(snapshot);
   const index = await syncIndexInfo();
-  let status = null;
+  let status;
   try {
     status = JSON.parse(await readFile(config.statusPath, "utf8"));
   } catch {

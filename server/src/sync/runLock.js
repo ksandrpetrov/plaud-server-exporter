@@ -55,7 +55,7 @@ async function isStaleLock(path) {
   } catch {
     info = null;
   }
-  let mtimeMs = 0;
+  let mtimeMs;
   try {
     mtimeMs = (await stat(path)).mtimeMs;
   } catch {

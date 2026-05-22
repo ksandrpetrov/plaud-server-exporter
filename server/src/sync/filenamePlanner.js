@@ -158,7 +158,7 @@ export function planSummaryPath({
       base = truncateToGraphemes(base, stemBudget);
       filename = `${base}${MARKDOWN_EXTENSION}`;
     }
-    ({ base, filename } = applyFilenameCollision(
+    ({ filename } = applyFilenameCollision(
       base,
       filename,
       occupiedFilenames,

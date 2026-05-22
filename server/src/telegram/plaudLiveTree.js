@@ -179,8 +179,8 @@ export async function loadPlaudLiveSyncTree({
   const session = await sessionLoader();
   if (!session) return null;
 
-  let tags = [];
-  let files = [];
+  let tags;
+  let files;
   try {
     tags = await fetchTags(session);
     files = await fetchRecordings(session, { includeTrash: true });

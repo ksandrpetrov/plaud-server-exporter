@@ -443,7 +443,7 @@ async function writeStatusFile({ stats, lastAuthError } = {}) {
 }
 
 export async function recordAuthError(message) {
-  let existing = {};
+  let existing;
   try {
     const { readFile } = await import("node:fs/promises");
     existing = JSON.parse(await readFile(config.statusPath, "utf8"));
