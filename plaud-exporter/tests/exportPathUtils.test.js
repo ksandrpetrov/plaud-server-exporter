@@ -9,7 +9,14 @@ import {
   sanitizeDownloadFilename,
   sanitizeDownloadSegment,
   sanitizePathSegment,
+  UTF8_BOM,
+  withUtf8Bom,
 } from "../common/exportPathUtils.js";
+
+test("withUtf8Bom prepends BOM once for UTF-8 mobile viewers", () => {
+  assert.equal(withUtf8Bom("Обслуживание"), `${UTF8_BOM}Обслуживание`);
+  assert.equal(withUtf8Bom(`${UTF8_BOM}already`), `${UTF8_BOM}already`);
+});
 
 test("normalizeExportMode keeps valid modes and defaults unknown to both", () => {
   assert.equal(normalizeExportMode("audio"), "audio");

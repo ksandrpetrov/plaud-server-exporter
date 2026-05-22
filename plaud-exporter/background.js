@@ -7,10 +7,40 @@ import {
   EXPORT_MODE_AUDIO,
   EXPORT_MODE_SUMMARY,
   normalizeExportMode,
-  sanitizeDownloadFilename,
 } from "./common/exportPathUtils.js";
+import {
+  attachLocaleChangeListener,
+  plaudT,
+  syncPlaudLocale,
+} from "./background/bgLocale.js";
+import { sendTabMessage, sendTabMessageWithRecovery } from "./background/tabMessaging.js";
+import { downloadPlaudFile } from "./background/chromeDownloadBridge.js";
 import { loadSyncIndex, patchSyncSettings } from "./common/storageUtils.js";
 import { sanitizeSyncSubdirectory } from "./common/syncCore.js";
+import {
+  ACTION_CHECK_SHOULD_STOP,
+  ACTION_DOWNLOAD_PLAUD_FILE,
+  ACTION_EXPORT_COMPLETE,
+  ACTION_EXPORT_PROGRESS_UPDATE,
+  ACTION_FOREGROUND_EXPORT_COMPLETE,
+  ACTION_GET_ANY_RUNNING_EXPORT,
+  ACTION_GET_EXPORT_STATUS,
+  ACTION_GET_SMART_SYNC_STATUS,
+  ACTION_GET_SYNC_SETTINGS,
+  ACTION_LIBRARY_STATS_PROGRESS,
+  ACTION_PLAUD_EXPORT_PING,
+  ACTION_RUN_EXPORT_ALL,
+  ACTION_RUN_SMART_SYNC,
+  ACTION_SET_SYNC_SUBDIRECTORY,
+  ACTION_SHOW_DEFAULT_DOWNLOADS_FOLDER,
+  ACTION_SMART_SYNC_COMPLETE,
+  ACTION_SMART_SYNC_PROGRESS,
+  ACTION_SMART_SYNC_STATUS_UPDATE,
+  ACTION_START_BACKGROUND_EXPORT,
+  ACTION_START_SMART_SYNC,
+  ACTION_STOP_EXPORT,
+  ACTION_STOP_EXPORT_PROCESS,
+} from "./common/runtimeMessages.js";
 
 function plaudBgLog(...args) {
   if (globalThis.plaudExporterBgDebug === true) {
@@ -18,43 +48,8 @@ function plaudBgLog(...args) {
   }
 }
 
-let plaudUiLocale = globalThis.PlaudI18n
-  ? globalThis.PlaudI18n.getDefaultLocaleFromNavigator()
-  : "en";
-
-function plaudT(key, params) {
-  const I = globalThis.PlaudI18n;
-  if (!I) return key;
-  return I.t(plaudUiLocale, key, params);
-}
-
-function syncPlaudLocale(callback) {
-  const I = globalThis.PlaudI18n;
-  if (!I || !chrome.storage?.sync) {
-    plaudUiLocale = I ? I.getDefaultLocaleFromNavigator() : "en";
-    if (callback) callback();
-    return;
-  }
-  chrome.storage.sync.get([I.STORAGE_KEY], function (result) {
-    const v = result[I.STORAGE_KEY];
-    if (v === "ru" || v === "en") {
-      plaudUiLocale = v;
-    } else {
-      plaudUiLocale = I.getDefaultLocaleFromNavigator();
-    }
-    if (callback) callback();
-  });
-}
-
 syncPlaudLocale();
-
-chrome.storage.onChanged.addListener(function (changes, areaName) {
-  if (areaName !== "sync") return;
-  const I = globalThis.PlaudI18n;
-  if (!I || !changes[I.STORAGE_KEY]) return;
-  const nv = changes[I.STORAGE_KEY].newValue;
-  if (nv === "ru" || nv === "en") plaudUiLocale = nv;
-});
+attachLocaleChangeListener();
 
 /**
  * Global variables to track export state:
@@ -202,7 +197,7 @@ function restoreSmartSyncStateFromSession(done) {
 
 async function verifyExportTabAlive(tabId) {
   try {
-    const pong = await sendTabMessage(tabId, { action: "plaudExportPing" });
+    const pong = await sendTabMessage(tabId, { action: ACTION_PLAUD_EXPORT_PING });
     return !!(pong && pong.alive);
   } catch {
     return false;
@@ -219,7 +214,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   try {
     // Handle stop export request from popup or content script
-    if (message.action === "stopExport") {
+    if (message.action === ACTION_STOP_EXPORT) {
       const tabId = message.tabId;
       if (activeTabIds.has(tabId)) {
         // Mark the export as stopped and remove from active tracking
@@ -233,7 +228,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         clearStallNotifyState(tabId);
 
         // Attempt to notify the content script to stop the export process
-        sendTabMessage(tabId, { action: "stopExportProcess" }).catch((error) =>
+        sendTabMessage(tabId, { action: ACTION_STOP_EXPORT_PROCESS }).catch((error) =>
           console.warn("Failed to send stop message:", error)
         );
 
@@ -253,7 +248,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     // Check if the export process for the sender's tab should be stopped
-    if (message.action === "checkShouldStop") {
+    if (message.action === ACTION_CHECK_SHOULD_STOP) {
       const tabId = sender.tab?.id;
       const shouldStop = stopFlags.has(tabId);
       sendResponse({ shouldStop });
@@ -261,7 +256,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     // Start a new background export process
-    if (message.action === "startBackgroundExport") {
+    if (message.action === ACTION_START_BACKGROUND_EXPORT) {
       const tabId = message.tabId;
       if (!Number.isInteger(tabId)) {
         sendResponse({ success: false, error: plaudT("bg.badTabId") });
@@ -277,7 +272,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    if (message.action === "startSmartSync") {
+    if (message.action === ACTION_START_SMART_SYNC) {
       const tabId = message.tabId;
       if (!Number.isInteger(tabId)) {
         sendResponse({ success: false, error: plaudT("bg.badTabId") });
@@ -293,7 +288,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    if (message.action === "smartSyncProgress") {
+    if (message.action === ACTION_SMART_SYNC_PROGRESS) {
       const tabId = sender.tab?.id;
       if (tabId != null) {
         activeSmartSyncTabIds.add(tabId);
@@ -306,7 +301,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         persistSmartSyncStateToSession();
         chrome.runtime
           .sendMessage({
-            action: "smartSyncStatusUpdate",
+            action: ACTION_SMART_SYNC_STATUS_UPDATE,
             data: activeSmartSyncs[tabId],
             tabId,
           })
@@ -316,7 +311,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
 
-    if (message.action === "smartSyncComplete") {
+    if (message.action === ACTION_SMART_SYNC_COMPLETE) {
       const tabId = sender.tab?.id;
       if (tabId != null) {
         const data = message.data || {};
@@ -332,7 +327,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         persistSmartSyncStateToSession();
         chrome.runtime
           .sendMessage({
-            action: "smartSyncStatusUpdate",
+            action: ACTION_SMART_SYNC_STATUS_UPDATE,
             data: activeSmartSyncs[tabId],
             tabId,
           })
@@ -355,7 +350,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
 
-    if (message.action === "getSmartSyncStatus") {
+    if (message.action === ACTION_GET_SMART_SYNC_STATUS) {
       const tabId = message.tabId;
       const data = Number.isInteger(tabId)
         ? activeSmartSyncs[tabId] || null
@@ -390,7 +385,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false;
     }
 
-    if (message.action === "getSyncSettings") {
+    if (message.action === ACTION_GET_SYNC_SETTINGS) {
       loadSyncIndex()
         .then((index) => {
           sendResponse({
@@ -409,7 +404,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    if (message.action === "setSyncSubdirectory") {
+    if (message.action === ACTION_SET_SYNC_SUBDIRECTORY) {
       const syncSubdirectory = sanitizeSyncSubdirectory(message.syncSubdirectory);
       patchSyncSettings({
         storageMode: "downloads_subfolder",
@@ -428,7 +423,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    if (message.action === "showDefaultDownloadsFolder") {
+    if (message.action === ACTION_SHOW_DEFAULT_DOWNLOADS_FOLDER) {
       try {
         chrome.downloads.showDefaultFolder();
         sendResponse({ success: true });
@@ -439,7 +434,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     // Update export progress from the content script
-    if (message.action === "exportProgressUpdate") {
+    if (message.action === ACTION_EXPORT_PROGRESS_UPDATE) {
       const tabId = sender.tab?.id;
       const raw = message.data || {};
       const progressData = Object.fromEntries(
@@ -483,7 +478,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     // Handle export completion
-    if (message.action === "exportComplete") {
+    if (message.action === ACTION_EXPORT_COMPLETE) {
       const tabId = sender.tab?.id;
 
       if (tabId && activeExports[tabId]) {
@@ -546,11 +541,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return false; // Synchronous response
     }
 
-    if (message.action === "foregroundExportComplete") {
+    if (message.action === ACTION_FOREGROUND_EXPORT_COMPLETE) {
       plaudBgLog("foregroundExportComplete tab", message.tabId);
       chrome.runtime
         .sendMessage({
-          action: "foregroundExportComplete",
+          action: ACTION_FOREGROUND_EXPORT_COMPLETE,
           tabId: message.tabId,
         })
         .catch(() => {});
@@ -559,7 +554,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     // Provide the current export status for a given tab
-    if (message.action === "getExportStatus") {
+    if (message.action === ACTION_GET_EXPORT_STATUS) {
       const tabId = message.tabId;
       (async () => {
         await ensureSessionRestored();
@@ -596,7 +591,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return true;
     }
 
-    if (message.action === "getAnyRunningExport") {
+    if (message.action === ACTION_GET_ANY_RUNNING_EXPORT) {
       (async () => {
         await ensureSessionRestored();
         for (const tid of activeTabIds) {
@@ -634,11 +629,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     // Library stats progress: content script → service worker only (MV3).
     // Retransmit so popup.js can update the gamified stats UI.
-    if (message.action === "libraryStatsProgress") {
+    if (message.action === ACTION_LIBRARY_STATS_PROGRESS) {
       if (sender.tab) {
         chrome.runtime
           .sendMessage({
-            action: "libraryStatsProgress",
+            action: ACTION_LIBRARY_STATS_PROGRESS,
             data: message.data,
           })
           .catch(() => {});
@@ -648,7 +643,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     // Download a file URL discovered by the content script.
-    if (message.action === "downloadPlaudFile") {
+    if (message.action === ACTION_DOWNLOAD_PLAUD_FILE) {
       downloadPlaudFile(message)
         .then((result) => sendResponse(result))
         .catch((error) => {
@@ -669,113 +664,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-function delayMs(milliseconds) {
-  return new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
 function getExportModeLabel(mode) {
   if (mode === EXPORT_MODE_AUDIO) return plaudT("exportMode.shortAudio");
   if (mode === EXPORT_MODE_SUMMARY) return plaudT("exportMode.shortSummary");
   return plaudT("exportMode.shortBoth");
 }
 
-function isMissingReceivingEndError(error) {
-  return (
-    error?.message &&
-    (error.message.includes("Receiving end does not exist") ||
-      error.message.includes("Could not establish connection"))
-  );
-}
-
-function sendTabMessage(tabId, payload) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, payload, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve(response);
-    });
+function sendRunExportMessageWithRecovery(tabId, exportMode) {
+  return sendTabMessageWithRecovery(tabId, {
+    action: ACTION_RUN_EXPORT_ALL,
+    background: true,
+    exportMode,
   });
 }
 
-function injectContentScript(tabId) {
-  return new Promise((resolve, reject) => {
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        files: ["content.js"],
-      },
-      () => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        resolve();
-      }
-    );
-  });
-}
-
-async function sendRunExportMessageWithRecovery(tabId, exportMode) {
-  const payload = { action: "runExportAll", background: true, exportMode };
-
-  try {
-    return await sendTabMessage(tabId, payload);
-  } catch (error) {
-    if (!isMissingReceivingEndError(error)) {
-      throw error;
-    }
-  }
-
-  await injectContentScript(tabId);
-
-  let lastError;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      return await sendTabMessage(tabId, payload);
-    } catch (error) {
-      lastError = error;
-      if (!isMissingReceivingEndError(error)) {
-        throw error;
-      }
-      await delayMs(250);
-    }
-  }
-
-  throw lastError || new Error(plaudT("bg.pageNotResponding"));
-}
-
-async function sendRunSmartSyncMessageWithRecovery(tabId, syncSubdirectory) {
-  const payload = {
-    action: "runSmartSync",
+function sendRunSmartSyncMessageWithRecovery(tabId, syncSubdirectory) {
+  return sendTabMessageWithRecovery(tabId, {
+    action: ACTION_RUN_SMART_SYNC,
     syncSubdirectory: sanitizeSyncSubdirectory(syncSubdirectory),
-  };
-
-  try {
-    return await sendTabMessage(tabId, payload);
-  } catch (error) {
-    if (!isMissingReceivingEndError(error)) {
-      throw error;
-    }
-  }
-
-  await injectContentScript(tabId);
-
-  let lastError;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      return await sendTabMessage(tabId, payload);
-    } catch (error) {
-      lastError = error;
-      if (!isMissingReceivingEndError(error)) {
-        throw error;
-      }
-      await delayMs(250);
-    }
-  }
-
-  throw lastError || new Error(plaudT("bg.pageNotResponding"));
+  });
 }
 
 function summarizeSyncIndex(index) {
@@ -902,80 +809,6 @@ async function startSmartSync(tabId, requestedSubdirectory) {
   });
 
   return { success: true, message: plaudT("sync.started") };
-}
-
-function startChromeDownload(options) {
-  return new Promise((resolve, reject) => {
-    chrome.downloads.download(options, (downloadId) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      if (!downloadId) {
-        reject(new Error(plaudT("bg.noDownloadId")));
-        return;
-      }
-      resolve(downloadId);
-    });
-  });
-}
-
-function waitForChromeDownload(downloadId, timeoutMs = 600000) {
-  return new Promise((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      cleanup();
-      reject(new Error(plaudT("bg.downloadTimeout", { id: downloadId })));
-    }, timeoutMs);
-
-    function cleanup() {
-      clearTimeout(timeoutId);
-      chrome.downloads.onChanged.removeListener(onChanged);
-    }
-
-    function onChanged(delta) {
-      if (delta.id !== downloadId || !delta.state) return;
-
-      if (delta.state.current === "complete") {
-        cleanup();
-        resolve();
-      } else if (delta.state.current === "interrupted") {
-        cleanup();
-        const reason = delta.error?.current
-          ? ` (${delta.error.current})`
-          : "";
-        reject(
-          new Error(plaudT("bg.downloadInterrupted", { id: downloadId }) + reason)
-        );
-      }
-    }
-
-    chrome.downloads.onChanged.addListener(onChanged);
-  });
-}
-
-async function downloadPlaudFile(message) {
-  if (!message.url) {
-    throw new Error(plaudT("bg.noUrl"));
-  }
-
-  const requestedConflictAction = String(message.conflictAction || "uniquify");
-  const conflictAction = ["uniquify", "overwrite", "prompt"].includes(
-    requestedConflictAction
-  )
-    ? requestedConflictAction
-    : "uniquify";
-  const filename = sanitizeDownloadFilename(
-    message.filename || `${AUDIO_SUBDIRECTORY}/plaud-audio.audio.mp3`
-  );
-  const downloadId = await startChromeDownload({
-    url: message.url,
-    filename,
-    conflictAction,
-    saveAs: false,
-  });
-
-  await waitForChromeDownload(downloadId, Number(message.timeoutMs) || 600000);
-  return { success: true, downloadId, filename, conflictAction };
 }
 
 /** One keep-alive timeout chain per tab (avoid duplicates after session restore + start). */

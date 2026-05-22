@@ -8,22 +8,19 @@ import {
 import {
   RAW_FILE_ID_RE,
   normalizeHexRecordingId,
-  collectDomRecordingHexIds,
 } from "../../common/plaudRecordingIds.js";
 import {
-  AUDIO_SUBDIRECTORY,
   DEFAULT_SYNC_SUBDIRECTORY,
-  SUMMARY_SUBDIRECTORY,
   extractTitleFromMarkdown,
   normalizeFilename,
-  sanitizePathSegment,
+  withUtf8Bom,
 } from "../../common/exportPathUtils.js";
 import {
-  buildRelativeArtifactPath,
+  buildAudioSignature,
   buildStableId,
   detectDuplicate,
   determineSyncAction,
-  hashStringSync,
+  getRawField,
   hashSummary,
   sanitizeSyncSubdirectory,
   SYNC_ACTION_ALREADY_SYNCED,
@@ -37,9 +34,40 @@ import {
   updateExistingRecord,
 } from "../../common/syncCore.js";
 import { loadSyncIndex, saveSyncIndex } from "../../common/storageUtils.js";
+import {
+  attachFolderSegmentsToFiles,
+  collectUnfiledFiletagIds,
+  extractFiletagIdsFromRaw,
+  isTrashSidebarTag,
+  mergeFiletagIds,
+  mergeFiletagsById,
+  parseFiletagListPayload,
+  PLAUD_FOLDER_UNFILED,
+} from "../../common/plaudFolders.js";
+import {
+  ACTION_CHECK_SHOULD_STOP,
+  ACTION_DOWNLOAD_PLAUD_FILE,
+  ACTION_EXPORT_PROGRESS_UPDATE,
+} from "../../common/runtimeMessages.js";
+import {
+  buildPlaudHeaders,
+  getPlaudSession,
+  normalizeApiBase,
+} from "./plaudBrowserSession.js";
+import {
+  extractRawRecordingId,
+  mergeDomRecordingIdsIntoFiles,
+  mergeLocalStorageRecordingIdsIntoFiles,
+} from "./plaudRecordingIdScraper.js";
+import {
+  basenameFromDownloadPath,
+  buildCollisionSafePath,
+  buildDownloadFilename,
+  buildSummaryFilename,
+  getExtensionFromUrl,
+  reservePlannedDownloadPath,
+} from "./plaudCollisionPaths.js";
 import { runDomExportFallback } from "./domExportFallback.js";
-
-const PLAUD_API_FALLBACK = "https://api.plaud.ai";
 const PLAUD_API_PAGE_LIMIT = 100;
 const PLAUD_API_MAX_FILES = 5000;
 const EXPORT_MODE_BOTH = "both";
@@ -72,48 +100,6 @@ const PLAUD_TITLE_KEYS = new Set([
   "recordingTitle",
 ]);
 
-function parseStoredValue(value) {
-  if (value == null) return null;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return value;
-  }
-}
-
-function normalizeBearerToken(token) {
-  if (!token) return "";
-  const parsedToken = parseStoredValue(token);
-  const tokenString = String(parsedToken || "").trim();
-  if (!tokenString) return "";
-  return tokenString.toLowerCase().startsWith("bearer ")
-    ? tokenString
-    : `Bearer ${tokenString}`;
-}
-
-function decodeJwtSubject(token) {
-  try {
-    const tokenString = String(parseStoredValue(token) || "")
-      .replace(/^Bearer\s+/i, "")
-      .trim();
-    const parts = tokenString.split(".");
-    if (parts.length !== 3) return "";
-    const normalizedPayload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const payload = normalizedPayload.padEnd(
-      Math.ceil(normalizedPayload.length / 4) * 4,
-      "="
-    );
-    const decoded = JSON.parse(atob(payload));
-    return decoded.sub || "";
-  } catch {
-    return "";
-  }
-}
-
-function getScopedStorageValue(key) {
-  return parseStoredValue(localStorage.getItem(key));
-}
-
 function normalizeExportMode(mode) {
   return EXPORT_MODES.has(mode) ? mode : EXPORT_MODE_BOTH;
 }
@@ -122,101 +108,6 @@ function getExportModeLabel(mode) {
   if (mode === EXPORT_MODE_AUDIO) return "аудио";
   if (mode === EXPORT_MODE_SUMMARY) return "саммари";
   return "аудио и саммари";
-}
-
-function normalizeApiBase(rawBase) {
-  const parsedBase =
-    typeof rawBase === "object" && rawBase ? rawBase.domain : rawBase;
-  if (!parsedBase || typeof parsedBase !== "string") return PLAUD_API_FALLBACK;
-
-  try {
-    const withProtocol = parsedBase.startsWith("http")
-      ? parsedBase
-      : `https://${parsedBase}`;
-    const url = new URL(withProtocol);
-    if (!url.hostname.endsWith(".plaud.ai")) return PLAUD_API_FALLBACK;
-    return url.origin;
-  } catch {
-    return PLAUD_API_FALLBACK;
-  }
-}
-
-function getPlaudApiBase(userId) {
-  const userScopedBase = userId
-    ? getScopedStorageValue(`pld_${userId}:plaud_user_api_domain`)
-    : null;
-  const globalBase = getScopedStorageValue("plaud_user_api_domain");
-  return normalizeApiBase(userScopedBase || globalBase || PLAUD_API_FALLBACK);
-}
-
-function getPlaudSession() {
-  const userToken =
-    getScopedStorageValue("pld_tokenstr") || getScopedStorageValue("tokenstr");
-  const userId = decodeJwtSubject(userToken);
-  const workspaceId = userId
-    ? getScopedStorageValue(`pld_${userId}:currentWorkspaceId`)
-    : null;
-  const workspaceList = userId
-    ? getScopedStorageValue(`pld_${userId}:workspaceList`)
-    : null;
-  const currentWorkspace = Array.isArray(workspaceList)
-    ? workspaceList.find((workspace) => workspace.workspaceId === workspaceId)
-    : null;
-  const nowMs = Date.now();
-  const ws = currentWorkspace;
-  /** Workspace JWT: как в UI, если нет expiresAt — доверяем токену; иначе проверяем срок (секунды или мс). */
-  let workspaceTokenRaw = "";
-  if (ws?.workspaceToken) {
-    const exp = ws.expiresAt;
-    if (exp == null || exp === "") {
-      workspaceTokenRaw = ws.workspaceToken;
-    } else {
-      let n = Number(exp);
-      if (Number.isFinite(n)) {
-        if (n < 1e12) n *= 1000;
-        if (n > nowMs) workspaceTokenRaw = ws.workspaceToken;
-      }
-    }
-  }
-  const userAuthHeader = normalizeBearerToken(userToken);
-  const workspaceAuthHeader = normalizeBearerToken(workspaceTokenRaw);
-  const authHeader = workspaceAuthHeader || userAuthHeader;
-
-  if (!authHeader) {
-    throw new Error("Не удалось прочитать токен авторизации Plaud. Войдите в аккаунт.");
-  }
-
-  const sortBy =
-    userId && workspaceId
-      ? getScopedStorageValue(`pld_${userId}_${workspaceId}:sort_by`)
-      : null;
-
-  return {
-    apiBase: getPlaudApiBase(userId),
-    authHeader,
-    userAuthHeader,
-    workspaceAuthHeader,
-    workspaceId:
-      workspaceId != null && String(workspaceId).trim()
-        ? String(workspaceId).trim()
-        : "",
-    sortBy:
-      typeof sortBy === "string" && sortBy.trim() ? sortBy : "start_time",
-  };
-}
-
-function buildPlaudHeaders(session, extraHeaders = {}) {
-  const headers = {
-    Authorization: session.authHeader,
-    "edit-from": "web",
-    "app-platform": "web",
-    "Content-Type": "application/json",
-    ...extraHeaders,
-  };
-  if (session.workspaceId) {
-    headers["workspace-id"] = session.workspaceId;
-  }
-  return headers;
 }
 
 const PLAUD_FETCH_TIMEOUT_MS = 45000;
@@ -256,7 +147,8 @@ async function fetchPlaudApiOnce(session, path, options = {}) {
   } catch (error) {
     if (error?.name === "AbortError") {
       throw new Error(
-        `Таймаут запроса к API Plaud (${PLAUD_FETCH_TIMEOUT_MS} мс)`
+        `Таймаут запроса к API Plaud (${PLAUD_FETCH_TIMEOUT_MS} мс)`,
+        { cause: error }
       );
     }
     throw error;
@@ -384,27 +276,6 @@ async function fetchUrlTextWithRetries(url) {
 }
 
 /** Единый идентификатор записи из объекта ответа `/file/simple/web`. */
-function extractRawRecordingId(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "";
-  const keys = [
-    "file_id",
-    "fileId",
-    "id",
-    "recording_id",
-    "recordingId",
-    "audio_id",
-    "audioId",
-    "resource_id",
-    "resourceId",
-    "uuid",
-  ];
-  for (const k of keys) {
-    const v = raw[k];
-    if (v != null && String(v).trim()) return String(v).trim();
-  }
-  return "";
-}
-
 function isFileLikeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return false;
@@ -496,177 +367,6 @@ function mergeRawFilesFromArrays(arrays) {
   return [...byId.values()];
 }
 
-function isFiletagLikeObject(v) {
-  if (!v || typeof v !== "object" || Array.isArray(v)) return false;
-  const id = v.id ?? v.filetag_id ?? v.tag_id ?? v.folder_id;
-  return !!(id != null && String(id).trim());
-}
-
-function collectQualifyingFiletagArrays(payload) {
-  const collected = [];
-
-  function pushIfQualifies(candidate) {
-    if (!Array.isArray(candidate) || candidate.length === 0) return;
-    if (!candidate.some(isFiletagLikeObject)) return;
-    collected.push(candidate);
-  }
-
-  const directCandidates = [
-    payload?.data?.data_filetag_list,
-    payload?.data?.filetag_list,
-    payload?.data?.tags,
-    payload?.data?.folders,
-    payload?.data?.folder_list,
-    payload?.data?.list,
-    payload?.data?.items,
-    payload?.data_filetag_list,
-    payload?.filetag_list,
-    payload?.tags,
-  ];
-
-  for (const candidate of directCandidates) {
-    pushIfQualifies(candidate);
-  }
-
-  const seen = new Set();
-  function walk(value) {
-    if (!value || typeof value !== "object" || seen.has(value)) return;
-    seen.add(value);
-    if (Array.isArray(value)) {
-      pushIfQualifies(value);
-      value.forEach(walk);
-      return;
-    }
-    Object.values(value).forEach(walk);
-  }
-  walk(payload);
-
-  const dedup = [];
-  const seenArr = new Set();
-  for (const arr of collected) {
-    if (seenArr.has(arr)) continue;
-    seenArr.add(arr);
-    dedup.push(arr);
-  }
-  return dedup;
-}
-
-/** Все виртуальные папки из ответа `/filetag/` — объединяем несколько массивов и дедуплим по id. */
-function findFiletagArray(payload) {
-  const arrays = collectQualifyingFiletagArrays(payload);
-  const byId = new Map();
-  for (const arr of arrays) {
-    for (const t of arr) {
-      if (!isFiletagLikeObject(t)) continue;
-      const id = String(t.id ?? t.filetag_id ?? t.tag_id ?? t.folder_id).trim();
-      if (!id || byId.has(id)) continue;
-      byId.set(id, t);
-    }
-  }
-  return [...byId.values()];
-}
-
-/**
- * Все виртуальные папки «Unfiled» из `/filetag/` (иногда несколько совпадающих записей).
- */
-function collectUnfiledFiletagIds(tags) {
-  const ids = new Set();
-  /** @param {object} t */
-  function addFromTag(t) {
-    const id = t?.id ?? t?.filetag_id ?? t?.tag_id ?? t?.folder_id;
-    if (id != null && String(id).trim()) ids.add(String(id).trim());
-  }
-
-  if (!Array.isArray(tags)) return [];
-
-  for (const t of tags) {
-    if (!t || typeof t !== "object") continue;
-    if (
-      t.is_unfiled === true ||
-      t.unfiled === true ||
-      t.is_unclassified === true ||
-      t.is_untagged === true ||
-      t.unclassified === true ||
-      t.is_inbox === true
-    ) {
-      addFromTag(t);
-    }
-  }
-
-  for (const t of tags) {
-    if (!t || typeof t !== "object") continue;
-    const sysKind = String(
-      t.system_folder_type ??
-        t.sys_folder_type ??
-        t.folder_kind ??
-        t.tag_kind ??
-        ""
-    ).toLowerCase();
-    if (
-      sysKind.includes("unfile") ||
-      sysKind.includes("inbox") ||
-      sysKind.includes("untagged")
-    ) {
-      addFromTag(t);
-    }
-  }
-
-  const namePatterns = [
-    /unfiled/i,
-    /^untagged$/i,
-    /^inbox$/i,
-    /^без\s*папки$/i,
-    /^без\s*категори/i,
-    /^без\s*тег/i,
-    /^несортирован/i,
-    /^не\s*разобран/i,
-    /uncategorized/i,
-    /^sin\s+carpeta$/i,
-    /^ohne\s+ordner$/i,
-    /^未分类$/,
-    /^未归档$/,
-  ];
-
-  for (const t of tags) {
-    if (!t || typeof t !== "object") continue;
-    const name = String(
-      t.name ?? t.tag_name ?? t.title ?? t.folder_name ?? ""
-    ).trim();
-    if (!name) continue;
-    if (namePatterns.some((re) => re.test(name))) {
-      addFromTag(t);
-    }
-  }
-
-  for (const t of tags) {
-    if (!t || typeof t !== "object") continue;
-    const typ = String(t.type ?? t.tag_type ?? "").toLowerCase();
-    if (
-      typ.includes("unfile") ||
-      typ.includes("untagged") ||
-      typ.includes("inbox")
-    ) {
-      addFromTag(t);
-    }
-  }
-
-  return [...ids];
-}
-
-function mergeFiletagsById(tagArrays) {
-  const byId = new Map();
-  for (const tags of tagArrays) {
-    if (!Array.isArray(tags)) continue;
-    for (const t of tags) {
-      if (!isFiletagLikeObject(t)) continue;
-      const id = String(t.id ?? t.filetag_id ?? t.tag_id ?? t.folder_id).trim();
-      if (!id || byId.has(id)) continue;
-      byId.set(id, t);
-    }
-  }
-  return [...byId.values()];
-}
-
 async function fetchPlaudFiletagListWithAuth(session, authHeader) {
   const h = authHeader || session.authHeader;
   const reqHeaders = { Authorization: h };
@@ -674,12 +374,12 @@ async function fetchPlaudFiletagListWithAuth(session, authHeader) {
     const payload = await fetchPlaudApi(session, "/filetag/", {
       headers: reqHeaders,
     });
-    return findFiletagArray(payload);
+    return parseFiletagListPayload(payload);
   } catch {
     const payload = await fetchPlaudApi(session, "/filetag", {
       headers: reqHeaders,
     });
-    return findFiletagArray(payload);
+    return parseFiletagListPayload(payload);
   }
 }
 
@@ -687,7 +387,7 @@ async function fetchPlaudFiletagList(session) {
   const ua = session.userAuthHeader || "";
   const wa = session.workspaceAuthHeader || "";
   const buckets = [];
-  let userTags = [];
+  let userTags;
   try {
     userTags = await fetchPlaudFiletagListWithAuth(session, ua);
   } catch {
@@ -821,6 +521,8 @@ function normalizePlaudFile(rawFile) {
     id,
     title: title || String(id),
     raw: rawFile,
+    folderIds: extractFiletagIdsFromRaw(rawFile),
+    folderSegment: "",
   };
 }
 
@@ -927,29 +629,20 @@ async function fetchPlaudFilesOneListVariant(session, fixedParams, opts = {}) {
       break;
     }
 
-    let done = false;
     // Не завершаем по serverTotal при полной странице: часть ответов Plaud даёт total,
     // совпадающий с размером первой страницы — из‑за этого обрывалась пагинация и терялись
     // хвосты списков (в т.ч. «невидимые» для глобального запроса записи).
-    if (serverTotal != null) {
-      done =
-        rawLen === 0 ||
-        (skip + rawLen >= serverTotal && rawLen < pageLimit);
-    } else {
-      done = rawLen === 0 || rawLen < pageLimit;
-    }
+    const done =
+      serverTotal != null
+        ? rawLen === 0 ||
+          (skip + rawLen >= serverTotal && rawLen < pageLimit)
+        : rawLen === 0 || rawLen < pageLimit;
     if (done) {
       break;
     }
   }
 
   return files;
-}
-
-function isTrashSidebarTag(tag) {
-  if (!tag || typeof tag !== "object") return false;
-  const name = String(tag.name ?? tag.tag_name ?? "").toLowerCase();
-  return /\btrash\b|\brecycle\b|корзина/i.test(name);
 }
 
 /**
@@ -959,26 +652,60 @@ function isTrashSidebarTag(tag) {
 async function fetchPlaudFilesFromApi(session) {
   const byId = new Map();
 
-  function ingest(list) {
+  function ingest(list, contextFolderId = "") {
     for (const file of list) {
       const k =
         normalizeHexRecordingId(file?.id) ||
         String(file?.id || "")
           .trim()
           .toLowerCase();
-      if (k) byId.set(k, file);
+      if (!k) continue;
+
+      const fromRaw = extractFiletagIdsFromRaw(file.raw);
+      const folderIds = mergeFiletagIds(
+        file.folderIds,
+        fromRaw,
+        contextFolderId ? [contextFolderId] : []
+      );
+      const merged = { ...file, folderIds };
+      const existing = byId.get(k);
+      if (existing) {
+        merged.folderIds = mergeFiletagIds(existing.folderIds, folderIds);
+        merged.title = existing.title || merged.title;
+        byId.set(k, { ...existing, ...merged });
+      } else {
+        byId.set(k, merged);
+      }
     }
   }
 
-  async function tryIngest(params, opts) {
+  async function tryIngest(params, opts, contextFolderId = "") {
     try {
       ingest(
-        await fetchPlaudFilesOneListVariant(session, params, opts || {})
+        await fetchPlaudFilesOneListVariant(session, params, opts || {}),
+        contextFolderId
       );
     } catch {
       // часть параметров может быть недоступна на части сборок API
     }
   }
+
+  async function tryIngestFolder(folderId, opts) {
+    await tryIngest({ is_trash: "2", filetag_id: folderId }, opts, folderId);
+    if (unfiledIdSet.has(folderId)) {
+      await tryIngest({ filetag_id: folderId }, opts, folderId);
+    }
+  }
+
+  let tags;
+  try {
+    tags = await fetchPlaudFiletagList(session);
+  } catch {
+    tags = [];
+  }
+
+  const unfiledIds = collectUnfiledFiletagIds(tags);
+  const unfiledIdSet = new Set(unfiledIds);
 
   /** Как неофициальный клиент Plaud: один запрос с большим limit + is_trash=0 (см. arbuzmell/plaud-api). */
   async function tryMegaPull(params) {
@@ -993,16 +720,6 @@ async function fetchPlaudFilesFromApi(session) {
   }
 
   await tryIngest({ is_trash: "1" });
-
-  let tags = [];
-  try {
-    tags = await fetchPlaudFiletagList(session);
-  } catch {
-    tags = [];
-  }
-
-  const unfiledIds = collectUnfiledFiletagIds(tags);
-  const unfiledIdSet = new Set(unfiledIds);
 
   for (const uid of unfiledIds) {
     await tryIngest({ is_trash: "2", filetag_id: uid });
@@ -1021,9 +738,7 @@ async function fetchPlaudFilesFromApi(session) {
     await tryIngest({ is_trash: "2", folder_id: s }, { maxPages: 20 });
   }
 
-  const folderIds = new Set();
-  for (const uid of unfiledIds) folderIds.add(uid);
-
+  const folderIds = new Set(unfiledIds);
   for (const t of tags) {
     if (!t || typeof t !== "object") continue;
     if (isTrashSidebarTag(t)) continue;
@@ -1037,146 +752,13 @@ async function fetchPlaudFilesFromApi(session) {
   for (const fid of folderIds) {
     if (pulls >= MAX_FOLDER_PULLS) break;
     pulls++;
-    await tryIngest({ is_trash: "2", filetag_id: fid }, { maxPages: 80 });
-    if (unfiledIdSet.has(fid)) {
-      await tryIngest({ filetag_id: fid }, { maxPages: 80 });
-    }
+    await tryIngestFolder(fid, { maxPages: 80 });
   }
 
   await tryIngest({ is_trash: "2", filetag_id: "-1" }, { maxPages: 15 });
   await tryIngest({ filetag_id: "-1" }, { maxPages: 15 });
 
-  return Array.from(byId.values());
-}
-
-/** Дополняет список записями, чьи id есть в DOM (видимые строки списка / ссылки), но не пришли из API. */
-function mergeDomRecordingIdsIntoFiles(files) {
-  const domIds = collectDomRecordingHexIds();
-  const seenIds = new Set(
-    files.map((f) => normalizeHexRecordingId(f.id) || String(f.id || "").toLowerCase())
-  );
-  let domMerged = 0;
-  for (const hid of domIds) {
-    const id = String(hid).toLowerCase();
-    if (seenIds.has(id)) continue;
-    seenIds.add(id);
-    files.push({
-      id,
-      title: id,
-      raw: { file_id: id },
-    });
-    domMerged++;
-  }
-  return { domMerged, domSeen: domIds.length };
-}
-
-/** Объект из кэша Plaud в storage — по полям похож на метаданные записи (в т.ч. «обрезанный» кэш). */
-function looksLikeCachedRecordingRow(o) {
-  if (!o || typeof o !== "object" || Array.isArray(o)) return false;
-  const id = normalizeHexRecordingId(extractRawRecordingId(o));
-  if (!id) return false;
-
-  const keys = Object.keys(o);
-  if (
-    keys.length <= 3 &&
-    keys.every((k) => /^(id|file_id|fileId|fileID)$/i.test(k))
-  ) {
-    return false;
-  }
-
-  return keys.some((k) =>
-    /file|record|audio|note|summary|transcript|duration|time|trash|tag|folder|upload|title|name|topic|display|workspace/i.test(
-      k
-    )
-  );
-}
-
-function collectRecordingIdsFromPlaudWebStorage(storage, maxKeys) {
-  if (storage == null || typeof storage.key !== "function") return [];
-
-  const ids = new Set();
-  const visited = new WeakSet();
-
-  function walk(value, depth) {
-    if (depth > 18 || value == null) return;
-    if (typeof value !== "object") return;
-    if (visited.has(value)) return;
-    visited.add(value);
-
-    if (Array.isArray(value)) {
-      for (const item of value) walk(item, depth + 1);
-      return;
-    }
-
-    if (looksLikeCachedRecordingRow(value)) {
-      const nid = normalizeHexRecordingId(extractRawRecordingId(value));
-      if (nid) ids.add(nid);
-    }
-
-    for (const v of Object.values(value)) walk(v, depth + 1);
-  }
-
-  let scannedKeys = 0;
-  try {
-    for (let i = 0; i < storage.length; i++) {
-      const key = storage.key(i);
-      if (!key || !key.includes("pld")) continue;
-      scannedKeys++;
-      if (scannedKeys > maxKeys) break;
-
-      const raw = storage.getItem(key);
-      if (!raw || raw.length > 3_500_000) continue;
-      try {
-        walk(JSON.parse(raw), 0);
-      } catch {
-        // не JSON
-      }
-    }
-  } catch {
-    return [...ids];
-  }
-
-  return [...ids];
-}
-
-function collectRecordingIdsFromPlaudLocalStorage() {
-  if (typeof localStorage === "undefined") return [];
-  return collectRecordingIdsFromPlaudWebStorage(localStorage, 400);
-}
-
-function collectRecordingIdsFromPlaudSessionStorage() {
-  if (typeof sessionStorage === "undefined") return [];
-  return collectRecordingIdsFromPlaudWebStorage(sessionStorage, 220);
-}
-
-function mergeLocalStorageRecordingIdsIntoFiles(files) {
-  const lsIds = collectRecordingIdsFromPlaudLocalStorage();
-  const ssIds = collectRecordingIdsFromPlaudSessionStorage();
-  const combined = [...new Set([...lsIds, ...ssIds])];
-
-  const seenIds = new Set(
-    files.map((f) => normalizeHexRecordingId(f.id) || String(f.id || "").toLowerCase())
-  );
-  let lsMerged = 0;
-  const MAX_EXTRA_FROM_CACHE = 192;
-  for (const hid of combined) {
-    if (lsMerged >= MAX_EXTRA_FROM_CACHE) break;
-    const id = String(hid).toLowerCase();
-    if (seenIds.has(id)) continue;
-    seenIds.add(id);
-    files.push({
-      id,
-      title: id,
-      raw: { file_id: id },
-    });
-    lsMerged++;
-  }
-  return {
-    lsMerged,
-    lsSeen: combined.length,
-    lsFromLocal: lsIds.length,
-    ssFromSession: ssIds.length,
-  };
+  return attachFolderSegmentsToFiles(Array.from(byId.values()), tags);
 }
 
 function looksLikeDownloadUrl(value) {
@@ -1428,7 +1010,7 @@ export async function runLibraryStats(options = {}) {
 
     onProgress?.({ phase: "list", current: 0, total: 1 });
     let files = await fetchPlaudFilesFromApi(session);
-    mergeDomRecordingIdsIntoFiles(files);
+    mergeDomRecordingIdsIntoFiles(files, { unfiledLabel: PLAUD_FOLDER_UNFILED });
     mergeLocalStorageRecordingIdsIntoFiles(files);
 
     const recordings = files.length;
@@ -1497,63 +1079,40 @@ export async function runLibraryStats(options = {}) {
   return compute();
 }
 
-function sanitizeFilenamePart(value, fallback = "plaud-audio") {
-  return sanitizePathSegment(value, { fallback, maxLength: 140 });
-}
-
-function getExtensionFromUrl(url) {
-  try {
-    const path = new URL(url).pathname;
-    const match = path.match(/\.([a-z0-9]{2,5})$/i);
-    if (match) return match[1].toLowerCase();
-  } catch {
-    // Fall back to MP3 below.
-  }
-  return "mp3";
-}
-
-function buildDownloadFilename(file, url) {
-  const rawBase = sanitizeFilenamePart(file.title);
-  const ext = getExtensionFromUrl(url);
-  let core = rawBase;
-  if (/\.[a-z0-9]{2,5}$/i.test(core)) {
-    core = core.replace(/\.[a-z0-9]{2,5}$/i, "");
-  }
-  const filename = normalizeFilename(`${core}.audio`, {
-    extension: ext,
-    fallbackBase: "plaud-audio",
-    maxBaseLength: 132,
-  });
-  return `${AUDIO_SUBDIRECTORY}/${filename}`;
-}
-
-function buildSummaryFilename(markdown, fallbackTitle, index = 0) {
-  const title =
-    extractTitleFromMarkdown(markdown) ||
-    normalizeHumanTitle(fallbackTitle) ||
-    "Plaud summary";
-  const suffix = index > 0 ? ` ${index + 1}` : "";
-  const filename = normalizeFilename(`${title}${suffix}`, {
-    extension: ".md",
-    fallbackBase: "Plaud summary",
-    maxBaseLength: 132,
-  });
-  return `${SUMMARY_SUBDIRECTORY}/${filename}`;
-}
-
-function buildTextDataUrl(content, mimeType = "text/markdown") {
-  return `data:${mimeType};charset=utf-8,${encodeURIComponent(content)}`;
+function buildSummaryFilenameForFile(markdown, fallbackTitle, index = 0, file = null) {
+  return buildSummaryFilename(markdown, fallbackTitle, index, file, normalizeHumanTitle);
 }
 
 function downloadTextViaBackground(content, filename, options = {}) {
-  return downloadViaBackground(buildTextDataUrl(content), filename, options);
+  return new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage(
+      {
+        action: ACTION_DOWNLOAD_PLAUD_FILE,
+        textContent: withUtf8Bom(content),
+        mimeType: "text/markdown;charset=utf-8",
+        filename,
+        conflictAction: options.conflictAction,
+      },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+        if (!response?.success) {
+          reject(new Error(response?.error || "Ошибка загрузки."));
+          return;
+        }
+        resolve(response);
+      }
+    );
+  });
 }
 
 function downloadViaBackground(url, filename, options = {}) {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
       {
-        action: "downloadPlaudFile",
+        action: ACTION_DOWNLOAD_PLAUD_FILE,
         url,
         filename,
         conflictAction: options.conflictAction,
@@ -1584,133 +1143,12 @@ function getCurrentPlaudSourceUrl() {
   }
 }
 
-function getRawField(raw, keys) {
-  if (!raw || typeof raw !== "object") return "";
-  for (const key of keys) {
-    const value = raw[key];
-    if (value != null && String(value).trim()) return String(value).trim();
-  }
-  return "";
-}
-
-function buildAudioSignature(file) {
-  const raw = file?.raw || {};
-  const payload = {
-    id: file?.id || "",
-    size: getRawField(raw, [
-      "size",
-      "file_size",
-      "fileSize",
-      "audio_size",
-      "audioSize",
-      "bytes",
-    ]),
-    duration: getRawField(raw, [
-      "duration",
-      "duration_ms",
-      "durationMs",
-      "audio_duration",
-      "audioDuration",
-    ]),
-    createdAt: getRawField(raw, [
-      "created_at",
-      "createdAt",
-      "create_time",
-      "createTime",
-      "start_time",
-      "startTime",
-    ]),
-    updatedAt: getRawField(raw, [
-      "updated_at",
-      "updatedAt",
-      "update_time",
-      "updateTime",
-      "modified_at",
-      "modifiedAt",
-    ]),
-    checksum: getRawField(raw, ["md5", "sha256", "checksum", "etag"]),
-  };
-  return `audio-meta:${hashStringSync(JSON.stringify(payload))}`;
-}
-
 function buildSummaryBundle(summaryExports) {
   if (!Array.isArray(summaryExports) || summaryExports.length === 0) return "";
   return summaryExports
     .map((summaryExport) => String(summaryExport?.markdown || "").trim())
     .filter(Boolean)
     .join("\n\n---\n\n");
-}
-
-function basenameFromDownloadPath(path) {
-  const parts = String(path || "").split("/");
-  return parts[parts.length - 1] || "";
-}
-
-function appendStableSuffixToFilename(filename, stableId) {
-  const safeSuffix = sanitizePathSegment(
-    String(stableId || "")
-      .replace(/^plaud:/, "")
-      .replace(/^fingerprint:/, "")
-      .slice(0, 8),
-    { fallback: "record", maxLength: 16 }
-  );
-  const safeName = basenameFromDownloadPath(filename);
-  const dot = safeName.lastIndexOf(".");
-  if (dot <= 0) return `${safeName} - ${safeSuffix}`;
-  return `${safeName.slice(0, dot)} - ${safeSuffix}${safeName.slice(dot)}`;
-}
-
-function reservePlannedDownloadPath(path, stableId, usedPaths) {
-  if (!usedPaths?.has(path)) {
-    usedPaths?.add(path);
-    return path;
-  }
-  const parts = String(path || "").split("/");
-  const filename = parts.pop() || "Plaud export";
-  const directory = parts.join("/");
-  let candidate = `${directory}/${appendStableSuffixToFilename(filename, stableId)}`;
-  let counter = 2;
-  while (usedPaths.has(candidate)) {
-    candidate = `${directory}/${appendStableSuffixToFilename(
-      filename,
-      `${stableId}-${counter}`
-    )}`;
-    counter++;
-  }
-  usedPaths.add(candidate);
-  return candidate;
-}
-
-function isPathOwnedByOtherRecord(syncIndex, path, stableId) {
-  const wantedPath = String(path || "");
-  if (!wantedPath) return false;
-  for (const [recordId, record] of Object.entries(syncIndex.records || {})) {
-    if (recordId === stableId) continue;
-    const paths = [
-      record?.audioPath,
-      record?.summaryPath,
-      ...(Array.isArray(record?.summaryPaths) ? record.summaryPaths : []),
-    ].filter(Boolean);
-    if (paths.includes(wantedPath)) return true;
-  }
-  return false;
-}
-
-function buildCollisionSafePath(
-  syncIndex,
-  subdirectory,
-  artifactType,
-  filename,
-  stableId
-) {
-  let path = buildRelativeArtifactPath(subdirectory, artifactType, filename);
-  if (!isPathOwnedByOtherRecord(syncIndex, path, stableId)) return path;
-  path = buildRelativeArtifactPath(
-    subdirectory,
-    artifactType,
-    appendStableSuffixToFilename(filename, stableId)
-  );
-  return path;
 }
 
 async function buildSyncCandidate(file, summaryExports, sourceUrl) {
@@ -1774,6 +1212,7 @@ async function buildSyncCandidate(file, summaryExports, sourceUrl) {
       "modified_at",
       "modifiedAt",
     ]),
+    folderSegment: String(file.folderSegment || PLAUD_FOLDER_UNFILED).trim(),
   };
 }
 
@@ -1830,7 +1269,7 @@ export async function runSmartSync(options = {}) {
 
   const session = getPlaudSession();
   let files = await fetchPlaudFilesFromApi(session);
-  mergeDomRecordingIdsIntoFiles(files);
+  mergeDomRecordingIdsIntoFiles(files, { unfiledLabel: PLAUD_FOLDER_UNFILED });
   mergeLocalStorageRecordingIdsIntoFiles(files);
   stats.total = files.length;
   progress({ lastMessage: `Найдено записей: ${files.length}` });
@@ -1892,7 +1331,12 @@ export async function runSmartSync(options = {}) {
         continue;
       }
 
-      if (action.metadataOnly) {
+      const folderRelocate =
+        action.metadataOnly &&
+        String(existingRecord?.folderSegment || "").trim() !==
+          String(candidate.folderSegment || "").trim();
+
+      if (action.metadataOnly && !folderRelocate) {
         stats.updated++;
         stats.processed++;
         syncIndex.records[candidate.stableId] = updateExistingRecord(
@@ -1906,11 +1350,12 @@ export async function runSmartSync(options = {}) {
       }
 
       const lastDownloadIds = [];
-      let audioPath = existingRecord?.audioPath || "";
-      let summaryPath = existingRecord?.summaryPath || "";
-      let summaryPaths = Array.isArray(existingRecord?.summaryPaths)
-        ? [...existingRecord.summaryPaths]
-        : [];
+      let audioPath = folderRelocate ? "" : existingRecord?.audioPath || "";
+      let summaryPath = folderRelocate ? "" : existingRecord?.summaryPath || "";
+      let summaryPaths =
+        folderRelocate || !Array.isArray(existingRecord?.summaryPaths)
+          ? []
+          : [...existingRecord.summaryPaths];
 
       try {
         const { url, titleHint } = await fetchPlaudAudioUrl(
@@ -1928,7 +1373,8 @@ export async function runSmartSync(options = {}) {
             requestedSubdir,
             "audio",
             candidate.audioNormalizedFilename,
-            candidate.stableId
+            candidate.stableId,
+            candidate.folderSegment
           );
         }
         const audioResponse = await downloadViaBackground(url, audioPath, {
@@ -1948,20 +1394,22 @@ export async function runSmartSync(options = {}) {
 
       if (summaryExports.length > 0) {
         for (const [summaryIndex, summaryExport] of summaryExports.entries()) {
-          const baseSummaryPath = buildSummaryFilename(
+          const baseSummaryPath = buildSummaryFilenameForFile(
             summaryExport.markdown,
             summaryExport.title || workingFile.title,
-            summaryIndex
+            summaryIndex,
+            workingFile
           );
           const summaryFilename = basenameFromDownloadPath(baseSummaryPath);
           const targetPath =
-            summaryPaths[summaryIndex] ||
+            (!folderRelocate && summaryPaths[summaryIndex]) ||
             buildCollisionSafePath(
               syncIndex,
               requestedSubdir,
               "summary",
               summaryFilename,
-              candidate.stableId
+              candidate.stableId,
+              candidate.folderSegment
             );
 
           const summaryResponse = await downloadTextViaBackground(
@@ -2081,7 +1529,7 @@ export async function runExportAll(backgroundMode = false, options = {}) {
       try {
         chrome.runtime
           .sendMessage({
-            action: "exportProgressUpdate",
+            action: ACTION_EXPORT_PROGRESS_UPDATE,
             data: { ...stats, currentTitle: current },
           })
           .catch((e) => console.warn("Failed to send progress update:", e));
@@ -2098,7 +1546,7 @@ export async function runExportAll(backgroundMode = false, options = {}) {
     if (!backgroundMode) return false;
     try {
       return chrome.runtime
-        .sendMessage({ action: "checkShouldStop" })
+        .sendMessage({ action: ACTION_CHECK_SHOULD_STOP })
         .then((response) => response?.shouldStop)
         .catch(() => false);
     } catch (e) {
@@ -2142,7 +1590,7 @@ export async function runExportAll(backgroundMode = false, options = {}) {
     } else {
       try {
         files = await fetchPlaudFilesFromApi(session);
-        mergeDomRecordingIdsIntoFiles(files);
+        mergeDomRecordingIdsIntoFiles(files, { unfiledLabel: PLAUD_FOLDER_UNFILED });
         mergeLocalStorageRecordingIdsIntoFiles(files);
       } catch (error) {
         console.warn("Could not read Plaud file list from API:", error.message);
@@ -2237,10 +1685,11 @@ export async function runExportAll(backgroundMode = false, options = {}) {
               await downloadTextViaBackground(
                 summaryExport.markdown,
                 reservePlannedDownloadPath(
-                  buildSummaryFilename(
+                  buildSummaryFilenameForFile(
                     summaryExport.markdown,
                     summaryExport.title || file.title,
-                    summaryIndex
+                    summaryIndex,
+                    file
                   ),
                   file.id,
                   plannedDownloadPaths
