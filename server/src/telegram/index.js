@@ -24,7 +24,8 @@ import { createMessageAnimator } from "./messageAnimator.js";
 import { logPersistenceDiagnostics } from "./persistenceDiagnostics.js";
 import { BotScheduler } from "./scheduler.js";
 import { TelegramClient } from "./telegramClient.js";
-import { SYNC_ACTION_KEY, syncRunGuard } from "./syncGuards.js";
+import { SYNC_ACTION_SCHEDULED, syncRunGuard } from "./syncGuards.js";
+import { syncBusyText } from "./messages.js";
 import { runSyncSilent, runSyncWithReporting } from "./syncOrchestrator.js";
 
 const MENU_COMMANDS = [
@@ -78,10 +79,20 @@ export async function runBot() {
     });
 
   const runScheduledSync = async ({ chatId }) => {
-    if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_KEY)) {
+    if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_SCHEDULED)) {
       logger.info(
         "Skipping scheduled sync — ActionGuard busy or post-success cooldown"
       );
+      try {
+        await telegram.sendMessage({
+          chatId,
+          text: syncBusyText("scheduled"),
+        });
+      } catch (err) {
+        logger.debug?.("Scheduled sync busy notice failed", {
+          error: String(err?.message || err),
+        });
+      }
       return;
     }
     return runSyncWithReporting({

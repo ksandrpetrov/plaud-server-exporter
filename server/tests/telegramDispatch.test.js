@@ -20,7 +20,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { dispatchUpdate } from "../src/telegram/handlers.js";
 import { createMessageAnimator } from "../src/telegram/messageAnimator.js";
-import { SYNC_ACTION_KEY, syncRunGuard } from "../src/telegram/syncGuards.js";
+import { SYNC_ACTION_MANUAL, syncRunGuard } from "../src/telegram/syncGuards.js";
+import { syncBusyText } from "../src/telegram/messages.js";
 
 function makeFakeTelegram() {
   const calls = [];
@@ -303,7 +304,7 @@ test("dispatch: duplicate run_sync shows busy toast without second runManualSync
     syncRunGuard.reset();
     const tg = makeFakeTelegram();
     let runs = 0;
-    assert.equal(syncRunGuard.tryAcquire(OWNER.id, SYNC_ACTION_KEY), true);
+    assert.equal(syncRunGuard.tryAcquire(OWNER.id, SYNC_ACTION_MANUAL), true);
     await dispatchUpdate(
       ctx(tg, {
         runManualSync: async () => {
@@ -316,7 +317,11 @@ test("dispatch: duplicate run_sync shows busy toast without second runManualSync
     const answer = tg.calls.find((c) => c.name === "answerCallbackQuery");
     assert.ok(answer, "should answer callback");
     const answerPayload = answer.args?.[0] || {};
-    assert.match(String(answerPayload.text || ""), /синк/i);
+    assert.equal(answerPayload.text, syncBusyText("manual"));
+    const busySend = tg.calls.find(
+      (c) => c.name === "sendMessage" && c.args?.[0]?.text === syncBusyText("manual")
+    );
+    assert.ok(busySend, "duplicate sync should also post busy text in chat");
     syncRunGuard.reset();
   });
 });

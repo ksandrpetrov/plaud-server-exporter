@@ -67,6 +67,38 @@ export const SYNC_LOADING_SCHEDULED_HTML =
   "🕒 <b>Автозапуск синка по расписанию.</b>\nЭто может занять до минуты.";
 
 /**
+ * First status line while sync is building (mirrors satellite `PLAN_FETCH_STATUS_TEXT`).
+ *
+ * @param {"manual" | "scheduled"} source
+ * @returns {string}
+ */
+export function syncFetchStatusHtml(source) {
+  if (source === "scheduled") {
+    return (
+      "➡️ <b>Plaud готовит сводку по расписанию.</b>\n\n" +
+      "Сейчас принесу результат."
+    );
+  }
+  return "📅 <b>Plaud готовит сводку.</b>\n\nСейчас принесу результат.";
+}
+
+/**
+ * Busy reply when the same sync mode is tapped again (mirrors satellite `PLAN_BUSY_TEXT`).
+ *
+ * @param {"manual" | "scheduled"} [source]
+ * @returns {string}
+ */
+export function syncBusyText(source = "manual") {
+  const prefix = source === "scheduled" ? "➡️" : "📅";
+  return (
+    `${prefix} Уже готовлю сводку или недавно прислала — подожди немного и попробуй снова.`
+  );
+}
+
+/** Callback toast for duplicate manual sync (fits Telegram's short answer limit). */
+export const SYNC_BUSY_TOAST = syncBusyText("manual");
+
+/**
  * Frames for the loading pulse — each one replaces the loading message so the
  * user sees the bot "thinking" while we wait for Plaud / sync to start.
  *
@@ -76,8 +108,8 @@ export const SYNC_LOADING_SCHEDULED_HTML =
 export function syncLoadingPulseFrames(source) {
   const header =
     source === "scheduled"
-      ? "🕒 <b>Автозапуск синка</b>"
-      : "🛰 <b>Запускаю синк</b>";
+      ? "➡️ <b>Автозапуск синка</b>"
+      : "📅 <b>Запускаю синк</b>";
   return [
     `${header}\n<i>Это может занять до минуты.</i>`,
     `${header} .\n<i>Подключаюсь к Plaud…</i>`,
@@ -85,7 +117,6 @@ export function syncLoadingPulseFrames(source) {
     `${header} . . .\n<i>Скачиваю саммари…</i>`,
   ];
 }
-export const SYNC_BUSY_TOAST = "Уже идёт синк — подожди немного";
 
 export const SYNC_LOCK_BUSY_HTML =
   "🔒 Уже идёт другой синк. Попробуй через минуту.";

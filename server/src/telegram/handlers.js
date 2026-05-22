@@ -55,7 +55,7 @@ import {
   BOT_WELCOME_HTML,
   MENU_CLOSED_TEXT,
   MENU_HEADER,
-  SYNC_BUSY_TOAST,
+  syncBusyText,
   filesMenuHtml,
   filesStatsHtml,
   lastSyncSummaryLine,
@@ -63,7 +63,7 @@ import {
   settingsScreenHtml,
   statusScreenHtml,
 } from "./messages.js";
-import { SYNC_ACTION_KEY, syncRunGuard } from "./syncGuards.js";
+import { SYNC_ACTION_MANUAL, syncRunGuard } from "./syncGuards.js";
 import {
   extractCommandName,
   isHelpCommand,
@@ -284,8 +284,10 @@ async function routeCallback(ctx, params) {
 }
 
 async function handleRunSyncCallback({ ctx, chatId, messageId, callback }) {
-  if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_KEY)) {
-    await answerBestEffort(ctx, callback, { text: SYNC_BUSY_TOAST });
+  if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_MANUAL)) {
+    const busy = syncBusyText("manual");
+    await answerBestEffort(ctx, callback, { text: busy });
+    await safeSend(ctx, chatId, busy, { animate: false });
     return true;
   }
   await ctx.runManualSync({ chatId, loadingMessageId: messageId });

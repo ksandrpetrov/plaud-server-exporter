@@ -40,6 +40,7 @@ import {
   SYNC_LOADING_SCHEDULED_HTML,
   SYNC_LOCK_BUSY_HTML,
   SYNC_NO_SESSION_HTML,
+  syncFetchStatusHtml,
   syncLoadingPulseFrames,
   syncProgressHtml,
   syncSummaryHtml,
@@ -52,7 +53,7 @@ import {
   tryOpenDraft,
   typewriterDraftAnimate,
 } from "./streamingDelivery.js";
-import { SYNC_ACTION_KEY, syncRunGuard } from "./syncGuards.js";
+import { SYNC_ACTION_MANUAL, syncActionKey, syncRunGuard } from "./syncGuards.js";
 import {
   EFFECT_SPARKLES,
   privateMessageEffect,
@@ -97,6 +98,7 @@ export async function runSyncWithReporting(params) {
 
   const loadingHtml =
     source === "scheduled" ? SYNC_LOADING_SCHEDULED_HTML : SYNC_LOADING_HTML;
+  const fetchStatusHtml = syncFetchStatusHtml(source);
   const delivery = createSyncProgressDelivery({
     telegram,
     chatId,
@@ -110,10 +112,11 @@ export async function runSyncWithReporting(params) {
     telegram,
     chatId,
     draftId,
-    initialText: clipTelegramText(loadingHtml),
+    initialText: clipTelegramText(fetchStatusHtml),
   });
   if (draftLive) {
     delivery.markDraftActive();
+    void delivery.pushProgress(fetchStatusHtml);
   }
   const callbackMessageId = params.loadingMessageId ?? null;
 
@@ -241,7 +244,7 @@ export async function runSyncWithReporting(params) {
   } finally {
     typing.stop();
     pulse?.stop();
-    syncRunGuard.release(chatId, SYNC_ACTION_KEY, { sent: sentOk });
+    syncRunGuard.release(chatId, syncActionKey(source), { sent: sentOk });
   }
 }
 
@@ -272,7 +275,7 @@ export async function runSyncSilent({
   chatId = null,
 } = {}) {
   const guardChatId = Number.isInteger(chatId) ? chatId : null;
-  if (guardChatId != null && !syncRunGuard.tryAcquire(guardChatId, SYNC_ACTION_KEY)) {
+  if (guardChatId != null && !syncRunGuard.tryAcquire(guardChatId, SYNC_ACTION_MANUAL)) {
     logger.info("Silent sync skipped: ActionGuard busy or cooldown");
     return { status: "lock_busy" };
   }
@@ -313,7 +316,7 @@ export async function runSyncSilent({
     }
   } finally {
     if (guardChatId != null) {
-      syncRunGuard.release(guardChatId, SYNC_ACTION_KEY, { sent: sentOk });
+      syncRunGuard.release(guardChatId, SYNC_ACTION_MANUAL, { sent: sentOk });
     }
   }
 }
@@ -408,7 +411,9 @@ async function revealFinal({
     frameMs,
     sleep,
   });
-  if (delivery.isDraftMode() && !editInPlace) {
+  // Draft path: always `sendMessage` into chat (Чайка `StreamingReply.finish`), even
+  // when the user tapped sync on an inline menu message.
+  if (delivery.isDraftMode()) {
     return finishDelivery({
       delivery,
       telegram,
@@ -419,7 +424,7 @@ async function revealFinal({
       messageEffectId: messageEffectId ?? null,
     });
   }
-  if (messageId) {
+  if (messageId && editInPlace) {
     try {
       await telegram.editMessageText({
         chatId,

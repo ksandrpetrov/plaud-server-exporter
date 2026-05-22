@@ -94,19 +94,16 @@ test("manual sync edits the loading message into the final summary", async () =>
   assert.equal(result.status, "ok");
   // First we edit the original message into the "loading" state.
   const firstEdit = telegram.events.find(
-    (e) => e.type === "edit" && /Запускаю синк/.test(e.text)
+    (e) => e.type === "edit" && /готовит сводку|Запускаю синк/.test(e.text)
   );
   assert.ok(firstEdit, "should edit loading message first");
   assert.equal(firstEdit.messageId, 555);
 
-  const finalMessage = telegram.events
-    .filter(
-      (e) =>
-        (e.type === "edit" || e.type === "send") && /Синк завершён/.test(e.text)
-    )
-    .at(-1);
-  assert.ok(finalMessage, "should send a final summary message");
-  assert.match(finalMessage.text, /Новых: 1/);
+  const finalSend = telegram.events.find(
+    (e) => e.type === "send" && /Синк завершён/.test(e.text)
+  );
+  assert.ok(finalSend, "draft finish should send summary into chat");
+  assert.match(finalSend.text, /Новых: 1/);
   syncRunGuard.reset();
 });
 
