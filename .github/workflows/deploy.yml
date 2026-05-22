@@ -31,36 +31,22 @@ jobs:
 
             cd "${{ secrets.DEPLOY_PATH }}"
 
-            echo "== Fetch latest code =="
             git fetch origin
-
             CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
-            echo "Current branch: ${CURRENT_BRANCH}"
 
-            echo "== Reset to origin/${CURRENT_BRANCH} =="
             git reset --hard "origin/${CURRENT_BRANCH}"
             git clean -fd
 
-            echo "== Install dependencies =="
             npm install --workspaces
             cd plaud-exporter
             npm install
             cd ..
 
-            echo "== Verify =="
             npm run verify
-
-            echo "== Status check =="
             npm run server:status
 
-            echo "== Restart Plaud service =="
             systemctl restart plaud-exporter.service
 
-            echo "== Service status =="
             sleep 2
             systemctl status plaud-exporter.service --no-pager -l
-
-            echo "== Ports =="
             ss -ltnp | grep -E ':18080|:8080' || true
-
-            echo "== Done =="
