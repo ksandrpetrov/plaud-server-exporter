@@ -264,7 +264,7 @@ test("typewriter reveal produces multiple intermediate edits for long summary", 
   await runSyncWithReporting({
     telegram,
     chatId: 42,
-    source: "manual",
+    source: "scheduled",
     loadingMessageId: null,
     sessionLoader: async () => okSession,
     sleep: noSleep,
@@ -272,15 +272,16 @@ test("typewriter reveal produces multiple intermediate edits for long summary", 
     typewriterFrameMs: 0,
     syncRunner: async () => ({
       status: "completed",
-      new: 12,
-      updated: 3,
-      unchanged: 4,
-      skipped: 0,
+      new: 1200,
+      updated: 300,
+      unchanged: 4000,
+      skipped: 12,
       errors: 0,
+      plaudChanged: true,
     }),
   });
   const summaryEdits = telegram.events.filter(
-    (e) => e.type === "edit" && /Синк завершён/.test(e.text)
+    (e) => e.type === "edit" && /Автозапуск синка/.test(e.text)
   );
   assert.ok(
     summaryEdits.length >= 2,

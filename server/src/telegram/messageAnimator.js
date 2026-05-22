@@ -27,10 +27,10 @@ import { logger } from "../logger.js";
 import { typewriterReveal } from "./streamingDelivery.js";
 import { TypingIndicator } from "./telegramVisual.js";
 
-const DEFAULT_FRAME_MS = 650;
-const DEFAULT_MAX_FRAMES = 7;
-const DEFAULT_MIN_LEN = 40;
-const PLACEHOLDER_HTML = "🛰 ▌";
+const DEFAULT_FRAME_MS = 160;
+const DEFAULT_MAX_FRAMES = 9;
+const DEFAULT_MIN_LEN = 120;
+const PLACEHOLDER_HTML = "▌";
 
 /**
  * @typedef {{

@@ -25,6 +25,29 @@ test("buildTypewriterFrames returns single frame for short text", () => {
   assert.deepEqual(frames, ["short"]);
 });
 
+test("buildTypewriterFrames skips animation below default minLen (120)", () => {
+  const frames = buildTypewriterFrames("x".repeat(80));
+  assert.deepEqual(frames, ["x".repeat(80)]);
+});
+
+test("buildTypewriterFrames chunks are monotonic and html-safe", () => {
+  const text = "<b>Заголовок</b>\n" + "Длинный текст. ".repeat(30);
+  const frames = buildTypewriterFrames(text);
+  assert.ok(frames.length >= 2);
+  for (let i = 1; i < frames.length; i++) {
+    assert.ok(
+      frames[i].length >= frames[i - 1].length - 8,
+      "frames should grow monotonically"
+    );
+  }
+  for (const frame of frames.slice(0, -1)) {
+    const opens = (frame.match(/<b>/g) || []).length;
+    const closes = (frame.match(/<\/b>/g) || []).length;
+    assert.equal(opens, closes);
+  }
+  assert.equal(frames[frames.length - 1], text);
+});
+
 test("buildTypewriterFrames returns growing prefixes ending in full text", () => {
   const body = "<b>Hello</b> ".repeat(20);
   const frames = buildTypewriterFrames(body, { maxFrames: 5, minLen: 30 });

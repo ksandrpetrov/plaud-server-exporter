@@ -19,10 +19,12 @@ const DRAFT_UNAVAILABLE_MARKERS = [
   "not implemented",
 ];
 
-const TYPEWRITER_MIN_LEN = 40;
-const TYPEWRITER_MAX_FRAMES = 7;
-const TYPEWRITER_FRAME_MS = 650;
-const TYPEWRITER_CARET = " ▌";
+// Aligned with satellite/telegram_bot/streaming_delivery.py (Чайка UX).
+const TYPEWRITER_MIN_LEN = 120;
+const TYPEWRITER_MAX_FRAMES = 9;
+const TYPEWRITER_MIN_CHUNK = 60;
+const TYPEWRITER_FRAME_MS = 160;
+const TYPEWRITER_CARET = "";
 
 const HTML_TAG_RE = /<(\/?)([a-zA-Z][a-zA-Z0-9]*)(\s[^<>]*)?>/g;
 
@@ -227,30 +229,39 @@ export function safeSliceHtml(text, length) {
 
 /**
  * Builds progressively-growing HTML prefixes for the typewriter reveal.
- * The first frame is roughly 1/maxFrames of the text, the last is full text.
+ * Frame count scales with text length (same algorithm as Чайка
+ * ``_typewriter_chunks``); the last frame is always the full text.
  *
  * @param {string} text
- * @param {{ maxFrames?: number; minLen?: number; caret?: string }} [options]
+ * @param {{ maxFrames?: number; minLen?: number; minChunk?: number; caret?: string }} [options]
  * @returns {string[]}
  */
 export function buildTypewriterFrames(text, options = {}) {
   const maxFrames = options.maxFrames ?? TYPEWRITER_MAX_FRAMES;
   const minLen = options.minLen ?? TYPEWRITER_MIN_LEN;
+  const minChunk = options.minChunk ?? TYPEWRITER_MIN_CHUNK;
   const caret = options.caret ?? TYPEWRITER_CARET;
   if (!text || text.length < minLen) return [text];
-  const step = Math.max(30, Math.floor(text.length / maxFrames));
+  const targetFrames = Math.min(
+    maxFrames,
+    Math.max(2, Math.floor(text.length / minChunk))
+  );
+  const step = Math.max(minChunk, Math.floor(text.length / targetFrames));
   /** @type {string[]} */
   const frames = [];
   let cursor = step;
   while (cursor < text.length && frames.length < maxFrames - 1) {
     const slice = safeSliceHtml(text, cursor);
-    if (slice && slice !== frames[frames.length - 1]) {
-      frames.push(slice + caret);
+    const frame = slice ? slice + caret : "";
+    if (frame && frame !== frames[frames.length - 1]) {
+      frames.push(frame);
     }
     cursor += step;
   }
-  frames.push(text);
-  return frames;
+  if (frames[frames.length - 1] !== text) {
+    frames.push(text);
+  }
+  return frames.length ? frames : [text];
 }
 
 /**

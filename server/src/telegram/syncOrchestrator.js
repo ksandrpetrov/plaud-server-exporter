@@ -58,7 +58,7 @@ import {
 
 const PROGRESS_THROTTLE_MS = 2000;
 const LOADING_PULSE_FRAME_MS = 900;
-const TYPEWRITER_FRAME_MS = 650;
+const TYPEWRITER_FRAME_MS = 160;
 
 /**
  * @typedef {{
