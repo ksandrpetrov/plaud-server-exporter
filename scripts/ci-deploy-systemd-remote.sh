@@ -18,6 +18,8 @@ DEPLOY_REPO_DIR="${DEPLOY_REPO_DIR:-}"
 SYSTEMD_UNIT="${SYSTEMD_UNIT:-plaud-exporter.service}"
 SSH_KNOWN_HOSTS="${SSH_KNOWN_HOSTS:-}"
 GIT_REF="${GIT_REF:-main}"
+GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-}"
+GIT_FETCH_TOKEN="${GIT_FETCH_TOKEN:-}"
 
 DEPLOY_HOST="$(strip_ws "$DEPLOY_HOST")"
 DEPLOY_USER="$(strip_ws "$DEPLOY_USER")"
@@ -51,6 +53,7 @@ remote() {
 echo "==> Preflight + deploy (resolve repo path on host)"
 remote \
   env DEPLOY_REPO_DIR="${DEPLOY_REPO_DIR}" SYSTEMD_UNIT="${SYSTEMD_UNIT}" GIT_REF="${GIT_REF}" \
+  GITHUB_REPOSITORY="${GITHUB_REPOSITORY}" GIT_FETCH_TOKEN="${GIT_FETCH_TOKEN}" \
   bash -s <<'REMOTE_SCRIPT'
 set -euo pipefail
 
@@ -96,9 +99,22 @@ sudo systemctl stop "$UNIT"
 sudo chown -R plaud:plaud "$REPO"
 sudo -u plaud git config --global --add safe.directory "$REPO" 2>/dev/null || true
 
+ORIGIN_BEFORE="$(sudo -u plaud git -C "$REPO" remote get-url origin 2>/dev/null || true)"
+if [[ -n "${GIT_FETCH_TOKEN:-}" && -n "${GITHUB_REPOSITORY:-}" ]]; then
+  AUTH_ORIGIN="https://x-access-token:${GIT_FETCH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+  sudo -u plaud git -C "$REPO" remote set-url origin "$AUTH_ORIGIN"
+fi
+
 sudo -u plaud git -C "$REPO" fetch origin "$REF"
 sudo -u plaud git -C "$REPO" reset --hard "origin/$REF"
 sudo -u plaud git -C "$REPO" clean -fd
+
+if [[ -n "${GIT_FETCH_TOKEN:-}" && -n "${GITHUB_REPOSITORY:-}" ]]; then
+  PUBLIC_ORIGIN="https://github.com/${GITHUB_REPOSITORY}.git"
+  sudo -u plaud git -C "$REPO" remote set-url origin "$PUBLIC_ORIGIN"
+elif [[ -n "$ORIGIN_BEFORE" ]]; then
+  sudo -u plaud git -C "$REPO" remote set-url origin "$ORIGIN_BEFORE"
+fi
 
 sudo -u plaud bash -lc "cd '$REPO' && npm install --workspaces --ignore-scripts"
 if [[ -f "$REPO/plaud-exporter/package.json" ]]; then
