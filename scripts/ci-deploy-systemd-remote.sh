@@ -116,9 +116,11 @@ elif [[ -n "$ORIGIN_BEFORE" ]]; then
   sudo -u plaud git -C "$REPO" remote set-url origin "$ORIGIN_BEFORE"
 fi
 
-sudo -u plaud bash -lc "cd '$REPO' && npm install --workspaces --ignore-scripts"
+sudo -u plaud mkdir -p "$REPO/.npm-cache"
+NPM_ENV="NPM_CONFIG_CACHE=$REPO/.npm-cache npm_config_cache=$REPO/.npm-cache"
+sudo -u plaud bash -lc "cd '$REPO' && $NPM_ENV npm install --workspaces --ignore-scripts"
 if [[ -f "$REPO/plaud-exporter/package.json" ]]; then
-  sudo -u plaud bash -lc "cd '$REPO/plaud-exporter' && npm install --ignore-scripts"
+  sudo -u plaud bash -lc "cd '$REPO/plaud-exporter' && $NPM_ENV npm install --ignore-scripts"
 fi
 
 UNIT_FILE="$REPO/deploy/systemd/$UNIT"
