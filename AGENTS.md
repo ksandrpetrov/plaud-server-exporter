@@ -12,17 +12,18 @@
 
 Сервер **не** качает аудио (только саммари). Расширение — качает и то и другое.
 
-## Shared контракт (только 3 файла)
+## Shared контракт (4 файла)
 
 | Файл | Меняешь — обновляй |
 |------|--------------------|
 | [`plaud-exporter/common/syncCore.js`](plaud-exporter/common/syncCore.js) | Тесты в `plaud-exporter/tests/syncCore.test.js` **и** `server/tests/syncRunner*.test.js` |
 | [`plaud-exporter/common/exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) | `plaud-exporter/tests/exportPathUtils.test.js` + `server/tests/filenamePlanner.test.js` |
 | [`plaud-exporter/common/plaudFolders.js`](plaud-exporter/common/plaudFolders.js) | `plaud-exporter/tests/plaudFolders.test.js` + `server/tests/plaudFolders.test.js` |
+| [`plaud-exporter/common/plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js) | `plaud-exporter/tests/plaudRecordingIds.test.js` + `server/tests/plaudRecordingIds.test.js`; consumers: `recordingsApi.js`, `plaudRecordingIdScraper.js` |
 
 Список захардкожен в [`scripts/verify-submodule.js`](scripts/verify-submodule.js). `npm run verify` проверяет существование файлов и что все относительные импорты `server/src/...` резолвятся.
 
-Остальные `plaud-exporter/common/*` (`runtimeMessages.js`, `storageUtils.js`, `domUtils.js`, `uiComponents.js`, `plaud-i18n-messages.js`, `plaudRecordingIds.js`) — **только** для расширения, сервер их не трогает. Модули `plaud-exporter/background/*` — тоже только SW.
+Остальные `plaud-exporter/common/*` (`runtimeMessages.js`, `storageUtils.js`, `domUtils.js`, `uiComponents.js`, `plaud-i18n-messages.js`) — **только** для расширения, server их не трогает. Модули `plaud-exporter/background/*` — тоже только SW.
 
 ## Команды (из корня)
 
@@ -46,7 +47,9 @@ Extension отдельно: `cd plaud-exporter && npm run lint && npm test && np
 | [`plaud-exporter/popup/popup.js`](plaud-exporter/popup/popup.js) | ~1.9k | Весь UI попапа и его состояние |
 | [`plaud-exporter/background.js`](plaud-exporter/background.js) | ~1k | MV3 service worker: оркестрация export/sync (downloads — `background/chromeDownloadBridge.js`) |
 
-Средние (500–600 LOC) тоже лучше править прицельно: [`server/src/telegram/messages/`](server/src/telegram/messages/) (barrel: `messages.js`), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js), [`server/src/telegram/streamingDelivery.js`](server/src/telegram/streamingDelivery.js).
+Средние (500–600 LOC) тоже лучше править прицельно: [`server/src/telegram/messages/`](server/src/telegram/messages/) (barrel: `messages.js`), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js), [`server/src/telegram/syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js).
+
+Streaming Telegram (draft/progress/typewriter): barrel [`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js), [`streaming/typewriter.js`](server/src/telegram/streaming/typewriter.js), [`streaming/loadingPulse.js`](server/src/telegram/streaming/loadingPulse.js).
 
 ## Telegram module map (server)
 
@@ -63,8 +66,10 @@ Extension отдельно: `cd plaud-exporter && npm run lint && npm test && np
 | [`messages/files.js`](server/src/telegram/messages/files.js) | Tree/stats HTML, tree line formatting |
 | [`messages/settings.js`](server/src/telegram/messages/settings.js) | Settings screen copy |
 | [`messages/errors.js`](server/src/telegram/messages/errors.js) | Tree/auto-sync error strings |
+| [`messages/format.js`](server/src/telegram/messages/format.js) | `clipTelegramText`, `safeSliceHtml`, `TELEGRAM_HTML_MAX_LEN` |
 | [`plaudLiveTree.js`](server/src/telegram/plaudLiveTree.js) | Live tree; **must** use `syncCore.buildStableId` |
 | [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js) | Manual/scheduled sync UX bridge |
+| [`sync/syncIndexRead.js`](server/src/sync/syncIndexRead.js) | Read-only sync-index API для tree browse (не писать индекс из telegram) |
 
 ## Где живёт что
 
@@ -76,6 +81,9 @@ Extension отдельно: `cd plaud-exporter && npm run lint && npm test && np
 | `action` popup ↔ SW ↔ content | [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js) + `tests/runtimeMessages.test.js`; литералы в `popup.js` / `content.js` |
 | Live tree stableId / merge с sync-index | [`plaudLiveTree.js`](server/src/telegram/plaudLiveTree.js) + `syncCore.buildStableId` |
 | Plaud list parsing / mirror fan-out | [`recordingsApi.js`](server/src/plaud/recordingsApi.js) + `recordingsApi.test.js` |
+| ID записи Plaud (extract/normalize hex) | [`plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js) |
+| Telegram HTML clip | [`messages/format.js`](server/src/telegram/messages/format.js) — `clipTelegramText` |
+| Tree browse / read sync-index | [`syncIndexRead.js`](server/src/sync/syncIndexRead.js) + [`treeBrowse.js`](server/src/telegram/treeBrowse.js) |
 | Telegram callback + copy | [`handlers/callbacks.js`](server/src/telegram/handlers/callbacks.js) + [`messages/`](server/src/telegram/messages/) + `keyboards.js` |
 | Новая CLI команда | [`server/src/cli/index.js`](server/src/cli/index.js) |
 | Новая env переменная | [`server/src/config/config.js`](server/src/config/config.js) + `.env.example` + `server/README.md` |
@@ -108,3 +116,11 @@ Extension отдельно: `cd plaud-exporter && npm run lint && npm test && np
 - Не дублировать решения sync в `audioExport.js` или `syncRunner.js` — они должны звать `determineSyncAction` из `syncCore.js`.
 - Не вводить параллельные реализации логики папок — всё через `plaudFolders.js`.
 - Не менять протокол `action` точечно: константа в [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js), wiring в sender/handler, `npm test` в `plaud-exporter` (в т.ч. `runtimeMessages.test.js`).
+
+## Backlog (вне текущего server-рефактора)
+
+| Область | Файлы | Заметка |
+|---------|-------|---------|
+| Extension god modules | `audioExport.js`, `popup.js`, `background.js` | Разбивать отдельными PR; popup может потребовать build step |
+| Title normalization shared | `normalizeHumanTitle` в `recordingsApi` vs `audioExport` | Кандидат на 5-й shared-файл |
+| Server splits | `syncOrchestrator.js`, `vaultTree.js`, `telegramClient.js` | Ниже приоритет, чем extension |

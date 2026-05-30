@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  buildTypewriterFrames,
   clipTelegramText,
-  LoadingPulse,
   safeSliceHtml,
+  TELEGRAM_HTML_MAX_LEN,
+} from "../src/telegram/messages/format.js";
+import {
+  buildTypewriterFrames,
+  LoadingPulse,
   typewriterChunks,
   typewriterReveal,
 } from "../src/telegram/streamingDelivery.js";
@@ -44,10 +47,10 @@ test("typewriterChunks matches Чайка: empty below 60 chars, partial prefixe
   }
 });
 
-test("clipTelegramText keeps HTML balanced under 4096", () => {
+test("clipTelegramText keeps HTML balanced under TELEGRAM_HTML_MAX_LEN", () => {
   const long = "<b>" + "a".repeat(5000) + "</b>";
   const clipped = clipTelegramText(long);
-  assert.ok(clipped.length <= 4096);
+  assert.ok(clipped.length <= TELEGRAM_HTML_MAX_LEN);
   assert.equal((clipped.match(/<b>/g) || []).length, (clipped.match(/<\/b>/g) || []).length);
 });
 

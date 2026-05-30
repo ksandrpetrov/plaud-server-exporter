@@ -9,6 +9,10 @@ import { logger } from "../logger.js";
 import { PlaudChangedError } from "./errors.js";
 import { fetchPlaudApi } from "./httpTransport.js";
 import {
+  extractRawRecordingId,
+  normalizePlaudRecordingId,
+} from "../../../plaud-exporter/common/plaudRecordingIds.js";
+import {
   buildTagByIdMap,
   collectAllFilesFiletagIds,
   collectUnfiledFiletagIds,
@@ -18,19 +22,6 @@ import {
   mergeFiletagsById,
   parseFiletagListPayload,
 } from "./plaudFolders.js";
-
-const RAW_ID_KEYS = [
-  "file_id",
-  "fileId",
-  "id",
-  "recording_id",
-  "recordingId",
-  "audio_id",
-  "audioId",
-  "resource_id",
-  "resourceId",
-  "uuid",
-];
 
 export const TITLE_KEYS = [
   "file_name",
@@ -48,17 +39,6 @@ export const TITLE_KEYS = [
   "recordingTitle",
 ];
 
-function extractRawRecordingId(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "";
-  for (const key of RAW_ID_KEYS) {
-    const value = raw[key];
-    if (value == null) continue;
-    const s = String(value).trim();
-    if (s) return s;
-  }
-  return "";
-}
-
 export function normalizeHumanTitle(value) {
   let s = String(value ?? "").replace(/\s+/g, " ").trim();
   if (!s) return "";
@@ -74,7 +54,7 @@ export function normalizeHumanTitle(value) {
 }
 
 export function normalizePlaudFile(rawFile) {
-  const id = extractRawRecordingId(rawFile);
+  const id = normalizePlaudRecordingId(rawFile);
   if (!id) return null;
   const rawTitle = TITLE_KEYS.map((k) => rawFile[k]).find(
     (v) => typeof v === "string" && v.trim()

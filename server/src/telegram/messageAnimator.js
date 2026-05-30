@@ -21,8 +21,8 @@
  */
 
 import { logger } from "../logger.js";
+import { clipTelegramText } from "./messages/format.js";
 import {
-  clipTelegramText,
   runDraftTypewriterPreview,
   TYPEWRITER_FRAME_MS,
   TYPEWRITER_MAX_FRAMES,

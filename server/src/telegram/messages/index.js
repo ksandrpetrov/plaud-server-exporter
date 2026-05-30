@@ -1,7 +1,10 @@
 export {
   escapeHtml,
   formatDateTimeLocal,
+  clipTelegramText,
+  safeSliceHtml,
   truncateTelegramHtml,
+  TELEGRAM_HTML_MAX_LEN,
   formatBytes,
   describeRecordStatus,
 } from "./format.js";

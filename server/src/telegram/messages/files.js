@@ -1,8 +1,8 @@
 import {
+  clipTelegramText,
   escapeHtml,
   formatBytes,
   formatDateTimeLocal,
-  truncateTelegramHtml,
 } from "./format.js";
 import {
   formatTreeFolderItemLine,
@@ -48,7 +48,7 @@ export function filesTreeRootHtml(root) {
     lines.push(`📁 <b>${label}</b> — ${f.count} записей`);
   }
   lines.push("", "Выбери папку, чтобы открыть список файлов.");
-  return truncateTelegramHtml(lines.join("\n"));
+  return clipTelegramText(lines.join("\n"));
 }
 
 export function filesTreeFolderHtml(folderPage) {
@@ -92,7 +92,7 @@ export function filesTreeFolderHtml(folderPage) {
     );
   }
 
-  return truncateTelegramHtml(lines.join("\n"));
+  return clipTelegramText(lines.join("\n"));
 }
 
 export function filesStatsHtml(stats) {
@@ -130,5 +130,5 @@ export function filesStatsHtml(stats) {
     lines.push("", "Файлов .md пока нет.");
   }
 
-  return truncateTelegramHtml(lines.join("\n"));
+  return clipTelegramText(lines.join("\n"));
 }

@@ -34,13 +34,14 @@ plaud-server-exporter/
 
 ## Общий код (shared common)
 
-Три файла — единственный формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и оба набора тестов. Список зафиксирован в [`scripts/verify-submodule.js`](../scripts/verify-submodule.js) (`REQUIRED_SUBMODULE_FILES`).
+Четыре файла — формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и оба набора тестов. Список зафиксирован в [`scripts/verify-submodule.js`](../scripts/verify-submodule.js) (`REQUIRED_SUBMODULE_FILES`).
 
 | Файл | Что в нём | Server-side consumers |
 |------|-----------|------------------------|
 | [`plaud-exporter/common/syncCore.js`](../plaud-exporter/common/syncCore.js) | Стабильные ID, хеши саммари, `determineSyncAction` (new / unchanged / metadata-only / re-download), нормализация индекса | `syncRunner.js`, `serverSyncIndex.js`, `errorReporter.js` |
 | [`plaud-exporter/common/exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js) | Санитизация имён, даты-префиксы, `MAX_FULL_PATH_LENGTH`, режимы экспорта | `filenamePlanner.js`, `obsidianWriter.js` |
 | [`plaud-exporter/common/plaudFolders.js`](../plaud-exporter/common/plaudFolders.js) | Парсинг filetags, `attachFolderSegmentsToFiles`, локализованный Unfiled, Trash | Re-export в `server/src/plaud/plaudFolders.js`; `recordingsApi.js`, `vaultTree.js`, `plaudLiveTree.js` |
+| [`plaud-exporter/common/plaudRecordingIds.js`](../plaud-exporter/common/plaudRecordingIds.js) | `extractRawRecordingId`, `normalizeHexRecordingId`, `normalizePlaudRecordingId` | `recordingsApi.js` |
 
 > Исторически каталог называется «submodule» в скриптах (`npm run verify`, `scripts/verify-submodule.js`), но это **не git-submodule**. Это вендорный код в монорепо. Сценарий: импорты server'а резолвятся как `../../../plaud-exporter/common/...`.
 
@@ -52,11 +53,31 @@ plaud-server-exporter/
 | `storageUtils.js` | `chrome.storage` + загрузка/сохранение индекса sync |
 | `domUtils.js`, `uiComponents.js` | DOM и статусный UI на странице Plaud |
 | `plaud-i18n-messages.js` | Каталоги строк popup / background |
-| `plaudRecordingIds.js` | Нормализация id записей |
 
 Service worker вынесен в `background/`: `chromeDownloadBridge.js` (`chrome.downloads`), `tabMessaging.js` (`sendMessage` + re-inject), `bgLocale.js`. В `features/audioExport/` из `audioExport.js` выделены `plaudBrowserSession.js` (сессия из `localStorage`), `plaudRecordingIdScraper.js`, `plaudCollisionPaths.js` (имена и коллизии в sync-папке).
 
-Команда `npm run verify` из корня проверяет, что все три shared-файла существуют и что относительные импорты из `server/src/` резолвятся. CI запускает её на каждом push/PR.
+Команда `npm run verify` из корня проверяет, что все четыре shared-файла существуют и что относительные импорты из `server/src/` резолвятся. CI запускает её на каждом push/PR.
+
+### Слои Telegram ↔ sync-index (read path)
+
+```mermaid
+flowchart LR
+  handlers[handlers/*]
+  treeBrowse[treeBrowse.js]
+  liveTree[plaudLiveTree.js]
+  readFacade[syncIndexRead.js]
+  diskIndex[serverSyncIndex.js]
+  runner[syncRunner.js]
+
+  handlers --> treeBrowse
+  treeBrowse --> readFacade
+  treeBrowse --> liveTree
+  liveTree --> readFacade
+  readFacade --> diskIndex
+  runner --> diskIndex
+```
+
+Запись индекса — только через `syncRunner` / `saveSyncIndex`. Бот читает через [`syncIndexRead.js`](../server/src/sync/syncIndexRead.js).
 
 ## Точки входа
 
@@ -143,8 +164,8 @@ Telegram-бот собственного exit code не использует —
 | Новое поле в индексе sync | [`syncCore.js`](../plaud-exporter/common/syncCore.js) (decision + normalize), [`serverSyncIndex.js`](../server/src/sync/serverSyncIndex.js), тесты обоих пакетов |
 | Логика имени файла / папки | [`exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js), [`filenamePlanner.js`](../server/src/sync/filenamePlanner.js), [`plaudFolders.js`](../server/src/plaud/plaudFolders.js) |
 | Новый тип ошибки sync | [`errorClassifier.js`](../server/src/errors/errorClassifier.js), [`errorReporter.js`](../server/src/errors/errorReporter.js), README exit codes |
-| Сообщения/кнопки Telegram | [`telegram/messages.js`](../server/src/telegram/messages.js), [`telegram/keyboards.js`](../server/src/telegram/keyboards.js) |
-| Callback'и Telegram | `handlers.js` + кодек callback data (см. `messages.js` — `filesTreeFolderCallback`) |
+| Сообщения/кнопки Telegram | barrel [`telegram/messages.js`](../server/src/telegram/messages.js) → [`telegram/messages/`](../server/src/telegram/messages/), [`telegram/keyboards.js`](../server/src/telegram/keyboards.js) |
+| Callback'и Telegram | [`telegram/handlers.js`](../server/src/telegram/handlers.js) → [`handlers/callbacks.js`](../server/src/telegram/handlers/callbacks.js) + [`callbackData.js`](../server/src/telegram/callbackData.js) (`filesTreeFolderCallback` в messages) |
 | Новая команда CLI | [`server/src/cli/index.js`](../server/src/cli/index.js) |
 | Env переменная | [`server/src/config/config.js`](../server/src/config/config.js) + [`.env.example`](../.env.example) + [`server/README.md`](../server/README.md) |
 | Тесты sync flow | `server/tests/syncRunner*.test.js` |
@@ -175,6 +196,14 @@ Deploy ([`/.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) на
 - Скачивание аудио с сервера — намеренно отключено (`runSync` summary-only). Аудио — только через Chrome-расширение.
 - Playwright на VPS — не запускать (1 GB RAM, нет дисплея); auth только на Mac.
 - Два параллельных sync на одном vault на разных машинах — `runLock` локальный.
+
+## Backlog рефакторинга (extension)
+
+| Файл | ~LOC | Заметка |
+|------|------|---------|
+| `plaud-exporter/features/audioExport/audioExport.js` | 1.7k+ | Вынести Plaud API client; не дублировать sync-решения вне `syncCore` |
+| `plaud-exporter/popup/popup.js` | 1.9k+ | Модули UI или build step для ESM |
+| `plaud-exporter/background.js` | 1k+ | Роутер `onMessage` и state machines в `background/*` |
 
 ## История и связанные документы
 

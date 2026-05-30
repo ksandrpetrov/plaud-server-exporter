@@ -19,6 +19,7 @@ const REQUIRED_SUBMODULE_FILES = [
   "plaud-exporter/common/syncCore.js",
   "plaud-exporter/common/exportPathUtils.js",
   "plaud-exporter/common/plaudFolders.js",
+  "plaud-exporter/common/plaudRecordingIds.js",
 ];
 
 const SERVER_SRC = resolve(root, "server/src");

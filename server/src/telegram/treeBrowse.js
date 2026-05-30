@@ -21,7 +21,10 @@
 import { access } from "node:fs/promises";
 import { config, effectiveVaultRoot } from "../config/config.js";
 import { logger } from "../logger.js";
-import { loadSyncIndex } from "../sync/serverSyncIndex.js";
+import {
+  getRecordByStableId,
+  loadIndexForBot,
+} from "../sync/syncIndexRead.js";
 import {
   buildBackToMenuKeyboard,
   buildFilesTreeFolderKeyboard,
@@ -61,7 +64,7 @@ import {
  * correctly.
  */
 export async function loadTreeSource() {
-  const real = await loadSyncIndex();
+  const real = await loadIndexForBot();
   try {
     const live = await loadPlaudLiveSyncTree({ syncIndex: real });
     if (live && Object.keys(live.records || {}).length > 0) return live;
@@ -236,8 +239,8 @@ async function runQuietSyncSafely(ctx, chatId) {
 async function resolveSummaryPathAfterSync(stableId) {
   const id = String(stableId || "").trim();
   if (!id) return null;
-  const idx = await loadSyncIndex();
-  const record = idx?.records?.[id];
+  const idx = await loadIndexForBot();
+  const record = getRecordByStableId(idx, id);
   const path = String(record?.summaryPath || "").trim();
   if (!path) return null;
   if (!(await isReadable(path))) return null;
