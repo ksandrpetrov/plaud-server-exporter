@@ -55,6 +55,18 @@ import {
   buildSyncIndexTreeRoot,
 } from "./vaultTree.js";
 
+/** @type {{ loadIndex?: () => Promise<object>, loadLive?: (args: object) => Promise<object|null> } | null} */
+let _testHooks = null;
+
+/** @param {{ loadIndex?: () => Promise<object>, loadLive?: (args: object) => Promise<object|null> } | null} hooks */
+export function _setTreeBrowseHooksForTests(hooks) {
+  _testHooks = hooks;
+}
+
+export function _resetTreeBrowseHooksForTests() {
+  _testHooks = null;
+}
+
 /**
  * Returns a sync-index-shaped object to feed the tree builders. Prefers a
  * live Plaud snapshot (so folder counts match Plaud's sidebar verbatim) and
@@ -64,9 +76,14 @@ import {
  * correctly.
  */
 export async function loadTreeSource() {
-  const real = await loadIndexForBot();
+  const real = _testHooks?.loadIndex
+    ? await _testHooks.loadIndex()
+    : await loadIndexForBot();
   try {
-    const live = await loadPlaudLiveSyncTree({ syncIndex: real });
+    const loadLive =
+      _testHooks?.loadLive ||
+      ((args) => loadPlaudLiveSyncTree(args));
+    const live = await loadLive({ syncIndex: real });
     if (live && Object.keys(live.records || {}).length > 0) return live;
   } catch (err) {
     logger.warn("Live Plaud tree failed; using sync-index", {
@@ -239,7 +256,9 @@ async function runQuietSyncSafely(ctx, chatId) {
 async function resolveSummaryPathAfterSync(stableId) {
   const id = String(stableId || "").trim();
   if (!id) return null;
-  const idx = await loadIndexForBot();
+  const idx = _testHooks?.loadIndex
+    ? await _testHooks.loadIndex()
+    : await loadIndexForBot();
   const record = getRecordByStableId(idx, id);
   const path = String(record?.summaryPath || "").trim();
   if (!path) return null;

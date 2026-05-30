@@ -8,7 +8,7 @@
  */
 import { PlaudChangedError } from "./errors.js";
 import { fetchPlaudApi, fetchUrlTextWithRetries } from "./httpTransport.js";
-import { normalizeHumanTitle } from "./recordingsApi.js";
+import { normalizeHumanTitle } from "../../../plaud-exporter/common/plaudTitles.js";
 
 const SUMMARY_NOTE_TYPES = new Set([
   "summary",

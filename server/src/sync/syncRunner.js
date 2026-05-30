@@ -4,8 +4,11 @@ import { config } from "../config/config.js";
 import { logger } from "../logger.js";
 import { redactError } from "../security/redact.js";
 import { reportError } from "../errors/errorReporter.js";
-import { ERROR_KIND_PLAUD_CHANGED } from "../errors/errorClassifier.js";
-import { PlaudAuthError, PlaudChangedError } from "../plaud/errors.js";
+import {
+  ERROR_KIND_AUTH,
+  ERROR_KIND_PLAUD_CHANGED,
+} from "../errors/errorClassifier.js";
+import { PlaudChangedError } from "../plaud/errors.js";
 import { writeJsonAtomic } from "../util/atomicJson.js";
 import {
   buildAudioSignature,
@@ -14,6 +17,7 @@ import {
   determineSyncAction,
   getRawField,
   hashSummary,
+  refineSyncActionForDisk,
   SYNC_ACTION_ALREADY_SYNCED,
   SYNC_ACTION_NEW,
   SYNC_ACTION_SKIPPED,
@@ -62,16 +66,6 @@ async function needsSummaryRestore(existingRecord, plannedAbsolutePath) {
     if (await summaryFileExists(path)) return false;
   }
   return true;
-}
-
-/**
- * @param {object | null | undefined} existingRecord
- * @param {string} plannedAbsolutePath
- */
-function summaryPathsDiffer(existingRecord, plannedAbsolutePath) {
-  const existing = String(existingRecord?.summaryPath || "");
-  const planned = String(plannedAbsolutePath || "");
-  return Boolean(existing && planned && existing !== planned);
 }
 
 function buildSummaryBundle(summaries) {
@@ -206,7 +200,11 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
       stats.plaudChanged = true;
       stats.needsManualReview = true;
     }
-    await writeStatusFile({ stats, lastAuthError: error instanceof PlaudAuthError ? error.message : null });
+    await writeStatusFile({
+      stats,
+      lastAuthError:
+        reported.classified.kind === ERROR_KIND_AUTH ? error.message : null,
+    });
     const err = error instanceof Error ? error : new Error(String(error));
     err.exitCode = reported.classified.exitCode;
     throw err;
@@ -223,13 +221,13 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
       } catch (summaryError) {
         stats.errors++;
         logger.warn(`Summary read failed for ${file.id}.`, redactError(summaryError));
-        await reportError(summaryError, {
+        const reported = await reportError(summaryError, {
           stage: "fetch-summary",
           runId,
           endpoint: "/ai/query_note",
           dryRun,
         });
-        if (summaryError instanceof PlaudChangedError) {
+        if (reported.classified.kind === ERROR_KIND_PLAUD_CHANGED) {
           stats.plaudChanged = true;
           stats.needsManualReview = true;
         }
@@ -252,34 +250,13 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
       const duplicate = detectDuplicate(syncIndex, candidate);
       const existingRecord = duplicate?.record || null;
       let action = determineSyncAction(existingRecord, candidate);
-
-      if (
-        action.action === SYNC_ACTION_ALREADY_SYNCED &&
-        existingRecord &&
-        (await needsSummaryRestore(existingRecord, planned.absolutePath))
-      ) {
-        action = {
-          action: SYNC_ACTION_UPDATED,
-          status: SYNC_STATUS_UPDATED,
-          downloadRequired: true,
-          metadataOnly: false,
-          reason: "summary_file_missing",
-        };
-      }
-
-      if (
-        action.action === SYNC_ACTION_ALREADY_SYNCED &&
-        existingRecord &&
-        summaryPathsDiffer(existingRecord, planned.absolutePath)
-      ) {
-        action = {
-          action: SYNC_ACTION_UPDATED,
-          status: SYNC_STATUS_UPDATED,
-          downloadRequired: false,
-          metadataOnly: true,
-          reason: "path_changed",
-        };
-      }
+      action = refineSyncActionForDisk(action, existingRecord, {
+        plannedSummaryPath: planned.absolutePath,
+        summaryMissingOnDisk: await needsSummaryRestore(
+          existingRecord,
+          planned.absolutePath
+        ),
+      });
 
       if (action.action === SYNC_ACTION_SKIPPED) {
         stats.skipped++;

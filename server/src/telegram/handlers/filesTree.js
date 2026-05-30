@@ -4,7 +4,7 @@ import { parseFilesTreeFolderCallback } from "../callbackData.js";
 import { filesMenuHtml, filesStatsHtml } from "../messages.js";
 import { editToMenuScreen } from "../botMessageUtils.js";
 import { showFilesTreeFolder, showFilesTreeRoot } from "../treeBrowse.js";
-import { scanVaultSummary } from "../vaultTree.js";
+import { scanVaultSummary } from "../../sync/vaultDiskScan.js";
 
 export async function handleFilesCallback({ ctx, chatId, messageId }) {
   await editToMenuScreen(ctx, {

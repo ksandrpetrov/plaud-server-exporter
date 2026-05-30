@@ -12,7 +12,7 @@
 
 Сервер **не** качает аудио (только саммари). Расширение — качает и то и другое.
 
-## Shared контракт (4 файла)
+## Shared контракт (5 файлов)
 
 | Файл | Меняешь — обновляй |
 |------|--------------------|
@@ -20,6 +20,7 @@
 | [`plaud-exporter/common/exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) | `plaud-exporter/tests/exportPathUtils.test.js` + `server/tests/filenamePlanner.test.js` |
 | [`plaud-exporter/common/plaudFolders.js`](plaud-exporter/common/plaudFolders.js) | `plaud-exporter/tests/plaudFolders.test.js` + `server/tests/plaudFolders.test.js` |
 | [`plaud-exporter/common/plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js) | `plaud-exporter/tests/plaudRecordingIds.test.js` + `server/tests/plaudRecordingIds.test.js`; consumers: `recordingsApi.js`, `plaudRecordingIdScraper.js` |
+| [`plaud-exporter/common/plaudTitles.js`](plaud-exporter/common/plaudTitles.js) | `plaud-exporter/tests/plaudTitles.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js`, `summariesApi.js` |
 
 Список захардкожен в [`scripts/verify-submodule.js`](scripts/verify-submodule.js). `npm run verify` проверяет существование файлов и что все относительные импорты `server/src/...` резолвятся.
 
@@ -75,15 +76,16 @@ Streaming Telegram (draft/progress/typewriter): barrel [`streamingDelivery.js`](
 
 | Хочешь поменять | Иди сюда |
 |------------------|----------|
-| Решение sync (new / unchanged / metadata-only / re-download) | [`syncCore.js`](plaud-exporter/common/syncCore.js) + `serverSyncIndex.js` |
+| Решение sync (new / unchanged / metadata-only / re-download / disk restore) | [`syncCore.js`](plaud-exporter/common/syncCore.js) (`determineSyncAction`, `refineSyncActionForDisk`) + `serverSyncIndex.js` |
 | Имя файла, длина пути, санитизация | [`exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) + `filenamePlanner.js` |
 | Папки Plaud / Unfiled / Trash | [`plaudFolders.js`](plaud-exporter/common/plaudFolders.js) |
 | `action` popup ↔ SW ↔ content | [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js) + `tests/runtimeMessages.test.js`; литералы в `popup.js` / `content.js` |
-| Live tree stableId / merge с sync-index | [`plaudLiveTree.js`](server/src/telegram/plaudLiveTree.js) + `syncCore.buildStableId` |
+| Live tree stableId / merge с sync-index | [`liveTreeReadModel.js`](server/src/plaud/liveTreeReadModel.js) (Telegram re-export: `plaudLiveTree.js`) + `syncCore.buildStableId` |
 | Plaud list parsing / mirror fan-out | [`recordingsApi.js`](server/src/plaud/recordingsApi.js) + `recordingsApi.test.js` |
 | ID записи Plaud (extract/normalize hex) | [`plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js) |
 | Telegram HTML clip | [`messages/format.js`](server/src/telegram/messages/format.js) — `clipTelegramText` |
-| Tree browse / read sync-index | [`syncIndexRead.js`](server/src/sync/syncIndexRead.js) + [`treeBrowse.js`](server/src/telegram/treeBrowse.js) |
+| Tree browse / read sync-index | [`syncIndexRead.js`](server/src/sync/syncIndexRead.js) + [`treeBrowse.js`](server/src/telegram/treeBrowse.js) (тесты: `treeBrowse.test.js`) |
+| Sync UX в боте | [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js) → `telegram/sync/syncRunBridge.js`, `syncProgressPresenter.js` |
 | Telegram callback + copy | [`handlers/callbacks.js`](server/src/telegram/handlers/callbacks.js) + [`messages/`](server/src/telegram/messages/) + `keyboards.js` |
 | Новая CLI команда | [`server/src/cli/index.js`](server/src/cli/index.js) |
 | Новая env переменная | [`server/src/config/config.js`](server/src/config/config.js) + `.env.example` + `server/README.md` |
@@ -122,5 +124,5 @@ Streaming Telegram (draft/progress/typewriter): barrel [`streamingDelivery.js`](
 | Область | Файлы | Заметка |
 |---------|-------|---------|
 | Extension god modules | `audioExport.js`, `popup.js`, `background.js` | Разбивать отдельными PR; popup может потребовать build step |
-| Title normalization shared | `normalizeHumanTitle` в `recordingsApi` vs `audioExport` | Кандидат на 5-й shared-файл |
+| ~~Title normalization shared~~ | — | Вынесено в `plaudTitles.js` |
 | Server splits | `syncOrchestrator.js`, `vaultTree.js`, `telegramClient.js` | Ниже приоритет, чем extension |

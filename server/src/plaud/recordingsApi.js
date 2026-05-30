@@ -22,44 +22,17 @@ import {
   mergeFiletagsById,
   parseFiletagListPayload,
 } from "./plaudFolders.js";
+import {
+  normalizeHumanTitle,
+  pickRawTitleFromFile,
+} from "../../../plaud-exporter/common/plaudTitles.js";
 
-export const TITLE_KEYS = [
-  "file_name",
-  "filename",
-  "fileName",
-  "file_title",
-  "fileTitle",
-  "name",
-  "title",
-  "display_name",
-  "displayName",
-  "audio_name",
-  "recording_name",
-  "topic",
-  "recordingTitle",
-];
-
-export function normalizeHumanTitle(value) {
-  let s = String(value ?? "").replace(/\s+/g, " ").trim();
-  if (!s) return "";
-  if (/%[0-9A-Fa-f]{2}/.test(s)) {
-    try {
-      const decoded = decodeURIComponent(s).replace(/\s+/g, " ").trim();
-      if (decoded) s = decoded;
-    } catch {
-      // ignore
-    }
-  }
-  return s;
-}
+export { TITLE_KEYS, normalizeHumanTitle } from "../../../plaud-exporter/common/plaudTitles.js";
 
 export function normalizePlaudFile(rawFile) {
   const id = normalizePlaudRecordingId(rawFile);
   if (!id) return null;
-  const rawTitle = TITLE_KEYS.map((k) => rawFile[k]).find(
-    (v) => typeof v === "string" && v.trim()
-  );
-  const title = normalizeHumanTitle(rawTitle) || String(id);
+  const title = normalizeHumanTitle(pickRawTitleFromFile(rawFile)) || String(id);
   const folderIds = extractFiletagIdsFromRaw(rawFile);
   return { id, title, raw: rawFile, folderIds, folderSegment: "" };
 }

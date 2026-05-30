@@ -34,7 +34,7 @@ plaud-server-exporter/
 
 ## Общий код (shared common)
 
-Четыре файла — формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и оба набора тестов. Список зафиксирован в [`scripts/verify-submodule.js`](../scripts/verify-submodule.js) (`REQUIRED_SUBMODULE_FILES`).
+Пять файлов — формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и оба набора тестов. Список зафиксирован в [`scripts/verify-submodule.js`](../scripts/verify-submodule.js) (`REQUIRED_SUBMODULE_FILES`).
 
 | Файл | Что в нём | Server-side consumers |
 |------|-----------|------------------------|
@@ -42,6 +42,7 @@ plaud-server-exporter/
 | [`plaud-exporter/common/exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js) | Санитизация имён, даты-префиксы, `MAX_FULL_PATH_LENGTH`, режимы экспорта | `filenamePlanner.js`, `obsidianWriter.js` |
 | [`plaud-exporter/common/plaudFolders.js`](../plaud-exporter/common/plaudFolders.js) | Парсинг filetags, `attachFolderSegmentsToFiles`, локализованный Unfiled, Trash | Re-export в `server/src/plaud/plaudFolders.js`; `recordingsApi.js`, `vaultTree.js`, `plaudLiveTree.js` |
 | [`plaud-exporter/common/plaudRecordingIds.js`](../plaud-exporter/common/plaudRecordingIds.js) | `extractRawRecordingId`, `normalizeHexRecordingId`, `normalizePlaudRecordingId` | `recordingsApi.js` |
+| [`plaud-exporter/common/plaudTitles.js`](../plaud-exporter/common/plaudTitles.js) | `normalizeHumanTitle`, `TITLE_KEYS`, `pickRawTitleFromFile` | `recordingsApi.js`, `summariesApi.js`, `audioApi.js` |
 
 > Исторически каталог называется «submodule» в скриптах (`npm run verify`, `scripts/verify-submodule.js`), но это **не git-submodule**. Это вендорный код в монорепо. Сценарий: импорты server'а резолвятся как `../../../plaud-exporter/common/...`.
 
@@ -56,7 +57,7 @@ plaud-server-exporter/
 
 Service worker вынесен в `background/`: `chromeDownloadBridge.js` (`chrome.downloads`), `tabMessaging.js` (`sendMessage` + re-inject), `bgLocale.js`. В `features/audioExport/` из `audioExport.js` выделены `plaudBrowserSession.js` (сессия из `localStorage`), `plaudRecordingIdScraper.js`, `plaudCollisionPaths.js` (имена и коллизии в sync-папке).
 
-Команда `npm run verify` из корня проверяет, что все четыре shared-файла существуют и что относительные импорты из `server/src/` резолвятся. CI запускает её на каждом push/PR.
+Команда `npm run verify` из корня проверяет, что все пять shared-файлов существуют и что относительные импорты из `server/src/` резолвятся. CI запускает её на каждом push/PR.
 
 ### Слои Telegram ↔ sync-index (read path)
 
@@ -123,10 +124,20 @@ flowchart LR
 1. CLI или Telegram-бот запускает `runSync`.
 2. `runLock` берёт файловый лок (`server/.data/sync.lock`, `O_EXCL`).
 3. Plaud API → список записей + саммари по каждой.
-4. `syncCore.determineSyncAction` решает: new / unchanged / metadata-only update / content re-download.
+4. `syncCore.determineSyncAction` + (на server) `refineSyncActionForDisk` решают: new / unchanged / metadata-only / re-download / restore missing file.
 5. `filenamePlanner` + `obsidianWriter` пишут `.md` атомарно; при metadata-only — `rename`/`move`.
 6. `serverSyncIndex` сохраняет индекс (atomic + `.bak`).
 7. Ошибки классифицируются и пишутся в `{vault}/_errors/*.md`.
+
+### Слои обработки ошибок
+
+| Слой | Модуль | Когда |
+|------|--------|-------|
+| Top-level throw | [`syncFailureMapper.js`](../server/src/sync/syncFailureMapper.js) | CLI и бот после `runSync` (lock, auth, plaud_changed, exit code) |
+| Per-file / per-stage | [`errorReporter.js`](../server/src/errors/errorReporter.js) + [`errorClassifier.js`](../server/src/errors/errorClassifier.js) | Внутри `syncRunner` на каждую запись или этап list/fetch |
+| UX copy | `sync/syncProgressPresenter.js`, `messages/sync.js` | HTML для Telegram; CLI пишет в stderr |
+
+Не дублировать `instanceof` в `syncRunner`, если `reportError` уже вернул `classified.kind`.
 
 ## Состояние на диске
 
@@ -161,7 +172,10 @@ Telegram-бот собственного exit code не использует —
 
 | Изменение | Файлы |
 |-----------|-------|
-| Новое поле в индексе sync | [`syncCore.js`](../plaud-exporter/common/syncCore.js) (decision + normalize), [`serverSyncIndex.js`](../server/src/sync/serverSyncIndex.js), тесты обоих пакетов |
+| Новое поле в индексе sync | [`syncCore.js`](../plaud-exporter/common/syncCore.js) (`determineSyncAction`, `refineSyncActionForDisk`, normalize), [`serverSyncIndex.js`](../server/src/sync/serverSyncIndex.js), тесты обоих пакетов |
+| Нормализация title Plaud | [`plaudTitles.js`](../plaud-exporter/common/plaudTitles.js), тесты `plaudTitles` + `recordingsApi` |
+| Live tree (Plaud API → synthetic index) | [`plaud/liveTreeReadModel.js`](../server/src/plaud/liveTreeReadModel.js); Telegram: [`plaudLiveTree.js`](../server/src/telegram/plaudLiveTree.js) (re-export) |
+| Vault .md scan (Files stats) | [`sync/vaultDiskScan.js`](../server/src/sync/vaultDiskScan.js) |
 | Логика имени файла / папки | [`exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js), [`filenamePlanner.js`](../server/src/sync/filenamePlanner.js), [`plaudFolders.js`](../server/src/plaud/plaudFolders.js) |
 | Новый тип ошибки sync | [`errorClassifier.js`](../server/src/errors/errorClassifier.js), [`errorReporter.js`](../server/src/errors/errorReporter.js), README exit codes |
 | Сообщения/кнопки Telegram | barrel [`telegram/messages.js`](../server/src/telegram/messages.js) → [`telegram/messages/`](../server/src/telegram/messages/), [`telegram/keyboards.js`](../server/src/telegram/keyboards.js) |

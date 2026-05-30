@@ -2,43 +2,20 @@
  * Orchestrates `runSync` calls initiated either by a user button tap
  * (`source: "manual"`) or by the internal scheduler (`source: "scheduled"`).
  *
- * Responsibilities:
- *
- * 1. Send (or edit) a loading message so the user sees something within ~1 s.
- * 2. Run `runSync({ session, onProgress })`, throttling progress edits to ≥2 s
- *    to avoid Telegram rate-limiting (draft API when available).
- * 3. Replace the loading message with the final summary message, using safe
- *    user-facing copy on every error class (`SyncLockError`, `PlaudAuthError`,
- *    `PlaudChangedError`, missing session, generic).
- *
- * Caller must acquire `syncRunGuard` before invoking (handlers / scheduler).
- * This module releases the guard in `finally`.
+ * Split across:
+ *  - `sync/syncRunBridge.js` — session + silent sync
+ *  - `sync/syncProgressPresenter.js` — loading / progress / final reveal
  */
 
 import { logger } from "../logger.js";
-import {
-  assertSnapshotReadyForApi,
-  createSessionFromSnapshot,
-} from "../auth/plaudSessionExtractor.js";
-import { loadSessionSnapshot } from "../auth/sessionStore.js";
-import { redactError } from "../security/redact.js";
 import { runSync } from "../sync/syncRunner.js";
-import {
-  classifySyncFailure,
-  SYNC_FAILURE_AUTH,
-  SYNC_FAILURE_LOCK,
-  SYNC_FAILURE_PLAUD_CHANGED,
-} from "../sync/syncFailureMapper.js";
 import {
   buildBackToMenuKeyboard,
   buildSyncFinishedKeyboard,
 } from "./keyboards.js";
 import {
-  SYNC_AUTH_REJECTED_HTML,
-  SYNC_GENERIC_ERROR_HTML,
   SYNC_LOADING_HTML,
   SYNC_LOADING_SCHEDULED_HTML,
-  SYNC_LOCK_BUSY_HTML,
   SYNC_NO_SESSION_HTML,
   syncFetchStatusHtml,
   syncLoadingPulseFrames,
@@ -50,16 +27,24 @@ import {
   createSyncProgressDelivery,
   DraftLoadingPulse,
   LoadingPulse,
-  runDraftTypewriterPreview,
   tryOpenDraft,
   TYPEWRITER_FRAME_MS,
 } from "./streamingDelivery.js";
-import { SYNC_ACTION_MANUAL, syncActionKey, syncRunGuard } from "./syncGuards.js";
+import { syncActionKey, syncRunGuard } from "./syncGuards.js";
+import { defaultSessionLoader } from "./sync/syncRunBridge.js";
+import {
+  editProgressBestEffort,
+  handleSyncError,
+  revealFinal,
+  sendOrEditLoading,
+} from "./sync/syncProgressPresenter.js";
 import {
   EFFECT_SPARKLES,
   privateMessageEffect,
   TypingIndicator,
 } from "./telegramVisual.js";
+
+export { defaultSessionLoader, runSyncSilent } from "./sync/syncRunBridge.js";
 
 const PROGRESS_THROTTLE_MS = 2000;
 const LOADING_PULSE_FRAME_MS = 900;
@@ -246,335 +231,4 @@ export async function runSyncWithReporting(params) {
     pulse?.stop();
     syncRunGuard.release(chatId, syncActionKey(source), { sent: sentOk });
   }
-}
-
-async function defaultSessionLoader() {
-  const snapshot = await loadSessionSnapshot();
-  if (!snapshot) return null;
-  try {
-    assertSnapshotReadyForApi(snapshot);
-    return createSessionFromSnapshot(snapshot);
-  } catch (err) {
-    logger.warn("Session snapshot present but unusable", {
-      error: String(err?.message || err),
-    });
-    return null;
-  }
-}
-
-/**
- * @param {{
- *   sessionLoader?: () => Promise<object | null>;
- *   syncRunner?: typeof runSync;
- *   chatId?: number | null;
- * }} [params]
- */
-export async function runSyncSilent({
-  sessionLoader = defaultSessionLoader,
-  syncRunner = runSync,
-  chatId = null,
-} = {}) {
-  const guardChatId = Number.isInteger(chatId) ? chatId : null;
-  if (guardChatId != null && !syncRunGuard.tryAcquire(guardChatId, SYNC_ACTION_MANUAL)) {
-    logger.info("Silent sync skipped: ActionGuard busy or cooldown");
-    return { status: "lock_busy" };
-  }
-
-  let sentOk = false;
-  try {
-    const session = await sessionLoader();
-    if (!session) {
-      logger.warn("Silent sync skipped: no Plaud session snapshot");
-      return { status: "no_session" };
-    }
-    try {
-      const stats = await syncRunner({ session });
-      logger.info("Silent sync completed", {
-        new: stats?.new,
-        updated: stats?.updated,
-        unchanged: stats?.unchanged,
-        errors: stats?.errors,
-      });
-      sentOk = true;
-      return { status: "ok", stats };
-    } catch (err) {
-      const failure = classifySyncFailure(err);
-      if (failure.kind === SYNC_FAILURE_LOCK) {
-        logger.info("Silent sync skipped: lock held by another process");
-        return { status: "lock_busy" };
-      }
-      if (failure.kind === SYNC_FAILURE_AUTH) {
-        logger.error("Silent sync rejected by Plaud", redactError(err));
-        return { status: "auth_rejected" };
-      }
-      if (failure.kind === SYNC_FAILURE_PLAUD_CHANGED) {
-        logger.error("Silent sync detected Plaud API changes", redactError(err));
-        return { status: "plaud_changed" };
-      }
-      logger.error("Silent sync failed", redactError(err));
-      return { status: "failed" };
-    }
-  } finally {
-    if (guardChatId != null) {
-      syncRunGuard.release(guardChatId, SYNC_ACTION_MANUAL, { sent: sentOk });
-    }
-  }
-}
-
-async function sendOrEditLoading({ telegram, chatId, loadingMessageId, text }) {
-  if (loadingMessageId) {
-    try {
-      await telegram.editMessageText({
-        chatId,
-        messageId: loadingMessageId,
-        text,
-        replyMarkup: null,
-      });
-      return loadingMessageId;
-    } catch (err) {
-      logger.info("Edit loading message failed; sending fresh message", {
-        error: String(err?.message || err),
-      });
-    }
-  }
-  try {
-    const result = await telegram.sendMessage({
-      chatId,
-      text,
-    });
-    const mid = Number(result?.message_id);
-    return Number.isInteger(mid) ? mid : null;
-  } catch (err) {
-    logger.warn("Failed to send loading message", {
-      error: String(err?.message || err),
-    });
-    return null;
-  }
-}
-
-async function editProgressBestEffort({ telegram, chatId, messageId, stats }) {
-  if (!messageId) return;
-  try {
-    await telegram.editMessageText({
-      chatId,
-      messageId,
-      text: syncProgressHtml(stats),
-      replyMarkup: null,
-    });
-  } catch (err) {
-    logger.debug?.("Progress edit ignored", {
-      error: String(err?.message || err),
-    });
-  }
-}
-
-/**
- * Reveals the final sync message in the Чайка style: a smooth `sendMessageDraft`
- * typewriter in the user's input field, then `delivery.finish` (sendMessage) when
- * the draft stream is active. When the user tapped sync on an existing inline
- * message, we edit that bubble instead. Legacy/no-draft paths use edit/send fallback.
- *
- * @param {{
- *   telegram: import("./telegramClient.js").TelegramClient;
- *   chatId: number;
- *   messageId: number | null;
- *   draftId: number;
- *   text: string;
- *   keyboard?: object | null;
- *   messageEffectId?: string | null;
- *   frameMs?: number;
- *   sleep?: (ms: number) => Promise<void>;
- *   delivery: ReturnType<typeof createSyncProgressDelivery>;
- *   editInPlace?: boolean;
- * }} params
- * @returns {Promise<number | null>}
- */
-async function revealFinal({
-  telegram,
-  chatId,
-  messageId,
-  draftId,
-  text,
-  keyboard = null,
-  messageEffectId = null,
-  frameMs = TYPEWRITER_FRAME_MS,
-  sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
-  delivery,
-  editInPlace = false,
-}) {
-  const clipped = clipTelegramText(text);
-  await runDraftTypewriterPreview({
-    telegram,
-    chatId,
-    text: clipped,
-    draftId,
-    frameMs,
-    sleep,
-    withTyping: false,
-  });
-  // Draft path: always `sendMessage` into chat (Чайка `StreamingReply.finish`), even
-  // when the user tapped sync on an inline menu message.
-  if (delivery.isDraftMode()) {
-    return finishDelivery({
-      delivery,
-      telegram,
-      chatId,
-      messageId,
-      text: clipped,
-      keyboard: keyboard ?? null,
-      messageEffectId: messageEffectId ?? null,
-    });
-  }
-  if (messageId && editInPlace) {
-    try {
-      await telegram.editMessageText({
-        chatId,
-        messageId,
-        text: clipped,
-        replyMarkup: keyboard ?? null,
-        messageEffectId: messageEffectId ?? null,
-      });
-      return messageId;
-    } catch (err) {
-      logger.info("Final edit failed; falling back to delivery", {
-        error: String(err?.message || err),
-      });
-    }
-  }
-  return finishDelivery({
-    delivery,
-    telegram,
-    chatId,
-    messageId,
-    text: clipped,
-    keyboard: keyboard ?? null,
-    messageEffectId: messageEffectId ?? null,
-  });
-}
-
-async function finishDelivery({
-  delivery,
-  telegram,
-  chatId,
-  messageId,
-  text,
-  keyboard,
-  messageEffectId,
-}) {
-  const id = await delivery.finish({
-    text,
-    replyMarkup: keyboard ?? null,
-    messageEffectId: messageEffectId ?? null,
-  });
-  if (id != null) return id;
-  return replaceWithFinalMessage({
-    telegram,
-    chatId,
-    messageId,
-    text,
-    keyboard,
-    messageEffectId,
-  });
-}
-
-async function replaceWithFinalMessage({
-  telegram,
-  chatId,
-  messageId,
-  text,
-  keyboard,
-  messageEffectId,
-}) {
-  if (messageId) {
-    try {
-      await telegram.editMessageText({
-        chatId,
-        messageId,
-        text,
-        replyMarkup: keyboard,
-        messageEffectId: messageEffectId ?? null,
-      });
-      return messageId;
-    } catch (err) {
-      logger.info("Final edit failed; sending new message", {
-        error: String(err?.message || err),
-      });
-    }
-  }
-  try {
-    const result = await telegram.sendMessage({
-      chatId,
-      text,
-      replyMarkup: keyboard,
-      messageEffectId: messageEffectId ?? null,
-    });
-    const mid = Number(result?.message_id);
-    return Number.isInteger(mid) ? mid : null;
-  } catch (err) {
-    logger.warn("Failed to send final message", {
-      error: String(err?.message || err),
-    });
-    return null;
-  }
-}
-
-async function handleSyncError({
-  telegram,
-  chatId,
-  messageId,
-  draftId,
-  err,
-  source,
-  durationSec,
-  delivery,
-  sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
-  typewriterFrameMs = TYPEWRITER_FRAME_MS,
-  editInPlace = false,
-}) {
-  const failure = classifySyncFailure(err);
-  const backToMenu = buildBackToMenuKeyboard();
-
-  const reveal = (text) =>
-    revealFinal({
-      telegram,
-      chatId,
-      messageId,
-      draftId,
-      text,
-      keyboard: backToMenu,
-      frameMs: typewriterFrameMs,
-      sleep,
-      delivery,
-      editInPlace,
-    });
-
-  if (failure.kind === SYNC_FAILURE_LOCK) {
-    await reveal(SYNC_LOCK_BUSY_HTML);
-    logger.info("Sync skipped: lock held by another process", { source });
-    return { status: "lock_busy", summaryMessageId: messageId ?? undefined };
-  }
-
-  if (failure.kind === SYNC_FAILURE_AUTH) {
-    await reveal(SYNC_AUTH_REJECTED_HTML);
-    logger.error("Sync failed: Plaud rejected the session", redactError(err));
-    return { status: "auth_rejected", summaryMessageId: messageId ?? undefined };
-  }
-
-  if (failure.kind === SYNC_FAILURE_PLAUD_CHANGED) {
-    const stats = failure.stats || {
-      new: 0,
-      updated: 0,
-      unchanged: 0,
-      skipped: 0,
-      errors: 0,
-      plaudChanged: true,
-    };
-    await reveal(syncSummaryHtml(stats, { source, durationSec }));
-    logger.error("Sync detected Plaud API changes", redactError(err));
-    return { status: "failed", summaryMessageId: messageId ?? undefined };
-  }
-
-  await reveal(SYNC_GENERIC_ERROR_HTML);
-  logger.error("Sync failed in bot orchestrator", redactError(err));
-  return { status: "failed", summaryMessageId: messageId ?? undefined };
 }
