@@ -86,11 +86,27 @@ test("resolveFileFolderSegment maps user folders by tag name", () => {
   assert.equal(
     resolveFileFolderSegment({
       folderIds: ["t-qa"],
-      raw: { is_trash: "0" },
+      raw: { is_trash: "0", filetag_id_list: ["t-qa"] },
       tagById,
       unfiledIds: new Set(),
     }),
     "SocServ QA"
+  );
+});
+
+test("resolveFileFolderSegment ignores fan-out folderIds when raw has no tags", () => {
+  const tagById = buildTagByIdMap([
+    { id: "t-dev", name: "SocServ Dev" },
+    { id: "t-qa", name: "SocServ QA" },
+  ]);
+  assert.equal(
+    resolveFileFolderSegment({
+      folderIds: ["t-dev", "t-qa"],
+      raw: { file_id: "abc", is_trash: "0" },
+      tagById,
+      unfiledIds: new Set(),
+    }),
+    PLAUD_FOLDER_UNFILED
   );
 });
 
