@@ -15,6 +15,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import { buildStableId } from "../../plaud-exporter/common/syncCore.js";
 import {
   PLAUD_FOLDER_TRASH,
   PLAUD_FOLDER_UNFILED,
@@ -39,12 +40,18 @@ function makeStubs({ tags, files }) {
   };
 }
 
+function testRecordingId(prefix, index) {
+  const suffix = String(index).padStart(24, "0");
+  return `${prefix}${suffix}`.slice(0, 32);
+}
+
 function recording({ id, title, folderIds = [], isTrash = false, createdAt }) {
+  const resolvedId = id ?? testRecordingId("aa", 0);
   return {
-    id,
+    id: resolvedId,
     title,
     raw: {
-      id,
+      id: resolvedId,
       is_trash: isTrash,
       created_at: createdAt,
       filetag_id_list: folderIds,
@@ -75,16 +82,33 @@ test("loadPlaudLiveSyncTree buckets recordings by Plaud folder, skips 'All files
   ];
   const files = [
     ...Array.from({ length: 10 }, (_, i) =>
-      recording({ id: `dev-${i}`, title: `Dev ${i}`, folderIds: ["dev"] })
+      recording({
+        id: testRecordingId("d1", i),
+        title: `Dev ${i}`,
+        folderIds: ["dev"],
+      })
     ),
     ...Array.from({ length: 24 }, (_, i) =>
-      recording({ id: `cap-${i}`, title: `Cap ${i}`, folderIds: ["cap"] })
+      recording({
+        id: testRecordingId("c1", i),
+        title: `Cap ${i}`,
+        folderIds: ["cap"],
+      })
     ),
     ...Array.from({ length: 14 }, (_, i) =>
-      recording({ id: `u-${i}`, title: `Unfiled ${i}`, folderIds: ["unf"] })
+      recording({
+        id: testRecordingId("u1", i),
+        title: `Unfiled ${i}`,
+        folderIds: ["unf"],
+      })
     ),
     ...Array.from({ length: 16 }, (_, i) =>
-      recording({ id: `t-${i}`, title: `Trash ${i}`, folderIds: ["dev"], isTrash: true })
+      recording({
+        id: testRecordingId("t1", i),
+        title: `Trash ${i}`,
+        folderIds: ["dev"],
+        isTrash: true,
+      })
     ),
   ];
 
@@ -116,13 +140,13 @@ test("loadPlaudLiveSyncTree overlays sync status from the local sync-index", asy
   const tags = [{ id: "dev", name: "SocServ Dev" }];
   const files = [
     recording({
-      id: "abc",
+      id: "abcdef0123456789abcdef0123456789",
       title: "Synced one",
       folderIds: ["dev"],
       createdAt: "2026-05-10T10:00:00.000Z",
     }),
     recording({
-      id: "def",
+      id: "fedcba9876543210fedcba9876543210",
       title: "New one",
       folderIds: ["dev"],
       createdAt: "2026-05-12T10:00:00.000Z",
@@ -130,7 +154,7 @@ test("loadPlaudLiveSyncTree overlays sync status from the local sync-index", asy
   ];
   const syncIndex = {
     records: {
-      "plaud:abc": {
+      "plaud:abcdef0123456789abcdef0123456789": {
         title: "Synced one (local)",
         status: "success",
         summaryPath: "/vault/Plaud/SocServ Dev/2026-05-10 - Synced one.md",
@@ -147,12 +171,18 @@ test("loadPlaudLiveSyncTree overlays sync status from the local sync-index", asy
   });
   assert.ok(live);
 
-  assert.equal(live.records["plaud:abc"].status, "success");
   assert.equal(
-    live.records["plaud:abc"].summaryPath,
+    live.records["plaud:abcdef0123456789abcdef0123456789"].status,
+    "success"
+  );
+  assert.equal(
+    live.records["plaud:abcdef0123456789abcdef0123456789"].summaryPath,
     "/vault/Plaud/SocServ Dev/2026-05-10 - Synced one.md"
   );
-  assert.equal(live.records["plaud:def"].status, "not_synced");
+  assert.equal(
+    live.records["plaud:fedcba9876543210fedcba9876543210"].status,
+    "not_synced"
+  );
 
   const page = buildSyncIndexFolderPage(live, {
     folder: "SocServ Dev",
@@ -164,6 +194,56 @@ test("loadPlaudLiveSyncTree overlays sync status from the local sync-index", asy
   assert.deepEqual(
     page.items.map((it) => it.status),
     ["not_synced", "success"]
+  );
+});
+
+test("loadPlaudLiveSyncTree merges fingerprint stableIds from sync-index", async () => {
+  _resetPlaudLiveTreeCache();
+  const tags = [{ id: "dev", name: "SocServ Dev" }];
+  const fingerprintInput = {
+    sourceUrl: "https://web.plaud.ai/file/current?x=1",
+    audioUrl: "https://api.plaud.ai/audio/object.mp3?signature=temp",
+    title: "Fingerprint meeting",
+    summaryMarkdown: "# Fingerprint meeting\nNotes",
+    raw: {
+      filetag_id_list: ["dev"],
+      created_at: "2026-05-10T10:00:00.000Z",
+    },
+    folderIds: ["dev"],
+    folderSegment: "",
+  };
+  const createdAtIso = "2026-05-10T10:00:00.000Z";
+  const { stableId } = buildStableId({
+    ...fingerprintInput,
+    raw: fingerprintInput.raw,
+    title: String(fingerprintInput.title || "").trim(),
+    createdAt: createdAtIso,
+  });
+  assert.match(stableId, /^fingerprint:/);
+
+  const files = [fingerprintInput];
+  const syncIndex = {
+    records: {
+      [stableId]: {
+        title: "Fingerprint meeting (local)",
+        status: "success",
+        summaryPath: "/vault/Plaud/SocServ Dev/2026-05-10 - Fingerprint meeting.md",
+        lastSyncedAt: "2026-05-10T10:30:00.000Z",
+        folderSegment: "",
+      },
+    },
+  };
+
+  const live = await loadPlaudLiveSyncTree({
+    ...makeStubs({ tags, files }),
+    syncIndex,
+    forceRefresh: true,
+  });
+  assert.ok(live);
+  assert.equal(live.records[stableId].status, "success");
+  assert.equal(
+    live.records[stableId].summaryPath,
+    "/vault/Plaud/SocServ Dev/2026-05-10 - Fingerprint meeting.md"
   );
 });
 
@@ -194,7 +274,7 @@ test("loadPlaudLiveSyncTree returns null when the live fetch throws", async () =
 test("loadPlaudLiveSyncTree caches results across calls inside the TTL", async () => {
   _resetPlaudLiveTreeCache();
   const tags = [{ id: "dev", name: "SocServ Dev" }];
-  const files = [recording({ id: "abc", title: "One", folderIds: ["dev"] })];
+  const files = [recording({ id: testRecordingId("ab", 1), title: "One", folderIds: ["dev"] })];
   let tagCalls = 0;
   let fetchCalls = 0;
 

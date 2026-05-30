@@ -35,6 +35,7 @@ import {
   isAllFilesMetaTag,
   resolveFileFolderSegment,
 } from "../plaud/plaudFolders.js";
+import { buildStableId } from "../../../plaud-exporter/common/syncCore.js";
 
 export const LIVE_TREE_CACHE_TTL_MS = 15_000;
 
@@ -71,10 +72,6 @@ function extractCreatedAtIso(raw) {
     if (iso) return iso;
   }
   return "";
-}
-
-function stableIdForPlaudFile(fileId) {
-  return `plaud:${String(fileId || "").trim().toLowerCase()}`;
 }
 
 async function defaultSessionLoader() {
@@ -165,9 +162,16 @@ export async function loadPlaudLiveSyncTree({
   /** @type {Record<string, LiveTreeRecord>} */
   const records = {};
   for (const file of files || []) {
-    if (!file || !file.id) continue;
-    const stableId = stableIdForPlaudFile(file.id);
-    if (!stableId || stableId === "plaud:") continue;
+    if (!file || typeof file !== "object") continue;
+    const createdAtIso = extractCreatedAtIso(file.raw);
+    const identity = buildStableId({
+      ...file,
+      raw: file.raw,
+      title: String(file.title || "").trim(),
+      createdAt: createdAtIso,
+    });
+    if (identity.identityKind === "missing" || !identity.stableId) continue;
+    const stableId = identity.stableId;
     const folderSegment = resolveFileFolderSegment({
       folderIds: file.folderIds,
       raw: file.raw,
@@ -175,7 +179,6 @@ export async function loadPlaudLiveSyncTree({
       unfiledIds,
       allFilesIds,
     });
-    const createdAtIso = extractCreatedAtIso(file.raw);
     records[stableId] = {
       stableId,
       title: String(file.title || "").trim(),

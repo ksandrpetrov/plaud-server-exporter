@@ -1,8 +1,8 @@
 /**
- * `/file/temp-url/<id>` endpoint — produces a presigned audio download URL
- * and best-effort title hint. Audio download itself is no longer wired into
- * the server CLI (summary-only by default), but this helper is kept for
- * ad-hoc use and parity with the extension.
+ * `/file/temp-url/<id>` endpoint — produces a presigned audio download URL.
+ *
+ * @deprecated Summary-only server exporter; not wired into `runSync`.
+ *   See `server/tests/syncAudioDefault.test.js`. Audio export is extension-only.
  */
 import { fetchPlaudApi } from "./httpTransport.js";
 import { TITLE_KEYS, normalizeHumanTitle } from "./recordingsApi.js";

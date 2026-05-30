@@ -1,4 +1,4 @@
-import { PlaudAuthError } from "../plaud/errors.js";
+import { PlaudAuthError, PlaudChangedError } from "../plaud/errors.js";
 
 export const ERROR_KIND_AUTH = "auth_error";
 export const ERROR_KIND_PLAUD_CHANGED = "plaud_changed";
@@ -37,7 +37,10 @@ export function classifyError(error, context = {}) {
     };
   }
 
-  if (error?.name === "PlaudChangedError" || /unexpected.*(shape|response|payload)/i.test(message)) {
+  if (
+    error instanceof PlaudChangedError ||
+    /unexpected.*(shape|response|payload)/i.test(message)
+  ) {
     return {
       kind: ERROR_KIND_PLAUD_CHANGED,
       stage,

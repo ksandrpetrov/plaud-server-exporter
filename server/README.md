@@ -86,7 +86,7 @@ npm run server:sync
 
 ## Аудио
 
-**Сервер аудио не качает.** Флага `--audio-too` нет. Для аудио используйте Chrome-расширение в [`plaud-exporter/`](../plaud-exporter/) или экспорт с Plaud Web.
+**Сервер аудио не качает.** Флага `--audio-too` нет. `audioApi.js`, `writeAudioFile`, `planAudioPath` помечены `@deprecated` и не подключены к `runSync` (см. `syncAudioDefault.test.js`). Для аудио используйте Chrome-расширение в [`plaud-exporter/`](../plaud-exporter/) или экспорт с Plaud Web.
 
 ## Продакшен на VPS
 

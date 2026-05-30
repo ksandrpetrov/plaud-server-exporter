@@ -46,7 +46,25 @@ Extension отдельно: `cd plaud-exporter && npm run lint && npm test && np
 | [`plaud-exporter/popup/popup.js`](plaud-exporter/popup/popup.js) | ~1.9k | Весь UI попапа и его состояние |
 | [`plaud-exporter/background.js`](plaud-exporter/background.js) | ~1k | MV3 service worker: оркестрация export/sync (downloads — `background/chromeDownloadBridge.js`) |
 
-Средние (500–600 LOC) тоже лучше править прицельно: [`server/src/telegram/messages.js`](server/src/telegram/messages.js), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js).
+Средние (500–600 LOC) тоже лучше править прицельно: [`server/src/telegram/messages/`](server/src/telegram/messages/) (barrel: `messages.js`), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js), [`server/src/telegram/streamingDelivery.js`](server/src/telegram/streamingDelivery.js).
+
+## Telegram module map (server)
+
+| Модуль | Назначение |
+|--------|------------|
+| [`handlers.js`](server/src/telegram/handlers.js) | Barrel: `dispatchUpdate`, `ownerChatId`, re-export command parsers |
+| [`handlers/dispatch.js`](server/src/telegram/handlers/dispatch.js) | `dispatchUpdate`, callback auth gate |
+| [`handlers/messages.js`](server/src/telegram/handlers/messages.js) | `/start`, `/menu`, tree pick by number |
+| [`handlers/callbacks.js`](server/src/telegram/handlers/callbacks.js) | Inline button routing (`routeCallback`) |
+| [`handlers/menu.js`](server/src/telegram/handlers/menu.js) | Main menu screens, interval settings |
+| [`handlers/filesTree.js`](server/src/telegram/handlers/filesTree.js) | Files menu, tree folder callbacks |
+| [`messages/menu.js`](server/src/telegram/messages/menu.js) | Welcome, help, menu header copy |
+| [`messages/sync.js`](server/src/telegram/messages/sync.js) | Sync progress, status, busy toasts |
+| [`messages/files.js`](server/src/telegram/messages/files.js) | Tree/stats HTML, tree line formatting |
+| [`messages/settings.js`](server/src/telegram/messages/settings.js) | Settings screen copy |
+| [`messages/errors.js`](server/src/telegram/messages/errors.js) | Tree/auto-sync error strings |
+| [`plaudLiveTree.js`](server/src/telegram/plaudLiveTree.js) | Live tree; **must** use `syncCore.buildStableId` |
+| [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js) | Manual/scheduled sync UX bridge |
 
 ## Где живёт что
 
@@ -56,7 +74,9 @@ Extension отдельно: `cd plaud-exporter && npm run lint && npm test && np
 | Имя файла, длина пути, санитизация | [`exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) + `filenamePlanner.js` |
 | Папки Plaud / Unfiled / Trash | [`plaudFolders.js`](plaud-exporter/common/plaudFolders.js) |
 | `action` popup ↔ SW ↔ content | [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js) + `tests/runtimeMessages.test.js`; литералы в `popup.js` / `content.js` |
-| Новый Telegram callback / сообщение | `handlers.js` + `messages.js` + `keyboards.js` |
+| Live tree stableId / merge с sync-index | [`plaudLiveTree.js`](server/src/telegram/plaudLiveTree.js) + `syncCore.buildStableId` |
+| Plaud list parsing / mirror fan-out | [`recordingsApi.js`](server/src/plaud/recordingsApi.js) + `recordingsApi.test.js` |
+| Telegram callback + copy | [`handlers/callbacks.js`](server/src/telegram/handlers/callbacks.js) + [`messages/`](server/src/telegram/messages/) + `keyboards.js` |
 | Новая CLI команда | [`server/src/cli/index.js`](server/src/cli/index.js) |
 | Новая env переменная | [`server/src/config/config.js`](server/src/config/config.js) + `.env.example` + `server/README.md` |
 | Классификация ошибки sync | [`errors/errorClassifier.js`](server/src/errors/errorClassifier.js) + `errorReporter.js` + exit codes в README |

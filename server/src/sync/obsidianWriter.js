@@ -7,6 +7,10 @@ import {
 } from "../../../plaud-exporter/common/exportPathUtils.js";
 import { resolveMeetingTitle } from "./filenamePlanner.js";
 
+/**
+ * @deprecated Summary-only server exporter; not wired into `runSync`.
+ *   Kept for path-planning tests only. See `syncAudioDefault.test.js`.
+ */
 export function planAudioPath({ title, extension, folderSegment = "" }) {
   const vault = effectiveVaultRoot();
   const plaudRoot = resolve(vault, config.obsidianSubfolder || "Plaud");
@@ -94,6 +98,10 @@ export async function writeMarkdownFile({ absolutePath, contents, previousAbsolu
   await rename(tmpPath, absolutePath);
 }
 
+/**
+ * @deprecated Summary-only server exporter; not wired into `runSync`.
+ *   See `server/tests/syncAudioDefault.test.js`.
+ */
 export async function writeAudioFile({ absolutePath, url }) {
   const { createWriteStream } = await import("node:fs");
   const { pipeline } = await import("node:stream/promises");

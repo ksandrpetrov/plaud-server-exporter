@@ -5,6 +5,7 @@
  * and the per-folder fan-out the bot/CLI need to discover every recording.
  */
 import { config } from "../config/config.js";
+import { logger } from "../logger.js";
 import { PlaudChangedError } from "./errors.js";
 import { fetchPlaudApi } from "./httpTransport.js";
 import {
@@ -186,14 +187,19 @@ export async function fetchPlaudFiletagList(session) {
   const buckets = [];
   try {
     buckets.push(await fetchPlaudFiletagListWithAuth(session, ua));
-  } catch {
+  } catch (err) {
+    logger.warn("recordingsApi: user-auth filetag list failed", {
+      error: String(err?.message || err),
+    });
     buckets.push([]);
   }
   if (wa && wa !== ua) {
     try {
       buckets.push(await fetchPlaudFiletagListWithAuth(session, wa));
-    } catch {
-      // ignore
+    } catch (err) {
+      logger.warn("recordingsApi: workspace-auth filetag list failed", {
+        error: String(err?.message || err),
+      });
     }
   }
   return mergeFiletagsById(buckets);
@@ -278,7 +284,10 @@ async function enrichFilesWithFolderSegments(session, files) {
   let tags;
   try {
     tags = await fetchPlaudFiletagList(session);
-  } catch {
+  } catch (err) {
+    logger.warn("recordingsApi: filetag list unavailable for folder enrichment", {
+      error: String(err?.message || err),
+    });
     tags = [];
   }
   const tagById = buildTagByIdMap(tags);
@@ -338,7 +347,10 @@ export async function listAllRecordings(session, options = {}) {
   let tags;
   try {
     tags = await fetchPlaudFiletagList(session);
-  } catch {
+  } catch (err) {
+    logger.warn("recordingsApi: filetag list unavailable for folder enrichment", {
+      error: String(err?.message || err),
+    });
     tags = [];
   }
   const tagById = buildTagByIdMap(tags);
@@ -369,8 +381,12 @@ export async function listAllRecordings(session, options = {}) {
         await fetchRecordingsVariant(session, params, { sortBy, ...opts }),
         contextFolderId
       );
-    } catch {
-      // Some query variants are unsupported on certain API builds.
+    } catch (err) {
+      logger.warn("recordingsApi: recordings list variant failed", {
+        params,
+        contextFolderId: contextFolderId || undefined,
+        error: String(err?.message || err),
+      });
     }
   }
 

@@ -468,3 +468,41 @@ test("dispatch: toggling scheduled-summary flips persisted value and re-renders"
     );
   });
 });
+
+test("dispatch: callback routing table reaches known menu actions", async () => {
+  await withOwnerChatDir(async () => {
+    const cases = [
+      { data: "files", expectEdit: true },
+      { data: "files_stats", expectEdit: true },
+      { data: "help", expectEdit: true },
+      { data: "back", expectEdit: true },
+      { data: "settings_interval_60", expectEdit: true },
+    ];
+    for (const { data, expectEdit } of cases) {
+      const tg = makeFakeTelegram();
+      await dispatchUpdate(ctx(tg), privateCallback({ data, from: OWNER }));
+      const edit = tg.calls.some((c) => c.name === "editMessageText");
+      assert.equal(
+        edit,
+        expectEdit,
+        `callback ${data} should ${expectEdit ? "" : "not "}edit the menu bubble`
+      );
+    }
+  });
+});
+
+test("dispatch: files tree folder callback is routed without sendMessage", async () => {
+  await withOwnerChatDir(async () => {
+    const tg = makeFakeTelegram();
+    await dispatchUpdate(
+      ctx(tg),
+      privateCallback({ data: "tf:0:1", from: OWNER })
+    );
+    const sends = tg.calls.filter((c) => c.name === "sendMessage");
+    assert.equal(sends.length, 0, "folder callback must not send a new message");
+    assert.ok(
+      tg.calls.some((c) => c.name === "editMessageText"),
+      "folder callback should edit the existing bubble"
+    );
+  });
+});
