@@ -42,6 +42,6 @@
     "markdownlint-cli2": "^0.22.1",
     "prettier": "^3.8.3",
     "simple-git-hooks": "^2.13.1",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   }
 }
