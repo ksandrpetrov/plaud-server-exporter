@@ -92,10 +92,42 @@ async function applyStealth(context) {
   }
 }
 
+/**
+ * Interactive login needs a desktop Chrome on your Mac. VPS images have no
+ * display and Google blocks headless Chromium sign-in.
+ */
+export function assertInteractiveAuthEnvironment() {
+  const onLinux = process.platform === "linux";
+  const hasDisplay = Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
+  const deployRoot = String(process.env.PLAUD_DEPLOY_ROOT || "").trim();
+  const cwdLooksLikeVps =
+    process.cwd().startsWith("/opt/plaud-server-exporter") ||
+    process.cwd().startsWith("/srv/plaud-exporter");
+
+  if (onLinux && !hasDisplay && (cwdLooksLikeVps || deployRoot)) {
+    throw new Error(
+      "server:auth must run on your Mac (or another machine with Google Chrome and a display), " +
+        "not on the VPS. On Mac: npm run server:auth, then npm run server:push-session. " +
+        "See docs/getting-started.md → «Сессия с Mac»."
+    );
+  }
+}
+
 function explainLaunchFailure(error) {
   const message = String(error?.message || error);
+  const onHeadlessLinux =
+    process.platform === "linux" && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY;
+
   if (/Chromium distribution 'chrome' is not found/i.test(message) ||
       /Executable doesn't exist/i.test(message)) {
+    if (onHeadlessLinux) {
+      return (
+        "Google Chrome is not available on this Linux host (typical for a VPS). " +
+        "Do not run server:auth on the server — run it on your Mac, then deploy the session: " +
+        "npm run server:push-session (or scp server/.data/session.json to the server). " +
+        "Playwright auth on the VPS is unsupported (no display; Google blocks headless sign-in)."
+      );
+    }
     return (
       "Google Chrome was not found locally. Install Chrome from " +
       "https://www.google.com/chrome/ (recommended — Google blocks sign-in " +
@@ -113,6 +145,7 @@ function explainLaunchFailure(error) {
  * @param {{ headless?: boolean; loginTimeoutMs?: number }} [options]
  */
 export async function runInteractiveLogin(options = {}) {
+  assertInteractiveAuthEnvironment();
   const { chromium } = await import("playwright");
   const headless = options.headless ?? false;
   const loginTimeoutMs = options.loginTimeoutMs ?? 10 * 60 * 1000;

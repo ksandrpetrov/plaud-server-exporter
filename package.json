@@ -12,6 +12,7 @@
   ],
   "scripts": {
     "server:auth": "node server/src/cli/index.js auth",
+    "server:push-session": "bash scripts/push-session-to-server.sh",
     "server:sync": "node server/src/cli/index.js sync",
     "server:status": "node server/src/cli/index.js status",
     "server:bot": "node server/src/cli/index.js bot",
