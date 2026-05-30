@@ -8,20 +8,20 @@ useDefault = true
 [allowlist]
 description = "Project-specific allowlist (no real secrets here)."
 paths = [
-  # Example env never holds real credentials; placeholders mimic shapes.
-  '''(^|/)\.env\.example$''',
-  # Documentation references token/cookie patterns purely as examples.
-  '''^docs/''',
-  # Shell smoke tests use intentionally fake credentials like "smoke:token".
-  '''^scripts/docker-smoke-image\.sh$''',
-  '''^scripts/smoke-prod\.sh$''',
+    # Example env never holds real credentials; placeholders mimic shapes.
+    '''(^|/)\.env\.example$''',
+    # Documentation references token/cookie patterns purely as examples.
+    '''^docs/''',
+    # Shell smoke tests use intentionally fake credentials like "smoke:token".
+    '''^scripts/docker-smoke-image\.sh$''',
+    '''^scripts/smoke-prod\.sh$''',
 ]
 
 regexes = [
-  # Container/integration smoke test placeholder for Telegram bot token format.
-  '''smoke:token''',
-  # Placeholder for tests using "Bearer t.t.t".
-  '''Bearer\s+t\.t\.t''',
-  # JSON test fixtures occasionally embed `fake-`/`example-` markers.
-  '''(fake|example|placeholder)-[a-z0-9_-]+''',
+    # Container/integration smoke test placeholder for Telegram bot token format.
+    '''smoke:token''',
+    # Placeholder for tests using "Bearer t.t.t".
+    '''Bearer\s+t\.t\.t''',
+    # JSON test fixtures occasionally embed `fake-`/`example-` markers.
+    '''(fake|example|placeholder)-[a-z0-9_-]+''',
 ]

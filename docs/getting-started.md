@@ -2,20 +2,25 @@
 
 Репозиторий: [github.com/ksandrpetrov/plaud-server-exporter](https://github.com/ksandrpetrov/plaud-server-exporter)
 
-CLI выгружает **саммари** записей Plaud в Markdown для Obsidian. На VPS (например Ubuntu 22.04) расписание держит Telegram-бот (long-polling, один процесс под systemd); вход в Plaud и Playwright — **только на Mac**.
+CLI выгружает **саммари** записей Plaud в Markdown для Obsidian. На VPS (например Ubuntu 22.04) расписание держит
+Telegram-бот (long-polling, один процесс под systemd); вход в Plaud и Playwright — **только на Mac**.
 
-В командах ниже: **`YOUR_SERVER_HOST`** — IP или hostname сервера, **`YOUR_SSH_USER`** — логин SSH (`root`, `ubuntu`, …). Подставляйте свои значения **без угловых скобок** — в zsh `<` означает перенаправление ввода.
+В командах ниже: **`YOUR_SERVER_HOST`** — IP или hostname сервера, **`YOUR_SSH_USER`** — логин SSH (`root`,
+`ubuntu`, …). Подставляйте свои значения **без угловых скобок** — в zsh `<` означает перенаправление ввода.
 
 ---
 
 ## Первый sync вручную
 
-Два сценария: **только Mac** (проверка, что всё работает) и **Mac → сервер** (как в проде). На сервере `server:auth` не запускайте.
+Два сценария: **только Mac** (проверка, что всё работает) и **Mac → сервер** (как в проде). На сервере `server:auth` не
+запускайте.
 
 ### A. Проверка на Mac (без сервера)
 
-1. Клонируйте репозиторий и поставьте зависимости — блок [Mac](#mac) ниже (`git clone`, `npm install`, `npx playwright install chromium`).
-2. Скопируйте `.env.example` в `.env`. Задайте `PLAUD_EXPORT_ROOT` на локальную папку, например `~/plaud-exports`, и `PLAUD_TIMEZONE`.
+1. Клонируйте репозиторий и поставьте зависимости — блок [Mac](#mac) ниже (`git clone`, `npm install`,
+   `npx playwright install chromium`).
+2. Скопируйте `.env.example` в `.env`. Задайте `PLAUD_EXPORT_ROOT` на локальную папку, например `~/plaud-exports`, и
+   `PLAUD_TIMEZONE`.
 3. Создайте каталог выгрузки: `mkdir -p ~/plaud-exports`.
 4. Войдите в Plaud и сохраните сессию:
 
@@ -23,7 +28,8 @@ CLI выгружает **саммари** записей Plaud в Markdown дл�
    npm run server:auth
    ```
 
-   Откроется Chrome → войдите в Plaud (email/Google). Дождитесь сообщения в терминале про успешную валидацию сессии. Файл: `server/.data/session.json`.
+   Откроется Chrome → войдите в Plaud (email/Google). Дождитесь сообщения в терминале про успешную валидацию сессии.
+   Файл: `server/.data/session.json`.
 
 5. Проверьте конфиг и сессию:
 
@@ -51,11 +57,13 @@ CLI выгружает **саммари** записей Plaud в Markdown дл�
 
 ### B. Первый sync на сервере (после установки)
 
-Предполагается, что сервер уже подготовлен: Node 20, пользователь `plaud`, репозиторий в `/srv/plaud-exporter`, `.env` и каталог `exports` — блок [Сервер](#сервер) ниже.
+Предполагается, что сервер уже подготовлен: Node 20, пользователь `plaud`, репозиторий в `/srv/plaud-exporter`, `.env` и
+каталог `exports` — блок [Сервер](#сервер) ниже.
 
 **На Mac** (из корня локального клона):
 
-1. В `.env` на Mac можно оставить тот же `PLAUD_EXPORT_ROOT`, что для проверки; для auth это не критично — важен только `session.json`.
+1. В `.env` на Mac можно оставить тот же `PLAUD_EXPORT_ROOT`, что для проверки; для auth это не критично — важен только
+   `session.json`.
 2. Сохраните сессию:
 
    ```bash
@@ -76,7 +84,8 @@ CLI выгружает **саммари** записей Plaud в Markdown дл�
 
 **На сервере** (под своим SSH-пользователем):
 
-1. Положите сессию в каталог приложения и выставьте права (`install` атомарно проставит владельца `plaud` и режим `600`):
+1. Положите сессию в каталог приложения и выставьте права (`install` атомарно проставит владельца `plaud` и режим
+   `600`):
 
    ```bash
    sudo install -d -o plaud -g plaud -m 700 /srv/plaud-exporter/server/.data
@@ -106,7 +115,11 @@ CLI выгружает **саммари** записей Plaud в Markdown дл�
 
    Код выхода `0`, в каталоге — новые `.md`.
 
-**После успешного ручного sync** включите Telegram-бот как основной сервис — раздел [Сервер: автозапуск через Telegram-бот](#сервер-автозапуск-через-telegram-бот) ниже. Полный чеклист и сценарии обновления — в [server-deploy.md](./server-deploy.md). Альтернатива без Node на хосте — Docker + nginx: [deploy/README.md](../deploy/README.md). Для Obsidian на Mac настройте Syncthing — [obsidian-sync.md](obsidian-sync.md).
+**После успешного ручного sync** включите Telegram-бот как основной сервис —
+раздел [Сервер: автозапуск через Telegram-бот](#сервер-автозапуск-через-telegram-бот) ниже. Полный чеклист и сценарии
+обновления — в [server-deploy.md](./server-deploy.md). Альтернатива без Node на хосте — Docker +
+nginx: [deploy/README.md](../deploy/README.md). Для Obsidian на Mac настройте
+Syncthing — [obsidian-sync.md](obsidian-sync.md).
 
 | Код выхода | Значение                                                     |
 | ---------- | ------------------------------------------------------------ |
@@ -141,7 +154,8 @@ npm run server:status        # сессия и пути
 
 ## Сервер
 
-> Перед деплоем убедитесь, что свежий код запушен в GitHub (`git push origin main` с Mac) — иначе сервер клонирует устаревшую версию без `server:bot`.
+> Перед деплоем убедитесь, что свежий код запушен в GitHub (`git push origin main` с Mac) — иначе сервер клонирует
+> устаревшую версию без `server:bot`.
 
 ```bash
 sudo apt update && sudo apt install -y curl ca-certificates git
@@ -178,7 +192,9 @@ sudo -u plaud mkdir -p /srv/plaud-exporter/exports /srv/plaud-exporter/server/.d
 
 **Сессия с Mac.** В `scp` укажите тот же логин, что и в `ssh` (`YOUR_SSH_USER`, **не** системный `plaud` с `nologin`).
 
-1. Сначала проверьте логин/пароль обычным `ssh` — `scp` использует те же. Если просит пароль и не пускает (`Permission denied, please try again.`) — это **тот самый** пароль, что в `scp`: проверяйте здесь, чтобы не вслепую гадать.
+1. Сначала проверьте логин/пароль обычным `ssh` — `scp` использует те же. Если просит пароль и не пускает (
+   `Permission denied, please try again.`) — это **тот самый** пароль, что в `scp`: проверяйте здесь, чтобы не вслепую
+   гадать.
 
    ```bash
    ssh YOUR_SSH_USER@YOUR_SERVER_HOST 'echo ok'
@@ -190,11 +206,13 @@ sudo -u plaud mkdir -p /srv/plaud-exporter/exports /srv/plaud-exporter/server/.d
    scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
    ```
 
-Чтобы не вводить пароль при каждом обновлении сессии — разово настройте ключ: `ssh-copy-id YOUR_SSH_USER@YOUR_SERVER_HOST` (нужен `~/.ssh/id_*.pub`). После этого `ssh`/`scp` пускают без пароля.
+Чтобы не вводить пароль при каждом обновлении сессии — разово настройте ключ:
+`ssh-copy-id YOUR_SSH_USER@YOUR_SERVER_HOST` (нужен `~/.ssh/id_*.pub`). После этого `ssh`/`scp` пускают без пароля.
 
 Permission denied не уходит — раздел «scp: Permission denied» в [troubleshooting.md](troubleshooting.md).
 
-На сервере (под своим SSH-пользователем, через `sudo`). `install` атомарно проставит владельца и права — каталог `.data` тоже должен принадлежать `plaud`, иначе sync не создаст `sync.lock`:
+На сервере (под своим SSH-пользователем, через `sudo`). `install` атомарно проставит владельца и права — каталог `.data`
+тоже должен принадлежать `plaud`, иначе sync не создаст `sync.lock`:
 
 ```bash
 sudo install -d -o plaud -g plaud -m 700 /srv/plaud-exporter/server/.data
@@ -209,7 +227,8 @@ sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:sync'
 
 ### Сервер: автозапуск через Telegram-бот
 
-Расписание держит бот: один long-running процесс под systemd, никаких `plaud-exporter.timer`. Бот шлёт «отбивки» о каждом синке и принимает ручной запуск с inline-кнопки.
+Расписание держит бот: один long-running процесс под systemd, никаких `plaud-exporter.timer`. Бот шлёт «отбивки» о
+каждом синке и принимает ручной запуск с inline-кнопки.
 
 Добавьте в `/srv/plaud-exporter/.env` (под пользователем `plaud`, права `600`):
 
@@ -223,7 +242,8 @@ BOT_SYNC_INTERVAL_MIN=120
 BOT_LONG_POLL_SEC=30
 ```
 
-Если на сервере уже стоял старый `plaud-exporter.timer` (был раньше в проекте), снимите его перед установкой нового unit'а:
+Если на сервере уже стоял старый `plaud-exporter.timer` (был раньше в проекте), снимите его перед установкой нового
+unit'а:
 
 ```bash
 sudo systemctl disable --now plaud-exporter.timer 2>/dev/null || true
@@ -242,25 +262,38 @@ sudo systemctl enable --now plaud-exporter.service
 systemctl --no-pager status plaud-exporter.service   # Active: active (running)
 ```
 
-Если `npm run | grep server:bot` ничего не вывел — на сервере устаревший клон. Сначала `git pull` (см. «Обновление кода» ниже) или запушьте новые правки с Mac.
+Если `npm run | grep server:bot` ничего не вывел — на сервере устаревший клон. Сначала `git pull` (см. «Обновление кода»
+ниже) или запушьте новые правки с Mac.
 
-После старта отправьте боту `/start` с разрешённого аккаунта — он сохранит `chatId` в `server/.data/owner-chat.json` (`0o600`) и пойдёт по расписанию.
+После старта отправьте боту `/start` с разрешённого аккаунта — он сохранит `chatId` в `server/.data/owner-chat.json` (
+`0o600`) и пойдёт по расписанию.
 
-В меню **📁 Файлы → 🌳 Дерево синка** можно открыть папку и посмотреть пронумерованный список записей; цифрой в чат (1–20 на странице) бот пришлёт уже синхронизированный `.md` как документ. Подробнее — [server/README.md](../server/README.md#telegram-бот).
+В меню **📁 Файлы → 🌳 Дерево синка** можно открыть папку и посмотреть пронумерованный список записей; цифрой в чат (1–20
+на странице) бот пришлёт уже синхронизированный `.md` как документ.
+Подробнее — [server/README.md](../server/README.md#telegram-бот).
 
-Логи: `journalctl -u plaud-exporter.service -n 50` и `/var/log/plaud-exporter/bot.log`. Sync-логи one-shot'а (`plaud-exporter-sync.service`, бэкап-раннер) — `/var/log/plaud-exporter/sync.log`. Детально — в [server-deploy.md](./server-deploy.md).
+Логи: `journalctl -u plaud-exporter.service -n 50` и `/var/log/plaud-exporter/bot.log`. Sync-логи one-shot'а (
+`plaud-exporter-sync.service`, бэкап-раннер) — `/var/log/plaud-exporter/sync.log`. Детально —
+в [server-deploy.md](./server-deploy.md).
 
-**Обновление кода (systemd):** полный чеклист — [server-deploy.md § Обновление кода](./server-deploy.md#обновление-кода) (`stop` → `reset --hard` → `chown` → `npm` → unit + `restart`).
+**Обновление кода (systemd):** полный
+чеклист — [server-deploy.md § Обновление кода](./server-deploy.md#обновление-кода) (`stop` → `reset --hard` → `chown` →
+`npm` → unit + `restart`).
 
-**Docker:** push в `main` собирает образ в GHCR; SSH-deploy в Docker только при `PRODUCTION_DOCKER_DEPLOY=true` — см. [deploy/README.md](../deploy/README.md). Пока бот на **systemd** (`/srv/plaud-exporter`), эту переменную **не** включайте: CI вместо этого крутит job **Deploy to production (systemd)** (см. [server-deploy.md](./server-deploy.md#обновление-кода)).
+**Docker:** push в `main` собирает образ в GHCR; SSH-deploy в Docker только при `PRODUCTION_DOCKER_DEPLOY=true` —
+см. [deploy/README.md](../deploy/README.md). Пока бот на **systemd** (`/srv/plaud-exporter`), эту переменную **не**
+включайте: CI вместо этого крутит job **Deploy to production (systemd)** (
+см. [server-deploy.md](./server-deploy.md#обновление-кода)).
 
-На сервере все `git`/`npm` — от пользователя `plaud` (`sudo -u plaud …`), путь `/srv/plaud-exporter` (Docker bootstrap часто `/opt/plaud-exporter`). Не запускайте `npm run server:auth` на сервере.
+На сервере все `git`/`npm` — от пользователя `plaud` (`sudo -u plaud …`), путь `/srv/plaud-exporter` (Docker bootstrap
+часто `/opt/plaud-exporter`). Не запускайте `npm run server:auth` на сервере.
 
 ---
 
 ## Obsidian на Mac
 
-Папку `/srv/plaud-exporter/exports` синхронизируйте на Mac через [Syncthing](./obsidian-sync.md) и откройте как vault или подпапку vault.
+Папку `/srv/plaud-exporter/exports` синхронизируйте на Mac через [Syncthing](./obsidian-sync.md) и откройте как vault
+или подпапку vault.
 
 ---
 

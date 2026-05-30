@@ -7,8 +7,8 @@ import { logger } from "../logger.js";
 import { redactError } from "../security/redact.js";
 import {
   loadSessionSnapshot,
-  sessionFileInfo,
   removeSessionSnapshot,
+  sessionFileInfo,
 } from "../auth/sessionStore.js";
 import {
   assertSnapshotReadyForApi,
@@ -16,15 +16,16 @@ import {
   describeSnapshot,
 } from "../auth/plaudSessionExtractor.js";
 import { validateSession } from "../plaud/plaudApiClient.js";
-import { runSync, recordAuthError } from "../sync/syncRunner.js";
+import { recordAuthError, runSync } from "../sync/syncRunner.js";
 import { syncIndexInfo } from "../sync/serverSyncIndex.js";
-import { reportError, errorsDirectoryInfo } from "../errors/errorReporter.js";
+import { errorsDirectoryInfo, reportError } from "../errors/errorReporter.js";
 import {
   classifySyncFailure,
   SYNC_FAILURE_AUTH,
   SYNC_FAILURE_LOCK,
   SYNC_FAILURE_PLAUD_CHANGED,
 } from "../sync/syncFailureMapper.js";
+
 function parseArgs(argv) {
   const args = { _: [], flags: {} };
   for (let i = 0; i < argv.length; i++) {

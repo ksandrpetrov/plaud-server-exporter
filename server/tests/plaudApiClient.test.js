@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-
-process.env.PLAUD_MIRROR_FOLDERS = "false";
 import {
   fetchPlaudApi,
   fetchSummaries,
@@ -11,6 +9,8 @@ import {
   PlaudChangedError,
   stripPlaudInlineAssets,
 } from "../src/plaud/plaudApiClient.js";
+
+process.env.PLAUD_MIRROR_FOLDERS = "false";
 
 function makeSession(overrides = {}) {
   return {

@@ -1,4 +1,4 @@
-import { mkdir, writeFile, rename, stat, unlink } from "node:fs/promises";
+import { mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { config, effectiveVaultRoot } from "../config/config.js";
 import {

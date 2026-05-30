@@ -19,7 +19,7 @@ import {
 import { editToMenuScreen, safeSend } from "../botMessageUtils.js";
 import { saveOwnerChat } from "../ownerChat.js";
 import { readStatus } from "../statusReader.js";
-import { usernameFromPayload, userIdFromPayload } from "../auth.js";
+import { userIdFromPayload, usernameFromPayload } from "../auth.js";
 
 export async function handleStart(ctx, { chatId, from }) {
   const username = usernameFromPayload(from);

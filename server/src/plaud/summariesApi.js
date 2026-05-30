@@ -41,6 +41,7 @@ function findSummaryNotes(payload) {
   if (direct.length) return direct;
   const out = [];
   const seen = new Set();
+
   function walk(value) {
     if (!value || typeof value !== "object" || seen.has(value)) return;
     seen.add(value);
@@ -51,6 +52,7 @@ function findSummaryNotes(payload) {
     if (isSummaryLikeNote(value)) out.push(value);
     Object.values(value).forEach(walk);
   }
+
   walk(payload);
   return out;
 }

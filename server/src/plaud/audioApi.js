@@ -5,7 +5,7 @@
  *   See `server/tests/syncAudioDefault.test.js`. Audio export is extension-only.
  */
 import { fetchPlaudApi } from "./httpTransport.js";
-import { TITLE_KEYS, normalizeHumanTitle } from "./recordingsApi.js";
+import { normalizeHumanTitle, TITLE_KEYS } from "./recordingsApi.js";
 
 function looksLikeDownloadUrl(value) {
   if (typeof value !== "string" || !/^https?:\/\//i.test(value)) return false;
@@ -18,6 +18,7 @@ function looksLikeDownloadUrl(value) {
 function extractDownloadUrl(payload) {
   const urls = [];
   const seen = new Set();
+
   function walk(value) {
     if (value == null || seen.has(value)) return;
     if (typeof value === "string") {
@@ -32,6 +33,7 @@ function extractDownloadUrl(payload) {
     }
     Object.values(value).forEach(walk);
   }
+
   walk(payload);
   return urls.find(looksLikeDownloadUrl) || urls[0] || "";
 }
@@ -40,6 +42,7 @@ function extractTitleHintForFile(payload, fileId) {
   const wantId = String(fileId || "").toLowerCase();
   let best = "";
   const seen = new Set();
+
   function walk(value, depth = 0) {
     if (depth > 14 || value == null) return;
     if (typeof value !== "object") return;
@@ -70,6 +73,7 @@ function extractTitleHintForFile(payload, fileId) {
       if (v && typeof v === "object") walk(v, depth + 1);
     }
   }
+
   walk(payload);
   return best;
 }

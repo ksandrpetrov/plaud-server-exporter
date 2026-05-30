@@ -1,4 +1,4 @@
-import { readFile, writeFile, stat, rename } from "node:fs/promises";
+import { readFile, rename, stat, writeFile } from "node:fs/promises";
 import { config } from "../config/config.js";
 import {
   createEmptySyncIndex,

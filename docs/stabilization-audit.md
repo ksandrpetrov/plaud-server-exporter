@@ -5,8 +5,10 @@
 ## Current architecture
 
 - **Root repo** `plaud-server-exporter`: Node 20+ CLI (`server:auth`, `server:sync`, `server:status`, `logout`).
-- **Submodule** `plaud-exporter/`: Chrome extension + shared `common/syncCore.js`, `common/exportPathUtils.js`, `common/plaudFolders.js`.
-- **Server** `server/src/`: Playwright auth, session snapshot, Plaud API client, sync runner, Obsidian writer, filename planner, error reporter, JSON sync-index, run lock.
+- **Submodule** `plaud-exporter/`: Chrome extension + shared `common/syncCore.js`, `common/exportPathUtils.js`,
+  `common/plaudFolders.js`.
+- **Server** `server/src/`: Playwright auth, session snapshot, Plaud API client, sync runner, Obsidian writer, filename
+  planner, error reporter, JSON sync-index, run lock.
 
 No database, queue, or HTTP server — CLI and files only.
 
@@ -42,8 +44,10 @@ No database, queue, or HTTP server — CLI and files only.
 
 - **Server exporter: summary-only only.** No `--audio-too`, no `PLAUD_EXPORT_AUDIO` env, no audio download in `runSync`.
 - `runSync` never calls `/file/temp-url` (covered by `syncAudioDefault.test.js`).
-- Helpers `writeAudioFile`, `planAudioPath`, `fetchAudioUrl` remain in codebase but are **not wired** to sync — intentional simplification; user requirement is no audio by default.
-- **Chrome extension** (`plaud-exporter/`) still has its own audio export; unchanged and tested via `npm run test:submodule`.
+- Helpers `writeAudioFile`, `planAudioPath`, `fetchAudioUrl` remain in codebase but are **not wired** to sync —
+  intentional simplification; user requirement is no audio by default.
+- **Chrome extension** (`plaud-exporter/`) still has its own audio export; unchanged and tested via
+  `npm run test:submodule`.
 
 ## File naming logic
 
@@ -62,7 +66,8 @@ No database, queue, or HTTP server — CLI and files only.
 
 ## Error handling
 
-- **`errorClassifier.js`:** `auth_error`, `plaud_changed`, `network_error`, `rate_limit`, `write_error`, `config_error`, `unknown_error`.
+- **`errorClassifier.js`:** `auth_error`, `plaud_changed`, `network_error`, `rate_limit`, `write_error`, `config_error`,
+  `unknown_error`.
 - **`errorReporter.js`:** human Markdown in `{vault}/_errors/`, redaction, dedupe by `dedupe_key`.
 - **`PlaudChangedError`** on unexpected API list/summary shapes.
 - **Exit codes:** `0` ok, `1` generic, `2` auth, `3` plaud_changed, `4` lock held.
@@ -83,45 +88,46 @@ No database, queue, or HTTP server — CLI and files only.
 
 ## Tests coverage
 
-**127 server tests** (`npm test`), **15 extension tests** (`npm run test:submodule`) — на момент аудита; сейчас `npm test` / `npm run test:submodule` из корня дают больше (см. CI).
+**127 server tests** (`npm test`), **15 extension tests** (`npm run test:submodule`) — на момент аудита; сейчас
+`npm test` / `npm run test:submodule` из корня дают больше (см. CI).
 
-| Area | Coverage |
-|------|----------|
-| Naming | Plaud title, MD heading, boilerplate, forbidden chars, Windows reserved, long RU/EN, emoji, path budget, collisions |
-| Summary-only | Default `runSync` never hits `/file/temp-url` |
-| Sync integration | new / unchanged / updated / rename-only / duplicate titles / restore deleted file / skip bad id / dry-run |
-| Errors | auth + plaud_changed reports, redaction, dedupe, classifier kinds |
-| Lock | parallel run exit 4, dry-run bypass |
-| CLI subprocess | no session → 2, read-only export root |
-| Index | atomic save, `.bak`, load missing |
-| API client | headers, redirect, 401, shape errors |
+| Area             | Coverage                                                                                                            |
+|------------------|---------------------------------------------------------------------------------------------------------------------|
+| Naming           | Plaud title, MD heading, boilerplate, forbidden chars, Windows reserved, long RU/EN, emoji, path budget, collisions |
+| Summary-only     | Default `runSync` never hits `/file/temp-url`                                                                       |
+| Sync integration | new / unchanged / updated / rename-only / duplicate titles / restore deleted file / skip bad id / dry-run           |
+| Errors           | auth + plaud_changed reports, redaction, dedupe, classifier kinds                                                   |
+| Lock             | parallel run exit 4, dry-run bypass                                                                                 |
+| CLI subprocess   | no session → 2, read-only export root                                                                               |
+| Index            | atomic save, `.bak`, load missing                                                                                   |
+| API client       | headers, redirect, 401, shape errors                                                                                |
 
 ## Main risks
 
-| Risk | Impact |
-|------|--------|
-| Plaud API/DOM change | Sync fails; `plaud_changed` in `_errors/`, exit 3 |
-| Token expiry | Auth errors; `server:auth` + `scp` |
-| Lost sync-index | Re-export possible; unchanged content skipped by hash |
-| Concurrent sync (same host) | Exit 4; lock auto-expires |
-| Concurrent sync (NFS, two hosts) | Local lock only — single writer or one timer |
-| Identical titles, different meetings | Collision suffix — OK |
-| Deep `PLAUD_OBSIDIAN_VAULT_PATH` | Very short basenames |
-| 1 GB VPS | No Playwright on server; OOM on `npm install` without swap |
+| Risk                                 | Impact                                                     |
+|--------------------------------------|------------------------------------------------------------|
+| Plaud API/DOM change                 | Sync fails; `plaud_changed` in `_errors/`, exit 3          |
+| Token expiry                         | Auth errors; `server:auth` + `scp`                         |
+| Lost sync-index                      | Re-export possible; unchanged content skipped by hash      |
+| Concurrent sync (same host)          | Exit 4; lock auto-expires                                  |
+| Concurrent sync (NFS, two hosts)     | Local lock only — single writer or one timer               |
+| Identical titles, different meetings | Collision suffix — OK                                      |
+| Deep `PLAUD_OBSIDIAN_VAULT_PATH`     | Very short basenames                                       |
+| 1 GB VPS                             | No Playwright on server; OOM on `npm install` without swap |
 
 ## Refactoring plan
 
-| # | Item | Status |
-|---|------|--------|
-| 1 | Summary-only default + test | ✅ |
-| 2 | Clean Markdown (metadata in index only) | ✅ |
-| 3 | Unified filename planner + path limits | ✅ |
-| 4 | Error reporter + classification + redaction | ✅ |
-| 5 | Atomic sync-index + backup | ✅ |
-| 6 | Run lock + exit 4 | ✅ |
-| 7 | Remove server audio CLI/env (not needed) | ✅ |
-| 8 | Operational docs | ✅ (this pass) |
-| 9 | Chrome extension untouched | ✅ |
+| # | Item                                        | Status        |
+|---|---------------------------------------------|---------------|
+| 1 | Summary-only default + test                 | ✅             |
+| 2 | Clean Markdown (metadata in index only)     | ✅             |
+| 3 | Unified filename planner + path limits      | ✅             |
+| 4 | Error reporter + classification + redaction | ✅             |
+| 5 | Atomic sync-index + backup                  | ✅             |
+| 6 | Run lock + exit 4                           | ✅             |
+| 7 | Remove server audio CLI/env (not needed)    | ✅             |
+| 8 | Operational docs                            | ✅ (this pass) |
+| 9 | Chrome extension untouched                  | ✅             |
 
 ## Acceptance checklist
 

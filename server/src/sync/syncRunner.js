@@ -29,7 +29,7 @@ import {
   updateExistingRecord,
 } from "../../../plaud-exporter/common/syncCore.js";
 import { PLAUD_FOLDER_UNFILED } from "../plaud/plaudFolders.js";
-import { listAllRecordings, fetchSummaries } from "../plaud/plaudApiClient.js";
+import { fetchSummaries, listAllRecordings } from "../plaud/plaudApiClient.js";
 import { loadSyncIndex, saveSyncIndex } from "./serverSyncIndex.js";
 import { buildMarkdownDocument } from "./obsidianWriter.js";
 import {

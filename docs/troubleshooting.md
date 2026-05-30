@@ -17,7 +17,8 @@ Playwright на VPS с 1 GB RAM не запускайте.
 
 ## Изменился API Plaud (код выхода 3)
 
-**Симптомы:** `plaud_changed` в логах, `_errors/*plaud-export-error*.md` со стадией `list-recordings` или `fetch-summary`.
+**Симптомы:** `plaud_changed` в логах, `_errors/*plaud-export-error*.md` со стадией `list-recordings` или
+`fetch-summary`.
 
 **Смысл:** JSON ответа больше не совпадает с ожиданиями `plaudApiClient.js` — нужно обновить код.
 
@@ -41,7 +42,8 @@ npm run server:status   # session.snapshot.present, vaultRoot, exportRoot
 
 ## Нет папки `Plaud/Unfiled/` после sync
 
-Подпапка `Unfiled` создаётся только когда хотя бы одна запись пишется с `folderSegment: "Unfiled"`. Пустая папка заранее не создаётся.
+Подпапка `Unfiled` создаётся только когда хотя бы одна запись пишется с `folderSegment: "Unfiled"`. Пустая папка заранее
+не создаётся.
 
 **Проверка на сервере:**
 
@@ -62,7 +64,8 @@ jq '[.records[] | .folderSegment] | group_by(.) | map({folder: .[0], n: length})
 | Другие папки есть, `Unfiled/` нет                   | В Plaud нет записей в Unfiled                | Нормально: папка появится, когда появится первая такая запись                          |
 | В index много `folderSegment: ""`                   | Mirror off или старый индекс                 | Включить mirror и пересинхронизировать                                                 |
 
-При `PLAUD_MIRROR_FOLDERS=true` записи без пользовательской папки и с виртуальным «All files» должны попадать в `Plaud/Unfiled/`. Файлы из корня `Plaud/` переносятся в `Plaud/Unfiled/` при следующем sync, если mirror включён.
+При `PLAUD_MIRROR_FOLDERS=true` записи без пользовательской папки и с виртуальным «All files» должны попадать в
+`Plaud/Unfiled/`. Файлы из корня `Plaud/` переносятся в `Plaud/Unfiled/` при следующем sync, если mirror включён.
 
 ## Файлы не появляются
 
@@ -100,7 +103,8 @@ ls -la "$PLAUD_EXPORT_ROOT/Plaud"
 Если дубликаты появились:
 
 1. Проверьте, что `server/.data/sync-index.json` существует и доступен на запись.
-2. Битый индекс — восстановите из `sync-index.json.bak` или примите разовый повторный экспорт (неизменённые хеши всё равно пропустятся).
+2. Битый индекс — восстановите из `sync-index.json.bak` или примите разовый повторный экспорт (неизменённые хеши всё
+   равно пропустятся).
 3. Два разных stable id с одним названием → два файла по задумке.
 
 ## Google блокирует вход при `server:auth`
@@ -114,7 +118,8 @@ npm run server:auth
 
 ## scp: Permission denied
 
-Проблема уровня SSH — тот же логин, что `ssh YOUR_SSH_USER@YOUR_SERVER_HOST`. Настройте `ssh-copy-id`. В командах не используйте угловые скобки (`<user>` ломает zsh).
+Проблема уровня SSH — тот же логин, что `ssh YOUR_SSH_USER@YOUR_SERVER_HOST`. Настройте `ssh-copy-id`. В командах не
+используйте угловые скобки (`<user>` ломает zsh).
 
 ## EACCES sync.lock на сервере
 
@@ -133,23 +138,28 @@ Sync всегда от пользователя `plaud`, не от root.
 
 ## Sync уже выполняется (код выхода 4)
 
-Другой sync держит `sync.lock` — это может быть Telegram-бот (авто- или ручной синк) или параллельный `npm run server:sync`. Дождитесь завершения или удалите устаревший lock, если процесс умер:
+Другой sync держит `sync.lock` — это может быть Telegram-бот (авто- или ручной синк) или параллельный
+`npm run server:sync`. Дождитесь завершения или удалите устаревший lock, если процесс умер:
 
 ```bash
 sudo rm -f /srv/plaud-exporter/server/.data/sync.lock
 ```
 
-Lock снимается автоматически через 2 часа или если PID мёртв. Не запускайте `server:sync` вручную одновременно с активным ботом без необходимости.
+Lock снимается автоматически через 2 часа или если PID мёртв. Не запускайте `server:sync` вручную одновременно с
+активным ботом без необходимости.
 
 ## Telegram-бот
 
 ### Бот мёртв после push в `main` / CI Deploy (`inactive`, `disabled`)
 
-**Симптомы:** `systemctl status plaud-exporter.service` → `inactive (dead)`, `disabled`; в journal — штатный `SIGTERM` около времени GitHub Actions Deploy; `/opt/plaud-exporter` нет.
+**Симптомы:** `systemctl status plaud-exporter.service` → `inactive (dead)`, `disabled`; в journal — штатный `SIGTERM`
+около времени GitHub Actions Deploy; `/opt/plaud-exporter` нет.
 
-**Причина:** workflow Deploy раньше останавливал и **отключал** systemd **до** проверки Docker. Если Ansible/bootstrap не делали, бот оставался выключенным.
+**Причина:** workflow Deploy раньше останавливал и **отключал** systemd **до** проверки Docker. Если Ansible/bootstrap
+не делали, бот оставался выключенным.
 
-**Сейчас в репо:** deploy по SSH только при `PRODUCTION_DOCKER_DEPLOY=true`; скрипт не трогает systemd, пока нет `docker-compose.yml`, и откатывает systemd при сбое до healthz.
+**Сейчас в репо:** deploy по SSH только при `PRODUCTION_DOCKER_DEPLOY=true`; скрипт не трогает systemd, пока нет
+`docker-compose.yml`, и откатывает systemd при сбое до healthz.
 
 **Поднять systemd снова (ваш случай):**
 
@@ -159,13 +169,15 @@ sudo systemctl start plaud-exporter.service
 sudo systemctl status plaud-exporter.service --no-pager -l
 ```
 
-Путь к коду смотрите в unit: `systemctl cat plaud-exporter.service | grep WorkingDirectory` (у вас может быть `/opt/plaud-server-exporter`, не `/srv/plaud-exporter`).
+Путь к коду смотрите в unit: `systemctl cat plaud-exporter.service | grep WorkingDirectory` (у вас может быть
+`/opt/plaud-server-exporter`, не `/srv/plaud-exporter`).
 
 Пока остаётесь на systemd — **не** включайте `PRODUCTION_DOCKER_DEPLOY` в GitHub Variables.
 
 ### `Missing script: "server:bot"`
 
-На сервере устаревший клон — нет скрипта в `package.json`. С Mac: `git push origin main`. На сервере — [server-deploy.md § Обновление кода](./server-deploy.md#обновление-кода) (не только `git pull`).
+На сервере устаревший клон — нет скрипта в `package.json`. С Mac: `git push origin main`. На
+сервере — [server-deploy.md § Обновление кода](./server-deploy.md#обновление-кода) (не только `git pull`).
 
 ### Сервис не стартует / сразу падает (код 2)
 
@@ -177,7 +189,9 @@ sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
 journalctl -u plaud-exporter.service -n 30 --no-pager
 ```
 
-Нужны `TELEGRAM_BOT_TOKEN` и хотя бы одно из `TELEGRAM_ALLOWED_USER_ID` / `TELEGRAM_ALLOWED_USERNAME`. Без них `server:bot` завершается с кодом `2`. Если задан только username — будет warning «add TELEGRAM_ALLOWED_USER_ID», бот при этом стартует.
+Нужны `TELEGRAM_BOT_TOKEN` и хотя бы одно из `TELEGRAM_ALLOWED_USER_ID` / `TELEGRAM_ALLOWED_USERNAME`. Без них
+`server:bot` завершается с кодом `2`. Если задан только username — будет warning «add TELEGRAM_ALLOWED_USER_ID», бот при
+этом стартует.
 
 ### Бот молчит после `/start`
 
@@ -185,12 +199,15 @@ journalctl -u plaud-exporter.service -n 30 --no-pager
 2. `TELEGRAM_ALLOWED_USER_ID` в `.env` совпадает с вашим Telegram user_id (узнать через `@userinfobot`).
 3. Username в `.env` — **без `@`**, lowercase, тот же, что в Telegram (если задан).
 4. Сервис running: `systemctl status plaud-exporter.service`.
-5. После первого `/start` должен появиться `server/.data/owner-chat.json` (`0o600`). Если файла нет — смотрите `bot.log` на ошибки API Telegram или строки `Silently ignored …` (увидите, кто и почему был отброшен).
+5. После первого `/start` должен появиться `server/.data/owner-chat.json` (`0o600`). Если файла нет — смотрите `bot.log`
+   на ошибки API Telegram или строки `Silently ignored …` (увидите, кто и почему был отброшен).
 6. Перепривязка: [server-deploy.md](./server-deploy.md#сброс-owner-chat).
 
 ### Кнопки sync не работают / «чужой» бот
 
-Команды и callback’и принимаются только при совпадении `chat.type === "private"`, `from.id === TELEGRAM_ALLOWED_USER_ID` и (если задано) `from.username === TELEGRAM_ALLOWED_USERNAME`. Остальные апдейты молча отбрасываются — в `bot.log` будет `Silently ignored …` с причиной.
+Команды и callback’и принимаются только при совпадении `chat.type === "private"`, `from.id === TELEGRAM_ALLOWED_USER_ID`
+и (если задано) `from.username === TELEGRAM_ALLOWED_USERNAME`. Остальные апдейты молча отбрасываются — в `bot.log` будет
+`Silently ignored …` с причиной.
 
 ### Старый `plaud-exporter.timer` всё ещё запускает sync
 
@@ -220,7 +237,8 @@ sudo -u plaud git -C /srv/plaud-exporter status
 
 **Симптомы:** в логах `Persistence is empty but backup files exist`, синк не идёт, `/start` как с нуля.
 
-**Причина:** named volume `plaud-exporter_app-data` пустой, а старые JSON лежат в `/srv/plaud-exporter/server/.data/` (systemd).
+**Причина:** named volume `plaud-exporter_app-data` пустой, а старые JSON лежат в `/srv/plaud-exporter/server/.data/` (
+systemd).
 
 **Исправление (один раз на сервере):**
 
@@ -228,7 +246,8 @@ sudo -u plaud git -C /srv/plaud-exporter status
 sudo bash /path/to/repo/scripts/migrate-legacy-data.sh
 ```
 
-CI deploy (`scripts/ci-deploy-remote.sh`) намеренно падает, если на хосте больше JSON-файлов, чем в volume — не копируйте `.data` вручную поверх свежего volume.
+CI deploy (`scripts/ci-deploy-remote.sh`) намеренно падает, если на хосте больше JSON-файлов, чем в volume — не
+копируйте `.data` вручную поверх свежего volume.
 
 ## Публичный `/healthz` отдаёт HTML главной страницы
 

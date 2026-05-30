@@ -1,4 +1,4 @@
-import { mkdir, readFile, chmod, stat, unlink } from "node:fs/promises";
+import { chmod, mkdir, readFile, stat, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
 import { config } from "../config/config.js";
 import { writeJsonAtomic } from "../util/atomicJson.js";

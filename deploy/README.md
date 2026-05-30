@@ -1,6 +1,7 @@
 # Production deploy (Docker)
 
-Host nginx terminates TLS on `:443`. The bot runs in Docker with HTTP on **loopback only** (`127.0.0.1:WEBAPP_HOST_PORT` → container `:8080`).
+Host nginx terminates TLS on `:443`. The bot runs in Docker with HTTP on **loopback only** (
+`127.0.0.1:WEBAPP_HOST_PORT` → container `:8080`).
 
 ## Modes (pick one)
 
@@ -13,16 +14,19 @@ Never run both with the same `TELEGRAM_BOT_TOKEN`.
 
 ## First-time bootstrap (Ansible)
 
-1. Copy `deploy/ansible/inventory.example.yml` → `deploy/ansible/inventory.yml` and fill secrets (no quotes around `TELEGRAM_BOT_TOKEN`).
+1. Copy `deploy/ansible/inventory.example.yml` → `deploy/ansible/inventory.yml` and fill secrets (no quotes around
+   `TELEGRAM_BOT_TOKEN`).
 2. From repo root:
 
 ```bash
 make deploy
 ```
 
-This installs Docker, disables `plaud-exporter.service`, renders `/opt/plaud-exporter/.env`, and starts the stack (`app_image_source: build` builds on the server).
+This installs Docker, disables `plaud-exporter.service`, renders `/opt/plaud-exporter/.env`, and starts the stack (
+`app_image_source: build` builds on the server).
 
-1. Add nginx fragment from [deploy/nginx/plaud-exporter-webapp.conf.example](nginx/plaud-exporter-webapp.conf.example) to your existing `server { listen 443 ssl; ... }`, then `sudo nginx -t && sudo systemctl reload nginx`.
+1. Add nginx fragment from [deploy/nginx/plaud-exporter-webapp.conf.example](nginx/plaud-exporter-webapp.conf.example)
+   to your existing `server { listen 443 ssl; ... }`, then `sudo nginx -t && sudo systemctl reload nginx`.
 
 ## systemd → Docker migration
 
@@ -32,23 +36,31 @@ If the bot previously wrote state to `/srv/plaud-exporter/server/.data/` and the
 sudo bash /opt/plaud-exporter/src/scripts/migrate-legacy-data.sh
 ```
 
-Rolling deploy from CI **refuses** to proceed if host `.data` has more JSON files than the volume (see `scripts/ci-deploy-remote.sh`).
+Rolling deploy from CI **refuses** to proceed if host `.data` has more JSON files than the volume (see
+`scripts/ci-deploy-remote.sh`).
 
 ## Rolling deploy (CI / manual)
 
-GitHub Actions on `push` to `main` builds `ghcr.io/<owner>/<repo>:sha-<short>`, runs image smoke, then **optionally** SSH deploy.
+GitHub Actions on `push` to `main` builds `ghcr.io/<owner>/<repo>:sha-<short>`, runs image smoke, then **optionally**
+SSH deploy.
 
-**Important:** production SSH deploy is **opt-in**. In the repo (Settings → Secrets and variables → Actions → **Variables**), set:
+**Important:** production SSH deploy is **opt-in**. In the repo (Settings → Secrets and variables → Actions → \*
+\*Variables\*\*), set:
 
 | Variable                   | Value  | Meaning                                                |
 | -------------------------- | ------ | ------------------------------------------------------ |
 | `PRODUCTION_DOCKER_DEPLOY` | `true` | Run deploy job after `make deploy` / Ansible bootstrap |
 
-If this variable is unset or not `true`, CI still builds and smoke-tests the image, then runs **systemd SSH deploy** (`scripts/ci-deploy-systemd-remote.sh`): `git reset --hard origin/main`, `npm install`, `systemctl restart plaud-exporter.service` on `/srv/plaud-exporter` (override with variable `DEPLOY_REPO_DIR`). Set `PRODUCTION_DOCKER_DEPLOY=true` only after Ansible bootstrap under `/opt/plaud-exporter` — then systemd auto-deploy is skipped.
+If this variable is unset or not `true`, CI still builds and smoke-tests the image, then runs **systemd SSH deploy** (
+`scripts/ci-deploy-systemd-remote.sh`): `git reset --hard origin/main`, `npm install`,
+`systemctl restart plaud-exporter.service` on `/srv/plaud-exporter` (override with variable `DEPLOY_REPO_DIR`). Set
+`PRODUCTION_DOCKER_DEPLOY=true` only after Ansible bootstrap under `/opt/plaud-exporter` — then systemd auto-deploy is
+skipped.
 
 `ci-deploy-remote.sh` also skips safely when `${DEPLOY_DIR}/docker-compose.yml` is missing (exit 0, systemd untouched).
 
-Secrets (only when Docker deploy enabled): `DEPLOY_HOST`, `DEPLOY_USER`, `SSH_PRIVATE_KEY`; optional `SSH_KNOWN_HOSTS`, `GHCR_PULL_TOKEN`.  
+Secrets (only when Docker deploy enabled): `DEPLOY_HOST`, `DEPLOY_USER`, `SSH_PRIVATE_KEY`; optional `SSH_KNOWN_HOSTS`,
+`GHCR_PULL_TOKEN`.  
 Variable: `SMOKE_PUBLIC_BASE_URL` (public HTTPS base for `make smoke-prod`).
 
 Manual:

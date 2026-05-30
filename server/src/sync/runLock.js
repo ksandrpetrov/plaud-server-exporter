@@ -11,7 +11,7 @@
  * owning PID is dead (signal 0 throws ESRCH) or it has been held longer
  * than `STALE_LOCK_MAX_AGE_MS`.
  */
-import { mkdir, readFile, unlink, stat, open } from "node:fs/promises";
+import { mkdir, open, readFile, stat, unlink } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { hostname } from "node:os";
 import { config } from "../config/config.js";

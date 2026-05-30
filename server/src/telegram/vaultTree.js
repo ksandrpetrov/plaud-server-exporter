@@ -10,16 +10,17 @@
  */
 
 import { basename, dirname, relative } from "node:path";
+import {
+  PLAUD_FOLDER_TRASH,
+  PLAUD_FOLDER_UNFILED,
+} from "../plaud/plaudFolders.js";
+
 export {
   MAX_RECENT_FILES,
   MAX_VAULT_DEPTH,
   MAX_VAULT_FILES_SCANNED,
   scanVaultSummary,
 } from "../sync/vaultDiskScan.js";
-import {
-  PLAUD_FOLDER_TRASH,
-  PLAUD_FOLDER_UNFILED,
-} from "../plaud/plaudFolders.js";
 
 export const MAX_TREE_ROWS = 30;
 

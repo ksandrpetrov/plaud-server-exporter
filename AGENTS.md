@@ -1,13 +1,17 @@
 # AGENTS.md — карта репо для AI-агентов
 
-Цель: за 60 секунд понять, **что трогать** и **что не трогать** при изменениях. Подробности — в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Цель: за 60 секунд понять, **что трогать** и **что не трогать** при изменениях. Подробности —
+в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Что это
 
 Монорепозиторий с двумя средами выполнения и одним общим контрактом:
 
-- `server/` — Node 20+ ESM CLI + Telegram-бот (long-polling). Точка входа: [`server/src/cli/index.js`](server/src/cli/index.js); бот: [`server/src/telegram/index.js`](server/src/telegram/index.js).
-- `plaud-exporter/` — Chrome MV3 расширение. **Не** git-submodule, вендорный код в монорепо. Точки входа: `background.js`, `content.js`, `popup/`.
+- `server/` — Node 20+ ESM CLI + Telegram-бот (long-polling). Точка входа: [
+  `server/src/cli/index.js`](server/src/cli/index.js); бот: [
+  `server/src/telegram/index.js`](server/src/telegram/index.js).
+- `plaud-exporter/` — Chrome MV3 расширение. **Не** git-submodule, вендорный код в монорепо. Точки входа:
+  `background.js`, `content.js`, `popup/`.
 - `docs/`, `deploy/`, `scripts/` — документация, systemd/Docker/Ansible, верификация, `ci-deploy-remote.sh`.
 
 Сервер **не** качает аудио (только саммари). Расширение — качает и то и другое.
@@ -22,9 +26,12 @@
 | [`plaud-exporter/common/plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js) | `plaud-exporter/tests/plaudRecordingIds.test.js` + `server/tests/plaudRecordingIds.test.js`; consumers: `recordingsApi.js`, `plaudRecordingIdScraper.js` |
 | [`plaud-exporter/common/plaudTitles.js`](plaud-exporter/common/plaudTitles.js)             | `plaud-exporter/tests/plaudTitles.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js`, `summariesApi.js`    |
 
-Список захардкожен в [`scripts/verify-submodule.js`](scripts/verify-submodule.js). `npm run verify` проверяет существование файлов и что все относительные импорты `server/src/...` резолвятся.
+Список захардкожен в [`scripts/verify-submodule.js`](scripts/verify-submodule.js). `npm run verify` проверяет
+существование файлов и что все относительные импорты `server/src/...` резолвятся.
 
-Остальные `plaud-exporter/common/*` (`runtimeMessages.js`, `storageUtils.js`, `domUtils.js`, `uiComponents.js`, `plaud-i18n-messages.js`) — **только** для расширения, server их не трогает. Модули `plaud-exporter/background/*` — тоже только SW.
+Остальные `plaud-exporter/common/*` (`runtimeMessages.js`, `storageUtils.js`, `domUtils.js`, `uiComponents.js`,
+`plaud-i18n-messages.js`) — **только** для расширения, server их не трогает. Модули `plaud-exporter/background/*` — тоже
+только SW.
 
 ## Команды (из корня)
 
@@ -46,7 +53,14 @@ npm run test:extension   # extension tests (alias: test:submodule)
 npm run test:coverage    # lcov + thresholds (требует Node 22+)
 ```
 
-Extension отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`. CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — матрица Node 20 + 22, переиспользует reusable [`.github/workflows/checks.yml`](.github/workflows/checks.yml) и параллельный [`.github/workflows/infra-lint.yml`](.github/workflows/infra-lint.yml) (actionlint/shellcheck/hadolint/markdownlint); [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) + [`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — security gate; [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — образ GHCR + опциональный Docker deploy (`PRODUCTION_DOCKER_DEPLOY`). Подробности и список required checks — в [docs/quality-gate.md](docs/quality-gate.md).
+Extension отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`. CI ([
+`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — матрица Node 20 + 22, переиспользует reusable [
+`.github/workflows/checks.yml`](.github/workflows/checks.yml) и параллельный [
+`.github/workflows/infra-lint.yml`](.github/workflows/infra-lint.yml) (actionlint/shellcheck/hadolint/markdownlint); [
+`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) + [
+`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — security gate; [
+`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — образ GHCR + опциональный Docker deploy (
+`PRODUCTION_DOCKER_DEPLOY`). Подробности и список required checks — в [docs/quality-gate.md](docs/quality-gate.md).
 
 ## Файлы, которые нельзя трогать целиком без плана
 
@@ -58,9 +72,17 @@ Extension отдельно: `cd plaud-exporter && npm run lint && npm test && np
 | [`plaud-exporter/popup/popup.js`](plaud-exporter/popup/popup.js)                                           | ~1.9k | Весь UI попапа и его состояние                                                                 |
 | [`plaud-exporter/background.js`](plaud-exporter/background.js)                                             | ~1k   | MV3 service worker: оркестрация export/sync (downloads — `background/chromeDownloadBridge.js`) |
 
-Средние (500–600 LOC) тоже лучше править прицельно: [`server/src/telegram/messages/`](server/src/telegram/messages/) (barrel: `messages.js`), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js), [`server/src/telegram/syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js).
+Средние (500–600 LOC) тоже лучше править прицельно: [`server/src/telegram/messages/`](server/src/telegram/messages/) (
+barrel: `messages.js`), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [
+`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [
+`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js), [
+`server/src/telegram/syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js).
 
-Streaming Telegram (draft/progress/typewriter): barrel [`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js), [`streaming/typewriter.js`](server/src/telegram/streaming/typewriter.js), [`streaming/loadingPulse.js`](server/src/telegram/streaming/loadingPulse.js).
+Streaming Telegram (draft/progress/typewriter): barrel [
+`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [
+`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js), [
+`streaming/typewriter.js`](server/src/telegram/streaming/typewriter.js), [
+`streaming/loadingPulse.js`](server/src/telegram/streaming/loadingPulse.js).
 
 ## Telegram module map (server)
 
@@ -119,15 +141,18 @@ Streaming Telegram (draft/progress/typewriter): barrel [`streamingDelivery.js`](
 
 ## Коды выхода CLI
 
-`0` ок, `1` ошибки sync, `2` нет/битая сессия (или нет `TELEGRAM_BOT_TOKEN` для `bot`), `3` API Plaud изменился (`PlaudChangedError`), `4` другой sync держит lock.
+`0` ок, `1` ошибки sync, `2` нет/битая сессия (или нет `TELEGRAM_BOT_TOKEN` для `bot`), `3` API Plaud изменился (
+`PlaudChangedError`), `4` другой sync держит lock.
 
 ## Чего точно не делать
 
 - Не качать аудио на сервере — `runSync` summary-only по дизайну (тест `syncAudioDefault.test.js`).
 - Не запускать Playwright на VPS — auth только на Mac.
-- Не дублировать решения sync в `audioExport.js` или `syncRunner.js` — они должны звать `determineSyncAction` из `syncCore.js`.
+- Не дублировать решения sync в `audioExport.js` или `syncRunner.js` — они должны звать `determineSyncAction` из
+  `syncCore.js`.
 - Не вводить параллельные реализации логики папок — всё через `plaudFolders.js`.
-- Не менять протокол `action` точечно: константа в [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js), wiring в sender/handler, `npm test` в `plaud-exporter` (в т.ч. `runtimeMessages.test.js`).
+- Не менять протокол `action` точечно: константа в [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js),
+  wiring в sender/handler, `npm test` в `plaud-exporter` (в т.ч. `runtimeMessages.test.js`).
 
 ## Backlog (вне текущего server-рефактора)
 

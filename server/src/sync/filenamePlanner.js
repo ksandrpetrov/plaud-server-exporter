@@ -1,4 +1,4 @@
-import { join, resolve, relative } from "node:path";
+import { join, relative, resolve } from "node:path";
 import {
   extractTitleFromMarkdown,
   isBoilerplateTitle,

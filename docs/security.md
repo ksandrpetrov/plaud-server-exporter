@@ -12,7 +12,8 @@
 | `server/.data/telegram-offset.json` | Смещение `getUpdates` (не секрет, но локальное состояние)                                                           | рекомендуется `600`  |
 | `server/.data/sync-index.json`      | Пути, хеши, названия — не токены                                                                                    | рекомендуется `600`  |
 
-**Не коммитьте:** `.env`, `session.json`, `playwright-profile/`, `owner-chat.json`, деревья экспорта с реальными данными.
+**Не коммитьте:** `.env`, `session.json`, `playwright-profile/`, `owner-chat.json`, деревья экспорта с реальными
+данными.
 
 `TELEGRAM_BOT_TOKEN` храните только в `.env` на сервере. При утечке — отзовите токен в @BotFather и выпустите новый.
 
@@ -26,21 +27,32 @@
 - строки в формате JWT и длинные hex-секреты
 - токены Telegram (`123456789:AAF…`) и URL `api.telegram.org/bot…`
 
-Для диагностики используйте `/var/log/plaud-exporter/bot.log` и `sync.log` после сбоя — не вставляйте сырой `session.json` и не копируйте `.env` целиком.
+Для диагностики используйте `/var/log/plaud-exporter/bot.log` и `sync.log` после сбоя — не вставляйте сырой
+`session.json` и не копируйте `.env` целиком.
 
 ## Доступ к Telegram-боту
 
-Бот защищён тремя независимыми проверками — все три должны пройти, иначе апдейт молча отбрасывается без единой реакции в Telegram:
+Бот защищён тремя независимыми проверками — все три должны пройти, иначе апдейт молча отбрасывается без единой реакции в
+Telegram:
 
-1. **`chat.type === "private"`** — бот работает только в личке. Сообщения и нажатия кнопок из групп/каналов/супергрупп игнорируются. Это закрывает сценарий «бот добавлен в группу → автоматический синк-репорт уходит всем участникам».
-2. **`from.id === TELEGRAM_ALLOWED_USER_ID`** — стабильный числовой id владельца. Telegram-username можно сдать и кто-то его перехватит; user_id не меняется. Узнать свой id: `@userinfobot` или `getUpdates` после первого `/start`.
-3. **`from.username === TELEGRAM_ALLOWED_USERNAME`** (опционально, защита-в-глубину) — если задан вместе с `TELEGRAM_ALLOWED_USER_ID`, должны совпасть **оба**. Только username (без id) тоже поддерживается, но при старте логируется warning — рекомендация задать id.
+1. **`chat.type === "private"`** — бот работает только в личке. Сообщения и нажатия кнопок из групп/каналов/супергрупп
+   игнорируются. Это закрывает сценарий «бот добавлен в группу → автоматический синк-репорт уходит всем участникам».
+2. **`from.id === TELEGRAM_ALLOWED_USER_ID`** — стабильный числовой id владельца. Telegram-username можно сдать и кто-то
+   его перехватит; user_id не меняется. Узнать свой id: `@userinfobot` или `getUpdates` после первого `/start`.
+3. **`from.username === TELEGRAM_ALLOWED_USERNAME`** (опционально, защита-в-глубину) — если задан вместе с
+   `TELEGRAM_ALLOWED_USER_ID`, должны совпасть **оба**. Только username (без id) тоже поддерживается, но при старте
+   логируется warning — рекомендация задать id.
 
-`/start` и `/help` от посторонних теперь **молчат** (раньше отвечали `BOT_PRIVATE_HINT`). Команды бота, callback’и инлайн-кнопок, отправка `.md`-файлов через дерево синка — всё закрыто за этими тремя проверками.
+`/start` и `/help` от посторонних теперь **молчат** (раньше отвечали `BOT_PRIVATE_HINT`). Команды бота, callback’и
+инлайн-кнопок, отправка `.md`-файлов через дерево синка — всё закрыто за этими тремя проверками.
 
-Первый `/start` от владельца **в личном чате** записывает `{chatId, username, userId}` в `owner-chat.json`. Файл **пиннится** к этому `chatId`: повторный `/start` из другого чата (например, из группы или под перехваченным username) отвергается — `saveOwnerChat` возвращает `{ status: "rejected" }` и пишет warning в лог. Это значит, что даже если кто-то заберёт username, он не сможет сдвинуть scheduled-синки на свой чат, не получив физического доступа к серверу.
+Первый `/start` от владельца **в личном чате** записывает `{chatId, username, userId}` в `owner-chat.json`. Файл \*
+\*пиннится\*\* к этому `chatId`: повторный `/start` из другого чата (например, из группы или под перехваченным username)
+отвергается — `saveOwnerChat` возвращает `{ status: "rejected" }` и пишет warning в лог. Это значит, что даже если
+кто-то заберёт username, он не сможет сдвинуть scheduled-синки на свой чат, не получив физического доступа к серверу.
 
-Перепривязка чата: удалите `owner-chat.json`, перезапустите бот, снова `/start`. См. [server-deploy.md](./server-deploy.md#сброс-owner-chat).
+Перепривязка чата: удалите `owner-chat.json`, перезапустите бот, снова `/start`.
+См. [server-deploy.md](./server-deploy.md#сброс-owner-chat).
 
 ## Обновить сессию
 
@@ -55,7 +67,8 @@ scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
 После замены сессии перезапустите бот:
 
 - systemd: `sudo systemctl restart plaud-exporter.service`
-- Docker: `cd /opt/plaud-exporter && docker compose restart` (или `docker compose up -d` после смены `session.json` в volume)
+- Docker: `cd /opt/plaud-exporter && docker compose restart` (или `docker compose up -d` после смены `session.json` в
+  volume)
 
 ## Удалить сессию
 
@@ -75,7 +88,8 @@ rm -rf server/.data/playwright-profile
 2. Смените пароль Plaud в веб-интерфейсе.
 3. Снова `server:auth` и разверните новый `session.json`.
 
-Если утёк `TELEGRAM_BOT_TOKEN` — отзовите в BotFather, обновите `.env`, перезапустите бот (systemd или `docker compose` — см. выше).
+Если утёк `TELEGRAM_BOT_TOKEN` — отзовите в BotFather, обновите `.env`, перезапустите бот (systemd или
+`docker compose` — см. выше).
 
 ## Безопасная работа на сервере
 

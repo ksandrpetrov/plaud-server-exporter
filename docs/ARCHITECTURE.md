@@ -1,6 +1,8 @@
 # Архитектура Plaud Server Exporter
 
-Один git-репозиторий, две среды выполнения (Node CLI + Chrome MV3), и небольшой набор общих чистых модулей. Цель документа — дать новому разработчику (или AI-агенту) карту кода за минуту: где что лежит, какие файлы общие, и что трогать при изменении X.
+Один git-репозиторий, две среды выполнения (Node CLI + Chrome MV3), и небольшой набор общих чистых модулей. Цель
+документа — дать новому разработчику (или AI-агенту) карту кода за минуту: где что лежит, какие файлы общие, и что
+трогать при изменении X.
 
 ## Карта репозитория
 
@@ -34,7 +36,9 @@ plaud-server-exporter/
 
 ## Общий код (shared common)
 
-Пять файлов — формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и оба набора тестов. Список зафиксирован в [`scripts/verify-submodule.js`](../scripts/verify-submodule.js) (`REQUIRED_SUBMODULE_FILES`).
+Пять файлов — формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и оба набора
+тестов. Список зафиксирован в [`scripts/verify-submodule.js`](../scripts/verify-submodule.js) (
+`REQUIRED_SUBMODULE_FILES`).
 
 | Файл                                                                                          | Что в нём                                                                                                                | Server-side consumers                                                                                  |
 | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
@@ -44,7 +48,9 @@ plaud-server-exporter/
 | [`plaud-exporter/common/plaudRecordingIds.js`](../plaud-exporter/common/plaudRecordingIds.js) | `extractRawRecordingId`, `normalizeHexRecordingId`, `normalizePlaudRecordingId`                                          | `recordingsApi.js`                                                                                     |
 | [`plaud-exporter/common/plaudTitles.js`](../plaud-exporter/common/plaudTitles.js)             | `normalizeHumanTitle`, `TITLE_KEYS`, `pickRawTitleFromFile`                                                              | `recordingsApi.js`, `summariesApi.js`, `audioApi.js`                                                   |
 
-> Исторически каталог называется «submodule» в скриптах (`npm run verify`, `scripts/verify-submodule.js`), но это **не git-submodule**. Это вендорный код в монорепо. Сценарий: импорты server'а резолвятся как `../../../plaud-exporter/common/...`.
+> Исторически каталог называется «submodule» в скриптах (`npm run verify`, `scripts/verify-submodule.js`), но это **не
+> git-submodule**. Это вендорный код в монорепо. Сценарий: импорты server'а резолвятся как
+> `../../../plaud-exporter/common/...`.
 
 Остальные модули `plaud-exporter/common/` — **только** для расширения, server их не использует:
 
@@ -55,9 +61,13 @@ plaud-server-exporter/
 | `domUtils.js`, `uiComponents.js` | DOM и статусный UI на странице Plaud                                                                                                 |
 | `plaud-i18n-messages.js`         | Каталоги строк popup / background                                                                                                    |
 
-Service worker вынесен в `background/`: `chromeDownloadBridge.js` (`chrome.downloads`), `tabMessaging.js` (`sendMessage` + re-inject), `bgLocale.js`. В `features/audioExport/` из `audioExport.js` выделены `plaudBrowserSession.js` (сессия из `localStorage`), `plaudRecordingIdScraper.js`, `plaudCollisionPaths.js` (имена и коллизии в sync-папке).
+Service worker вынесен в `background/`: `chromeDownloadBridge.js` (`chrome.downloads`), `tabMessaging.js` (
+`sendMessage` + re-inject), `bgLocale.js`. В `features/audioExport/` из `audioExport.js` выделены
+`plaudBrowserSession.js` (сессия из `localStorage`), `plaudRecordingIdScraper.js`, `plaudCollisionPaths.js` (имена и
+коллизии в sync-папке).
 
-Команда `npm run verify` из корня проверяет, что все пять shared-файлов существуют и что относительные импорты из `server/src/` резолвятся. CI запускает её на каждом push/PR.
+Команда `npm run verify` из корня проверяет, что все пять shared-файлов существуют и что относительные импорты из
+`server/src/` резолвятся. CI запускает её на каждом push/PR.
 
 ### Слои Telegram ↔ sync-index (read path)
 
@@ -78,7 +88,8 @@ flowchart LR
   runner --> diskIndex
 ```
 
-Запись индекса — только через `syncRunner` / `saveSyncIndex`. Бот читает через [`syncIndexRead.js`](../server/src/sync/syncIndexRead.js).
+Запись индекса — только через `syncRunner` / `saveSyncIndex`. Бот читает через [
+`syncIndexRead.js`](../server/src/sync/syncIndexRead.js).
 
 ## Точки входа
 
@@ -124,7 +135,8 @@ flowchart LR
 1. CLI или Telegram-бот запускает `runSync`.
 2. `runLock` берёт файловый лок (`server/.data/sync.lock`, `O_EXCL`).
 3. Plaud API → список записей + саммари по каждой.
-4. `syncCore.determineSyncAction` + (на server) `refineSyncActionForDisk` решают: new / unchanged / metadata-only / re-download / restore missing file.
+4. `syncCore.determineSyncAction` + (на server) `refineSyncActionForDisk` решают: new / unchanged / metadata-only /
+   re-download / restore missing file.
 5. `filenamePlanner` + `obsidianWriter` пишут `.md` атомарно; при metadata-only — `rename`/`move`.
 6. `serverSyncIndex` сохраняет индекс (atomic + `.bak`).
 7. Ошибки классифицируются и пишутся в `{vault}/_errors/*.md`.
@@ -202,7 +214,9 @@ npm run test:submodule   # plaud-exporter (node:test)
 
 CI ([`/.github/workflows/ci.yml`](../.github/workflows/ci.yml)) — lint, verify, тесты на Node 22 при push/PR в `main`.
 
-Deploy ([`/.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) на push в `main`: образ в GHCR, docker-smoke; опциональный SSH deploy через [`scripts/ci-deploy-remote.sh`](../scripts/ci-deploy-remote.sh) при `PRODUCTION_DOCKER_DEPLOY=true`. Подробности — [deploy/README.md](../deploy/README.md).
+Deploy ([`/.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) на push в `main`: образ в GHCR,
+docker-smoke; опциональный SSH deploy через [`scripts/ci-deploy-remote.sh`](../scripts/ci-deploy-remote.sh) при
+`PRODUCTION_DOCKER_DEPLOY=true`. Подробности — [deploy/README.md](../deploy/README.md).
 
 ## Что **не** трогаем в этом репо
 
@@ -221,8 +235,10 @@ Deploy ([`/.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) на
 
 ## История и связанные документы
 
-- [`docs/server-exporter-research.md`](./server-exporter-research.md) — обоснование портирования расширения в серверный CLI.
-- [`docs/stabilization-audit.md`](./stabilization-audit.md), [`docs/stabilization-result.md`](./stabilization-result.md) — аудит и результат стабилизации (май 2026).
+- [`docs/server-exporter-research.md`](./server-exporter-research.md) — обоснование портирования расширения в серверный
+  CLI.
+- [`docs/stabilization-audit.md`](./stabilization-audit.md), [
+  `docs/stabilization-result.md`](./stabilization-result.md) — аудит и результат стабилизации (май 2026).
 - [`docs/getting-started.md`](./getting-started.md) — установка и первый запуск.
 - [`docs/server-deploy.md`](./server-deploy.md) — продакшен на VPS (systemd или Docker).
 - [`deploy/README.md`](../deploy/README.md) — Docker, Ansible, rolling deploy из CI.

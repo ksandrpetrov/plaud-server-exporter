@@ -16,11 +16,11 @@ import {
   buildTagByIdMap,
   collectAllFilesFiletagIds,
   collectUnfiledFiletagIds,
-  resolveFileFolderSegment,
   extractFiletagIdsFromRaw,
   mergeFiletagIds,
   mergeFiletagsById,
   parseFiletagListPayload,
+  resolveFileFolderSegment,
 } from "./plaudFolders.js";
 import {
   normalizeHumanTitle,
@@ -75,6 +75,7 @@ function collectQualifyingFileArrays(payload) {
   }
 
   const seen = new Set();
+
   function walk(value) {
     if (!value || typeof value !== "object" || seen.has(value)) return;
     seen.add(value);
@@ -85,6 +86,7 @@ function collectQualifyingFileArrays(payload) {
     }
     Object.values(value).forEach(walk);
   }
+
   walk(payload);
 
   const dedup = [];

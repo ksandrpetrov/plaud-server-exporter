@@ -7,7 +7,8 @@
 | **systemd** | Node на хосте, `/srv/plaud-exporter`       | Этот файл (ниже)                        |
 | **Docker**  | Образ в GHCR, nginx, `/opt/plaud-exporter` | [deploy/README.md](../deploy/README.md) |
 
-Не запускайте оба режима с одним `TELEGRAM_BOT_TOKEN`. CI SSH-deploy включается только переменной `PRODUCTION_DOCKER_DEPLOY=true` — иначе push в `main` не трогает systemd.
+Не запускайте оба режима с одним `TELEGRAM_BOT_TOKEN`. CI SSH-deploy включается только переменной
+`PRODUCTION_DOCKER_DEPLOY=true` — иначе push в `main` не трогает systemd.
 
 ## Целевой сервер
 
@@ -25,7 +26,9 @@
 
 ## Установка (один раз)
 
-> Деплой бота полагается на код из `main` в GitHub. Перед запуском убедитесь, что свежие правки **запушены**: `git push origin main` с Mac, иначе на сервере окажется устаревший `package.json` без `server:bot` и старый `plaud-exporter.service` (oneshot + timer).
+> Деплой бота полагается на код из `main` в GitHub. Перед запуском убедитесь, что свежие правки **запушены**:
+> `git push origin main` с Mac, иначе на сервере окажется устаревший `package.json` без `server:bot` и старый
+> `plaud-exporter.service` (oneshot + timer).
 
 Базовая установка системы и пользователя `plaud`:
 
@@ -121,9 +124,13 @@ BOT_SYNC_INTERVAL_MIN=120
 BOT_LONG_POLL_SEC=30
 ```
 
-> Авторизация бота построена на трёх слоях: `chat.type === "private"`, совпадение `from.id` с `TELEGRAM_ALLOWED_USER_ID` и совпадение `from.username` с `TELEGRAM_ALLOWED_USERNAME` (если задан). Все три должны пройти, иначе апдейт молча отбрасывается — посторонние не видят даже подсказки «бот приватный». Подробности — в [security.md](./security.md#доступ-к-telegram-боту).
+> Авторизация бота построена на трёх слоях: `chat.type === "private"`, совпадение `from.id` с `TELEGRAM_ALLOWED_USER_ID`
+> и совпадение `from.username` с `TELEGRAM_ALLOWED_USERNAME` (если задан). Все три должны пройти, иначе апдейт молча
+> отбрасывается — посторонние не видят даже подсказки «бот приватный». Подробности —
+> в [security.md](./security.md#доступ-к-telegram-боту).
 >
-> Если на сервере раньше стоял старый `plaud-exporter.service` (oneshot `server:sync`) и `plaud-exporter.timer`, сначала уберите их, иначе `cp` поверх существующего unit'а ничего не починит без `daemon-reload`/`disable`:
+> Если на сервере раньше стоял старый `plaud-exporter.service` (oneshot `server:sync`) и `plaud-exporter.timer`, сначала
+> уберите их, иначе `cp` поверх существующего unit'а ничего не починит без `daemon-reload`/`disable`:
 >
 > ```bash
 > sudo systemctl disable --now plaud-exporter.timer 2>/dev/null || true
@@ -148,7 +155,10 @@ systemctl --no-pager status plaud-exporter.service      # Active: active (runnin
 tail -n 50 /var/log/plaud-exporter/bot.log
 ```
 
-После первого запуска отправьте боту `/start` **в личном чате** с разрешённого аккаунта (`TELEGRAM_ALLOWED_USER_ID` / `TELEGRAM_ALLOWED_USERNAME`) — он запомнит `chatId` в `server/.data/owner-chat.json` (`0o600`) и начнёт слать отбивки. После первой записи файл пиннится к этому `chatId`: повторный `/start` из другого чата отвергается и логируется как warning (см. [security.md](./security.md#доступ-к-telegram-боту)).
+После первого запуска отправьте боту `/start` **в личном чате** с разрешённого аккаунта (`TELEGRAM_ALLOWED_USER_ID` /
+`TELEGRAM_ALLOWED_USERNAME`) — он запомнит `chatId` в `server/.data/owner-chat.json` (`0o600`) и начнёт слать отбивки.
+После первой записи файл пиннится к этому `chatId`: повторный `/start` из другого чата отвергается и логируется как
+warning (см. [security.md](./security.md#доступ-к-telegram-боту)).
 
 Сервис запускает `npm run server:bot` от пользователя `plaud`. Бот:
 
@@ -199,9 +209,14 @@ sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
 
 ## Обновление кода
 
-**Автоматически (рекомендуется):** push в `main` → GitHub Actions job **Deploy to production (systemd)** (`scripts/ci-deploy-systemd-remote.sh`): `git reset --hard origin/main`, `npm install`, `systemctl restart plaud-exporter.service`. Job запускается, пока в Variables **не** стоит `PRODUCTION_DOCKER_DEPLOY=true` (Docker — отдельный opt-in). Нужны secrets `DEPLOY_HOST`, `DEPLOY_USER`, `SSH_PRIVATE_KEY`. Опционально variable `DEPLOY_REPO_DIR` (по умолчанию `/srv/plaud-exporter`).
+**Автоматически (рекомендуется):** push в `main` → GitHub Actions job **Deploy to production (systemd)** (
+`scripts/ci-deploy-systemd-remote.sh`): `git reset --hard origin/main`, `npm install`,
+`systemctl restart plaud-exporter.service`. Job запускается, пока в Variables **не** стоит
+`PRODUCTION_DOCKER_DEPLOY=true` (Docker — отдельный opt-in). Нужны secrets `DEPLOY_HOST`, `DEPLOY_USER`,
+`SSH_PRIVATE_KEY`. Опционально variable `DEPLOY_REPO_DIR` (по умолчанию `/srv/plaud-exporter`).
 
-**Вручную на VPS**, если CI недоступен — с Mac сначала: `git push origin main`. На сервере — полный чеклист (короткий `git pull` часто не хватает: висят локальные правки, root владелец файлов, бот держит процесс):
+**Вручную на VPS**, если CI недоступен — с Mac сначала: `git push origin main`. На сервере — полный чеклист (короткий
+`git pull` часто не хватает: висят локальные правки, root владелец файлов, бот держит процесс):
 
 ```bash
 cd /srv/plaud-exporter

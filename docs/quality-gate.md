@@ -1,11 +1,16 @@
 # Quality Gate
 
-Документ описывает, как устроен текущий quality gate и какие проверки должны быть обязательными в branch protection main.
+Документ описывает, как устроен текущий quality gate и какие проверки должны быть обязательными в branch protection
+main.
 
 ## Источники правды
 
-- **Локально / в CI**: один и тот же набор шагов запускается через `npm run check` и через reusable workflow `.github/workflows/checks.yml`.
-- **Pre-commit (опционально, ставится `npm install` через `prepare`)**: `simple-git-hooks` + `lint-staged` запускают prettier/eslint/manifest verify на изменённые файлы. Конфиг лежит в [.lintstagedrc.mjs](../.lintstagedrc.mjs); ESLint диспатчится по воркспейсам через [scripts/lint-staged-eslint.mjs](../scripts/lint-staged-eslint.mjs), потому что флэт-конфиг ESLint находится внутри `server/` и `plaud-exporter/`, а не в корне.
+- **Локально / в CI**: один и тот же набор шагов запускается через `npm run check` и через reusable workflow
+  `.github/workflows/checks.yml`.
+- **Pre-commit (опционально, ставится `npm install` через `prepare`)**: `simple-git-hooks` + `lint-staged` запускают
+  prettier/eslint/manifest verify на изменённые файлы. Конфиг лежит в [.lintstagedrc.mjs](../.lintstagedrc.mjs); ESLint
+  диспатчится по воркспейсам через [scripts/lint-staged-eslint.mjs](../scripts/lint-staged-eslint.mjs), потому что
+  флэт-конфиг ESLint находится внутри `server/` и `plaud-exporter/`, а не в корне.
 - **PR template**: [.github/PULL_REQUEST_TEMPLATE.md](../.github/PULL_REQUEST_TEMPLATE.md) — короткий чек-лист.
 - **CODEOWNERS**: [.github/CODEOWNERS](../.github/CODEOWNERS) — авто-reviewer на shared/CI/деплой пути.
 
@@ -89,6 +94,7 @@ bash scripts/docker-smoke-image.sh plaud-exporter:smoke   # build + smoke run
 - `MD040`/`MD031`/`MD029` уже включены — далее можно подсветить ещё.
 - Coverage thresholds в [scripts/coverage-thresholds.\*.json](../scripts/) могут расти по мере роста реального покрытия.
 - `npm audit --audit-level=high` → `moderate`, как только подтянем оставшиеся patch-uplifts.
-- Шаблоны JSDoc в god-файлах (`audioExport.js`, `popup.js`, `background.js`) — отдельный backlog, временно исключены из tsconfig.
+- Шаблоны JSDoc в god-файлах (`audioExport.js`, `popup.js`, `background.js`) — отдельный backlog, временно исключены из
+  tsconfig.
 
 См. [AGENTS.md](../AGENTS.md) для карты репозитория и команд.

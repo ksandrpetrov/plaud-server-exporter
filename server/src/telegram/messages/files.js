@@ -5,12 +5,12 @@ import {
   formatDateTimeLocal,
 } from "./format.js";
 import {
-  formatTreeFolderItemLine,
   formatNumberEmoji,
-  treeListNumberPrefix,
-  stripLeadingDateFromTreeTitle,
+  formatTreeFolderItemLine,
   parseTreeFilePickNumber,
+  stripLeadingDateFromTreeTitle,
   treeFilePickOutOfRangeHtml,
+  treeListNumberPrefix,
 } from "./treeFormat.js";
 
 export {
