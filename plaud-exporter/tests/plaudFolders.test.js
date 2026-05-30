@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   attachFolderSegmentsToFiles,
+  collectAllFilesFiletagIds,
   extractFiletagIdsFromRaw,
   mergeFiletagIds,
   mergeFiletagsById,
@@ -9,6 +10,7 @@ import {
   PLAUD_FOLDER_TRASH,
   PLAUD_FOLDER_UNFILED,
   resolveFileFolderSegment,
+  resolveFolderPathSegment,
 } from "../common/plaudFolders.js";
 import { buildTagByIdMap, collectUnfiledFiletagIds } from "../common/plaudFolders.js";
 
@@ -121,4 +123,29 @@ test("collectUnfiledFiletagIds matches localized 'unfiled' folder names", () => 
     { id: "real", name: "Q4 Plans" },
   ]);
   assert.deepEqual(ids.sort(), ["en", "ru", "zh"]);
+});
+
+test("resolveFolderPathSegment maps All files virtual tag to Unfiled", () => {
+  const tags = [
+    { id: "t-all", name: "All files", system_folder_type: "all" },
+    { id: "t-work", name: "Work" },
+  ];
+  const tagById = buildTagByIdMap(tags);
+  const unfiledIds = new Set(collectUnfiledFiletagIds(tags));
+  const allFilesIds = new Set(collectAllFilesFiletagIds(tags));
+  assert.equal(
+    resolveFolderPathSegment(["t-all"], tagById, unfiledIds, allFilesIds),
+    PLAUD_FOLDER_UNFILED
+  );
+  assert.equal(
+    resolveFolderPathSegment(["t-all", "t-work"], tagById, unfiledIds, allFilesIds),
+    "Work"
+  );
+});
+
+test("attachFolderSegmentsToFiles maps recording with only All files tag to Unfiled", () => {
+  const files = [{ id: "f-1", folderIds: ["t-all"], raw: {} }];
+  const tags = [{ id: "t-all", name: "All files", system_folder_type: "all" }];
+  attachFolderSegmentsToFiles(files, tags);
+  assert.equal(files[0].folderSegment, PLAUD_FOLDER_UNFILED);
 });

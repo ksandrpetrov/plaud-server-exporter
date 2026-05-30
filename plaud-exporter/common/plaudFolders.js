@@ -263,6 +263,52 @@ function isTrashSidebarTag(tag) {
   return /\btrash\b|\brecycle\b|корзина/i.test(name);
 }
 
+/** Plaud sidebar "All files" — virtual filter, not a user folder. */
+const ALL_FILES_NAME_PATTERNS = [
+  /^all\s*files?$/i,
+  /^все\s*файлы$/i,
+  /^всё$/i,
+  /^全部$/,
+  /^全部文件$/,
+  /^todos?$/i,
+];
+
+const ALL_FILES_SYSTEM_KINDS = ["all", "all_files", "all-files"];
+
+/**
+ * @param {object | null | undefined} tag
+ * @returns {boolean}
+ */
+export function isAllFilesMetaTag(tag) {
+  if (!tag || typeof tag !== "object") return false;
+  const sysKind = String(
+    tag.system_folder_type ??
+      tag.sys_folder_type ??
+      tag.folder_kind ??
+      tag.tag_kind ??
+      ""
+  )
+    .trim()
+    .toLowerCase();
+  if (ALL_FILES_SYSTEM_KINDS.includes(sysKind)) return true;
+  if (tag.is_all === true || tag.is_all_files === true) return true;
+  const name = extractTagName(tag);
+  if (!name) return false;
+  return ALL_FILES_NAME_PATTERNS.some((re) => re.test(name));
+}
+
+/** @param {object[]} tags */
+export function collectAllFilesFiletagIds(tags) {
+  const ids = [];
+  if (!Array.isArray(tags)) return ids;
+  for (const tag of tags) {
+    if (!isAllFilesMetaTag(tag)) continue;
+    const id = extractTagId(tag);
+    if (id) ids.push(id);
+  }
+  return ids;
+}
+
 /**
  * @param {object} raw
  * @returns {boolean}
@@ -281,20 +327,26 @@ export function parseFiletagListPayload(payload) {
  * @param {Map<string, object>} tagById
  * @param {Set<string>} unfiledIds
  * @param {string[]} folderIds
+ * @param {Set<string>} [allFilesIds]
  * @returns {string} Sanitized single path segment
  */
-export function resolveFolderPathSegment(folderIds, tagById, unfiledIds) {
+export function resolveFolderPathSegment(
+  folderIds,
+  tagById,
+  unfiledIds,
+  allFilesIds = new Set()
+) {
   const ids = (folderIds || []).map((id) => String(id).trim()).filter(Boolean);
   if (!ids.length) return PLAUD_FOLDER_UNFILED;
 
-  const nonUnfiled = ids.filter((id) => !unfiledIds.has(id));
-  const chosen = nonUnfiled[0] || ids[0];
+  const nonVirtual = ids.filter(
+    (id) => !unfiledIds.has(id) && !allFilesIds.has(id)
+  );
+  if (!nonVirtual.length) return PLAUD_FOLDER_UNFILED;
+
+  const chosen = nonVirtual[0];
   const tag = tagById.get(chosen);
   const rawName = extractTagName(tag);
-
-  if (unfiledIds.has(chosen)) {
-    return PLAUD_FOLDER_UNFILED;
-  }
 
   if (!rawName) return PLAUD_FOLDER_UNFILED;
 
@@ -309,12 +361,19 @@ export function resolveFolderPathSegment(folderIds, tagById, unfiledIds) {
  *   raw?: object;
  *   tagById: Map<string, object>;
  *   unfiledIds: Set<string>;
+ *   allFilesIds?: Set<string>;
  * }} input
  * @returns {string}
  */
-export function resolveFileFolderSegment({ folderIds, raw, tagById, unfiledIds }) {
+export function resolveFileFolderSegment({
+  folderIds,
+  raw,
+  tagById,
+  unfiledIds,
+  allFilesIds = new Set(),
+}) {
   if (isRecordingInTrash(raw)) return PLAUD_FOLDER_TRASH;
-  return resolveFolderPathSegment(folderIds, tagById, unfiledIds);
+  return resolveFolderPathSegment(folderIds, tagById, unfiledIds, allFilesIds);
 }
 
 /**
@@ -340,12 +399,14 @@ export function buildTagByIdMap(tags) {
 export function attachFolderSegmentsToFiles(files, tags) {
   const tagById = buildTagByIdMap(tags);
   const unfiledIds = new Set(collectUnfiledFiletagIds(tags));
+  const allFilesIds = new Set(collectAllFilesFiletagIds(tags));
   for (const file of files) {
     file.folderSegment = resolveFileFolderSegment({
       folderIds: file.folderIds,
       raw: file.raw,
       tagById,
       unfiledIds,
+      allFilesIds,
     });
   }
   return files;
