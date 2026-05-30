@@ -1,7 +1,7 @@
 # Production image: Telegram bot + optional HTTP (healthz / future Web App).
 # Playwright stays dev-only on Mac for `npm run server:auth`.
 
-FROM node:20-bookworm-slim
+FROM node:26-bookworm-slim
 
 ENV NODE_ENV=production \
     PYTHONUNBUFFERED=1 \
