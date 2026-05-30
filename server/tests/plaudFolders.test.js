@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  attachFolderSegmentsToFiles,
   buildTagByIdMap,
+  collectAllFilesFiletagIds,
   collectUnfiledFiletagIds,
   extractFiletagIdsFromRaw,
+  isAllFilesMetaTag,
   isRecordingInTrash,
   PLAUD_FOLDER_TRASH,
   PLAUD_FOLDER_UNFILED,
@@ -89,4 +92,27 @@ test("resolveFileFolderSegment maps user folders by tag name", () => {
     }),
     "SocServ QA"
   );
+});
+
+test("isAllFilesMetaTag matches English All files sidebar tag", () => {
+  assert.equal(isAllFilesMetaTag({ name: "All files" }), true);
+  assert.equal(isAllFilesMetaTag({ name: "Work" }), false);
+});
+
+test("resolveFolderPathSegment maps only All files tag to Unfiled", () => {
+  const tags = [{ id: "t-all", name: "All files", system_folder_type: "all" }];
+  const tagById = buildTagByIdMap(tags);
+  const unfiledIds = new Set();
+  const allFilesIds = new Set(collectAllFilesFiletagIds(tags));
+  assert.equal(
+    resolveFolderPathSegment(["t-all"], tagById, unfiledIds, allFilesIds),
+    PLAUD_FOLDER_UNFILED
+  );
+});
+
+test("attachFolderSegmentsToFiles maps only All files tag to Unfiled", () => {
+  const files = [{ id: "f-1", folderIds: ["t-all"], raw: {} }];
+  const tags = [{ id: "t-all", name: "All files", system_folder_type: "all" }];
+  attachFolderSegmentsToFiles(files, tags);
+  assert.equal(files[0].folderSegment, PLAUD_FOLDER_UNFILED);
 });

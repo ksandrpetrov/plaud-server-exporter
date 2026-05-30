@@ -37,7 +37,32 @@ npm run server:status   # session.snapshot.present, vaultRoot, exportRoot
 
 - У записи нет AI-саммари в Plaud Web → пустой или placeholder `.md`.
 - Ошибки по файлам увеличивают `errors` в статистике — см. `_errors/` за этот прогон.
-- `PLAUD_MIRROR_FOLDERS` и теги папок — файлы могут быть в `Plaud/{год}/{папка}/`.
+- `PLAUD_MIRROR_FOLDERS` и теги папок — файлы могут быть в `Plaud/{папка}/` (при mirror on) или в корне `Plaud/`.
+
+## Нет папки `Plaud/Unfiled/` после sync
+
+Подпапка `Unfiled` создаётся только когда хотя бы одна запись пишется с `folderSegment: "Unfiled"`. Пустая папка заранее не создаётся.
+
+**Проверка на сервере:**
+
+```bash
+grep -E '^PLAUD_MIRROR_FOLDERS|^PLAUD_EXPORT_ROOT' /path/to/.env
+ls -la "$PLAUD_EXPORT_ROOT/Plaud"
+find "$PLAUD_EXPORT_ROOT/Plaud" -maxdepth 2 -type d | head -30
+jq '[.records[] | .folderSegment] | group_by(.) | map({folder: .[0], n: length})' \
+  server/.data/sync-index.json
+```
+
+**Частые причины:**
+
+| Симптом | Причина | Действие |
+|--------|---------|----------|
+| Саммари лежат в `Plaud/*.md` (корень), нет подпапок | `PLAUD_MIRROR_FOLDERS=false` или legacy sync | В `.env` задать `PLAUD_MIRROR_FOLDERS=true`, один полный sync (cron или кнопка в боте) |
+| Есть `Plaud/All files/`, нет `Unfiled/` | Виртуальный тег «All files» (EN Plaud) | Обновить до версии с фильтром All files → Unfiled; затем sync |
+| Другие папки есть, `Unfiled/` нет | В Plaud нет записей в Unfiled | Нормально: папка появится, когда появится первая такая запись |
+| В index много `folderSegment: ""` | Mirror off или старый индекс | Включить mirror и пересинхронизировать |
+
+При `PLAUD_MIRROR_FOLDERS=true` записи без пользовательской папки и с виртуальным «All files» должны попадать в `Plaud/Unfiled/`. Файлы из корня `Plaud/` переносятся в `Plaud/Unfiled/` при следующем sync, если mirror включён.
 
 ## Файлы не появляются
 

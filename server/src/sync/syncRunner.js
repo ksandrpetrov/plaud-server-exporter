@@ -24,6 +24,7 @@ import {
   SYNC_STATUS_UPDATED,
   updateExistingRecord,
 } from "../../../plaud-exporter/common/syncCore.js";
+import { PLAUD_FOLDER_UNFILED } from "../plaud/plaudFolders.js";
 import { listAllRecordings, fetchSummaries } from "../plaud/plaudApiClient.js";
 import { loadSyncIndex, saveSyncIndex } from "./serverSyncIndex.js";
 import { buildMarkdownDocument } from "./obsidianWriter.js";
@@ -81,6 +82,12 @@ function buildSummaryBundle(summaries) {
     .join("\n\n---\n\n");
 }
 
+function resolveSyncFolderSegment(file) {
+  const segment = String(file?.folderSegment || "").trim();
+  if (!config.mirrorFolders) return "";
+  return segment || PLAUD_FOLDER_UNFILED;
+}
+
 async function buildCandidate(file, summaries) {
   const summaryBundle = buildSummaryBundle(summaries);
   const meetingTitle = resolveMeetingTitle({
@@ -123,7 +130,7 @@ async function buildCandidate(file, summaries) {
     createdAt: getRawField(file.raw, ["created_at", "createdAt", "create_time", "createTime", "start_time", "startTime"]),
     updatedAt: getRawField(file.raw, ["updated_at", "updatedAt", "update_time", "updateTime", "modified_at", "modifiedAt"]),
     normalizedFilename: "",
-    folderSegment: String(file.folderSegment || "").trim(),
+    folderSegment: resolveSyncFolderSegment(file),
   };
 }
 
@@ -230,6 +237,7 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
         continue;
       }
 
+      const folderSegment = resolveSyncFolderSegment(file);
       const candidate = await buildCandidate(file, summaries);
       const occupied = collectOccupiedFilenames(syncIndex, candidate.stableId);
       const planned = planSummaryPath({
@@ -237,7 +245,7 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
         createdAt: candidate.createdAt,
         occupiedFilenames: occupied,
         stableId: candidate.stableId,
-        folderSegment: file.folderSegment || "",
+        folderSegment,
       });
       candidate.normalizedFilename = planned.normalizedFilename;
 

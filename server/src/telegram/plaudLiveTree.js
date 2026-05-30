@@ -30,49 +30,15 @@ import {
 } from "../plaud/plaudApiClient.js";
 import {
   buildTagByIdMap,
+  collectAllFilesFiletagIds,
   collectUnfiledFiletagIds,
-  extractTagName,
+  isAllFilesMetaTag,
   resolveFileFolderSegment,
 } from "../plaud/plaudFolders.js";
 
 export const LIVE_TREE_CACHE_TTL_MS = 15_000;
 
 const STATUS_NOT_SYNCED = "not_synced";
-
-/**
- * Plaud's web sidebar shows "All files" as a virtual filter that lists
- * everything (incl. Trash). Some accounts expose it as a real filetag with
- * `system_folder_type: "all"` or a localised name — we strip it here so the
- * tree only shows real folders the user can put recordings into.
- */
-const ALL_FILES_NAME_PATTERNS = [
-  /^all\s*files?$/i,
-  /^все\s*файлы$/i,
-  /^всё$/i,
-  /^全部$/,
-  /^全部文件$/,
-  /^todos?$/i,
-];
-
-const ALL_FILES_SYSTEM_KINDS = ["all", "all_files", "all-files"];
-
-function isAllFilesMetaTag(tag) {
-  if (!tag || typeof tag !== "object") return false;
-  const sysKind = String(
-    tag.system_folder_type ??
-      tag.sys_folder_type ??
-      tag.folder_kind ??
-      tag.tag_kind ??
-      ""
-  )
-    .trim()
-    .toLowerCase();
-  if (ALL_FILES_SYSTEM_KINDS.includes(sysKind)) return true;
-  if (tag.is_all === true || tag.is_all_files === true) return true;
-  const name = extractTagName(tag);
-  if (!name) return false;
-  return ALL_FILES_NAME_PATTERNS.some((re) => re.test(name));
-}
 
 function toIsoFromAny(value) {
   if (value == null || value === "") return "";
@@ -191,6 +157,7 @@ export async function loadPlaudLiveSyncTree({
     return null;
   }
 
+  const allFilesIds = new Set(collectAllFilesFiletagIds(tags || []));
   const filteredTags = (tags || []).filter((t) => !isAllFilesMetaTag(t));
   const tagById = buildTagByIdMap(filteredTags);
   const unfiledIds = new Set(collectUnfiledFiletagIds(filteredTags));
@@ -206,6 +173,7 @@ export async function loadPlaudLiveSyncTree({
       raw: file.raw,
       tagById,
       unfiledIds,
+      allFilesIds,
     });
     const createdAtIso = extractCreatedAtIso(file.raw);
     records[stableId] = {

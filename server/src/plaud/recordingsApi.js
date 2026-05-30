@@ -9,6 +9,7 @@ import { PlaudChangedError } from "./errors.js";
 import { fetchPlaudApi } from "./httpTransport.js";
 import {
   buildTagByIdMap,
+  collectAllFilesFiletagIds,
   collectUnfiledFiletagIds,
   resolveFileFolderSegment,
   extractFiletagIdsFromRaw,
@@ -259,13 +260,14 @@ async function fetchRecordingsVariant(session, fixedParams, opts = {}) {
   return files;
 }
 
-function attachFolderSegments(files, tagById, unfiledIds) {
+function attachFolderSegments(files, tagById, unfiledIds, allFilesIds) {
   for (const file of files) {
     file.folderSegment = resolveFileFolderSegment({
       folderIds: file.folderIds,
       raw: file.raw,
       tagById,
       unfiledIds,
+      allFilesIds,
     });
   }
   return files;
@@ -281,7 +283,8 @@ async function enrichFilesWithFolderSegments(session, files) {
   }
   const tagById = buildTagByIdMap(tags);
   const unfiledIds = new Set(collectUnfiledFiletagIds(tags));
-  return attachFolderSegments(files, tagById, unfiledIds);
+  const allFilesIds = new Set(collectAllFilesFiletagIds(tags));
+  return attachFolderSegments(files, tagById, unfiledIds, allFilesIds);
 }
 
 /**
@@ -340,6 +343,7 @@ export async function listAllRecordings(session, options = {}) {
   }
   const tagById = buildTagByIdMap(tags);
   const unfiledIds = new Set(collectUnfiledFiletagIds(tags));
+  const allFilesIds = new Set(collectAllFilesFiletagIds(tags));
   const byId = new Map();
 
   function ingest(list, contextFolderId = "") {
@@ -428,7 +432,7 @@ export async function listAllRecordings(session, options = {}) {
   await tryIngest({ is_trash: "2", filetag_id: "-1" }, { maxPages: 15 });
   await tryIngest({ filetag_id: "-1" }, { maxPages: 15 });
 
-  return attachFolderSegments([...byId.values()], tagById, unfiledIds);
+  return attachFolderSegments([...byId.values()], tagById, unfiledIds, allFilesIds);
 }
 
 function findFileArray(payload, { requireArray = false } = {}) {

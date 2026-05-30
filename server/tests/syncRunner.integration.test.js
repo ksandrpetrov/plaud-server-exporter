@@ -323,6 +323,73 @@ test("recordings without folder tags export under Plaud/Unfiled/ when mirror fol
   }
 });
 
+test("recordings tagged only with All files export under Plaud/Unfiled/", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "plaud-sync-all-files-"));
+  process.env.PLAUD_DATA_DIR = join(dir, ".data");
+  process.env.PLAUD_EXPORT_ROOT = join(dir, "exports");
+  process.env.PLAUD_MIRROR_FOLDERS = "true";
+
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    const u = String(url);
+    if (u.includes("/filetag")) {
+      return jsonResponse({
+        data: {
+          data_filetag_list: [
+            { id: "t-all", name: "All files", system_folder_type: "all" },
+          ],
+        },
+      });
+    }
+    if (u.includes("/file/simple/web")) {
+      const skip = Number(new URL(u).searchParams.get("skip") || "0");
+      if (skip > 0) return jsonResponse({ data: [] });
+      return jsonResponse({
+        data: [
+          {
+            file_id: FILE_ID,
+            file_name: "Inbox from All files",
+            created_at: "2026-05-17T10:00:00.000Z",
+            filetag_id_list: ["t-all"],
+          },
+        ],
+      });
+    }
+    if (u.includes("/ai/query_note")) {
+      return jsonResponse({
+        data: [
+          {
+            data_type: "summary",
+            data_content: "# Inbox from All files\n\nBody",
+          },
+        ],
+      });
+    }
+    return jsonResponse({});
+  };
+
+  try {
+    const stats = await runSync({ session, summaryOnly: true });
+    assert.equal(stats.new, 1);
+
+    const mdPath = join(
+      dir,
+      "exports",
+      "Plaud",
+      "Unfiled",
+      "2026-05-17 - Inbox from All files.md"
+    );
+    const body = await readFile(mdPath, "utf8");
+    assert.match(body, /Body/);
+
+    const index = await loadSyncIndex(config.syncIndexPath);
+    assert.equal(index.records[`plaud:${FILE_ID}`].folderSegment, "Unfiled");
+  } finally {
+    globalThis.fetch = originalFetch;
+    process.env.PLAUD_MIRROR_FOLDERS = "false";
+  }
+});
+
 test("moves legacy Plaud root summaries into Plaud/Unfiled/ on next sync", async () => {
   const dir = await mkdtemp(join(tmpdir(), "plaud-sync-unfiled-move-"));
   process.env.PLAUD_DATA_DIR = join(dir, ".data");
