@@ -227,7 +227,8 @@ test("loadPlaudLiveSyncTree merges fingerprint stableIds from sync-index", async
       [stableId]: {
         title: "Fingerprint meeting (local)",
         status: "success",
-        summaryPath: "/vault/Plaud/SocServ Dev/2026-05-10 - Fingerprint meeting.md",
+        summaryPath:
+          "/vault/Plaud/SocServ Dev/2026-05-10 - Fingerprint meeting.md",
         lastSyncedAt: "2026-05-10T10:30:00.000Z",
         folderSegment: "",
       },
@@ -274,7 +275,13 @@ test("loadPlaudLiveSyncTree returns null when the live fetch throws", async () =
 test("loadPlaudLiveSyncTree caches results across calls inside the TTL", async () => {
   _resetPlaudLiveTreeCache();
   const tags = [{ id: "dev", name: "SocServ Dev" }];
-  const files = [recording({ id: testRecordingId("ab", 1), title: "One", folderIds: ["dev"] })];
+  const files = [
+    recording({
+      id: testRecordingId("ab", 1),
+      title: "One",
+      folderIds: ["dev"],
+    }),
+  ];
   let tagCalls = 0;
   let fetchCalls = 0;
 
@@ -291,7 +298,12 @@ test("loadPlaudLiveSyncTree caches results across calls inside the TTL", async (
   };
 
   const t0 = 1_000_000;
-  await loadPlaudLiveSyncTree({ ...opts, syncIndex: null, now: t0, forceRefresh: true });
+  await loadPlaudLiveSyncTree({
+    ...opts,
+    syncIndex: null,
+    now: t0,
+    forceRefresh: true,
+  });
   await loadPlaudLiveSyncTree({ ...opts, syncIndex: null, now: t0 + 5_000 });
   await loadPlaudLiveSyncTree({ ...opts, syncIndex: null, now: t0 + 14_000 });
   assert.equal(tagCalls, 1, "tags should be fetched once within TTL");

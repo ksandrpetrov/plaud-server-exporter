@@ -198,8 +198,7 @@ function mergeWithSyncIndex(liveTree, syncIndex) {
         title: live.title || String(real.title || "").trim() || live.title,
         status: String(real.status || "") || STATUS_NOT_SYNCED,
         summaryPath: String(real.summaryPath || ""),
-        lastSyncedAt:
-          live.lastSyncedAt || String(real.lastSyncedAt || ""),
+        lastSyncedAt: live.lastSyncedAt || String(real.lastSyncedAt || ""),
       };
     } else {
       merged[id] = { ...live };

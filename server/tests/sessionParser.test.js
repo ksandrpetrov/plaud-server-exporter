@@ -8,9 +8,16 @@ import {
 
 const FAKE_USER_ID = "u-abcdef";
 
-function fakeJwt(sub = FAKE_USER_ID, exp = Math.floor(Date.now() / 1000) + 3600) {
-  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
-  const payload = Buffer.from(JSON.stringify({ sub, exp })).toString("base64url");
+function fakeJwt(
+  sub = FAKE_USER_ID,
+  exp = Math.floor(Date.now() / 1000) + 3600
+) {
+  const header = Buffer.from(
+    JSON.stringify({ alg: "HS256", typ: "JWT" })
+  ).toString("base64url");
+  const payload = Buffer.from(JSON.stringify({ sub, exp })).toString(
+    "base64url"
+  );
   return `${header}.${payload}.testsignaturepart_aaaaaaaaaa`;
 }
 

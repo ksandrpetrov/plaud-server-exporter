@@ -142,7 +142,11 @@ export async function getTreeBrowseState(chatId) {
     void persist();
     return null;
   }
-  return { folderIndex: stored.folderIndex, page: stored.page, items: [...stored.items] };
+  return {
+    folderIndex: stored.folderIndex,
+    page: stored.page,
+    items: [...stored.items],
+  };
 }
 
 /**

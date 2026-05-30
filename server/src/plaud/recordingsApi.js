@@ -27,12 +27,16 @@ import {
   pickRawTitleFromFile,
 } from "../../../plaud-exporter/common/plaudTitles.js";
 
-export { TITLE_KEYS, normalizeHumanTitle } from "../../../plaud-exporter/common/plaudTitles.js";
+export {
+  TITLE_KEYS,
+  normalizeHumanTitle,
+} from "../../../plaud-exporter/common/plaudTitles.js";
 
 export function normalizePlaudFile(rawFile) {
   const id = normalizePlaudRecordingId(rawFile);
   if (!id) return null;
-  const title = normalizeHumanTitle(pickRawTitleFromFile(rawFile)) || String(id);
+  const title =
+    normalizeHumanTitle(pickRawTitleFromFile(rawFile)) || String(id);
   const folderIds = extractFiletagIdsFromRaw(rawFile);
   return { id, title, raw: rawFile, folderIds, folderSegment: "" };
 }
@@ -238,9 +242,12 @@ async function enrichFilesWithFolderSegments(session, files) {
   try {
     tags = await fetchPlaudFiletagList(session);
   } catch (err) {
-    logger.warn("recordingsApi: filetag list unavailable for folder enrichment", {
-      error: String(err?.message || err),
-    });
+    logger.warn(
+      "recordingsApi: filetag list unavailable for folder enrichment",
+      {
+        error: String(err?.message || err),
+      }
+    );
     tags = [];
   }
   const tagById = buildTagByIdMap(tags);
@@ -301,9 +308,12 @@ export async function listAllRecordings(session, options = {}) {
   try {
     tags = await fetchPlaudFiletagList(session);
   } catch (err) {
-    logger.warn("recordingsApi: filetag list unavailable for folder enrichment", {
-      error: String(err?.message || err),
-    });
+    logger.warn(
+      "recordingsApi: filetag list unavailable for folder enrichment",
+      {
+        error: String(err?.message || err),
+      }
+    );
     tags = [];
   }
   const tagById = buildTagByIdMap(tags);
@@ -401,7 +411,12 @@ export async function listAllRecordings(session, options = {}) {
   await tryIngest({ is_trash: "2", filetag_id: "-1" }, { maxPages: 15 });
   await tryIngest({ filetag_id: "-1" }, { maxPages: 15 });
 
-  return attachFolderSegments([...byId.values()], tagById, unfiledIds, allFilesIds);
+  return attachFolderSegments(
+    [...byId.values()],
+    tagById,
+    unfiledIds,
+    allFilesIds
+  );
 }
 
 function findFileArray(payload, { requireArray = false } = {}) {

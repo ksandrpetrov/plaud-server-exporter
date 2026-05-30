@@ -23,12 +23,16 @@ export function planAudioPath({ title, extension, folderSegment = "" }) {
     maxBaseLength: 132,
   });
   const absolutePath = join(baseDir, filename);
-  const relativePath = absolutePath.substring(vault.length).replace(/^[/\\]+/, "");
+  const relativePath = absolutePath
+    .substring(vault.length)
+    .replace(/^[/\\]+/, "");
   return { absolutePath, relativePath, filename };
 }
 
 function stripDuplicateLeadingTitle(markdown, title) {
-  const text = String(markdown || "").replace(/^\ufeff/, "").trim();
+  const text = String(markdown || "")
+    .replace(/^\ufeff/, "")
+    .trim();
   if (!text) return "";
   const lines = text.split(/\r?\n/);
   const first = lines[0] || "";
@@ -74,7 +78,11 @@ async function pathExists(path) {
   }
 }
 
-export async function writeMarkdownFile({ absolutePath, contents, previousAbsolutePath = "" }) {
+export async function writeMarkdownFile({
+  absolutePath,
+  contents,
+  previousAbsolutePath = "",
+}) {
   await mkdir(dirname(absolutePath), { recursive: true });
 
   if (
@@ -115,5 +123,8 @@ export async function writeAudioFile({ absolutePath, url }) {
   if (!response.body) {
     throw new Error("Audio download returned no body");
   }
-  await pipeline(Readable.fromWeb(response.body), createWriteStream(absolutePath));
+  await pipeline(
+    Readable.fromWeb(response.body),
+    createWriteStream(absolutePath)
+  );
 }

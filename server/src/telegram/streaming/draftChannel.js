@@ -29,7 +29,7 @@ const EMPTY_TEXT_REJECTED_MARKERS = [
  * @returns {boolean}
  */
 export function isDraftUnavailable(err) {
-  const text = String(err?.message || err).toLowerCase();
+  const text = String(/** @type {any} */ (err)?.message || err).toLowerCase();
   return DRAFT_UNAVAILABLE_MARKERS.some((m) => text.includes(m));
 }
 
@@ -38,7 +38,7 @@ export function isDraftUnavailable(err) {
  * @returns {boolean}
  */
 function isEmptyTextRejected(err) {
-  const text = String(err?.message || err).toLowerCase();
+  const text = String(/** @type {any} */ (err)?.message || err).toLowerCase();
   return EMPTY_TEXT_REJECTED_MARKERS.some((m) => text.includes(m));
 }
 
@@ -271,7 +271,11 @@ export function createSyncProgressDelivery({
       }
     }
     try {
-      const result = await telegram.sendMessage({ chatId, text, replyMarkup: null });
+      const result = await telegram.sendMessage({
+        chatId,
+        text,
+        replyMarkup: null,
+      });
       const mid = Number(result?.message_id);
       if (Number.isInteger(mid)) legacyMessageId = mid;
     } catch (err) {

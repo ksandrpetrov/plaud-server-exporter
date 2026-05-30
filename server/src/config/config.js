@@ -42,13 +42,22 @@ const staticConfig = {
     return dataDir();
   },
   get sessionPath() {
-    return absPath(process.env.PLAUD_SESSION_PATH, join(dataDir(), "session.json"));
+    return absPath(
+      process.env.PLAUD_SESSION_PATH,
+      join(dataDir(), "session.json")
+    );
   },
   get syncIndexPath() {
-    return absPath(process.env.PLAUD_SYNC_INDEX_PATH, join(dataDir(), "sync-index.json"));
+    return absPath(
+      process.env.PLAUD_SYNC_INDEX_PATH,
+      join(dataDir(), "sync-index.json")
+    );
   },
   get statusPath() {
-    return absPath(process.env.PLAUD_STATUS_PATH, join(dataDir(), "status.json"));
+    return absPath(
+      process.env.PLAUD_STATUS_PATH,
+      join(dataDir(), "status.json")
+    );
   },
   get playwrightProfileDir() {
     return absPath(
@@ -57,7 +66,10 @@ const staticConfig = {
     );
   },
   get exportRoot() {
-    return absPath(process.env.PLAUD_EXPORT_ROOT, resolve(REPO_ROOT, "exports"));
+    return absPath(
+      process.env.PLAUD_EXPORT_ROOT,
+      resolve(REPO_ROOT, "exports")
+    );
   },
   get obsidianVaultPath() {
     return process.env.PLAUD_OBSIDIAN_VAULT_PATH

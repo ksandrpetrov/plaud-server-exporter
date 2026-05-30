@@ -206,7 +206,12 @@ export async function runDraftTypewriterPreview({
   typing?.start();
   try {
     const resolvedDraftId = draftId ?? stableDraftId(chatId, nowMs());
-    await tryOpenDraft({ telegram, chatId, draftId: resolvedDraftId, initialText: "" });
+    await tryOpenDraft({
+      telegram,
+      chatId,
+      draftId: resolvedDraftId,
+      initialText: "",
+    });
     return await typewriterDraftAnimate({
       telegram,
       chatId,

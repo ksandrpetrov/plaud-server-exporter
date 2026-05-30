@@ -4,10 +4,10 @@ Host nginx terminates TLS on `:443`. The bot runs in Docker with HTTP on **loopb
 
 ## Modes (pick one)
 
-| Mode | When |
-|------|------|
+| Mode        | When                                                                                                                            |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | **systemd** | Legacy: `deploy/systemd/plaud-exporter.service` + `/srv/plaud-exporter` (see [docs/server-deploy.md](../docs/server-deploy.md)) |
-| **Docker** | This guide — `deploy/docker-compose.yml` under `/opt/plaud-exporter` |
+| **Docker**  | This guide — `deploy/docker-compose.yml` under `/opt/plaud-exporter`                                                            |
 
 Never run both with the same `TELEGRAM_BOT_TOKEN`.
 
@@ -22,7 +22,7 @@ make deploy
 
 This installs Docker, disables `plaud-exporter.service`, renders `/opt/plaud-exporter/.env`, and starts the stack (`app_image_source: build` builds on the server).
 
-3. Add nginx fragment from [deploy/nginx/plaud-exporter-webapp.conf.example](nginx/plaud-exporter-webapp.conf.example) to your existing `server { listen 443 ssl; ... }`, then `sudo nginx -t && sudo systemctl reload nginx`.
+1. Add nginx fragment from [deploy/nginx/plaud-exporter-webapp.conf.example](nginx/plaud-exporter-webapp.conf.example) to your existing `server { listen 443 ssl; ... }`, then `sudo nginx -t && sudo systemctl reload nginx`.
 
 ## systemd → Docker migration
 
@@ -40,8 +40,8 @@ GitHub Actions on `push` to `main` builds `ghcr.io/<owner>/<repo>:sha-<short>`, 
 
 **Important:** production SSH deploy is **opt-in**. In the repo (Settings → Secrets and variables → Actions → **Variables**), set:
 
-| Variable | Value | Meaning |
-|----------|--------|---------|
+| Variable                   | Value  | Meaning                                                |
+| -------------------------- | ------ | ------------------------------------------------------ |
 | `PRODUCTION_DOCKER_DEPLOY` | `true` | Run deploy job after `make deploy` / Ansible bootstrap |
 
 If this variable is unset or not `true`, CI still builds and smoke-tests the image, then runs **systemd SSH deploy** (`scripts/ci-deploy-systemd-remote.sh`): `git reset --hard origin/main`, `npm install`, `systemctl restart plaud-exporter.service` on `/srv/plaud-exporter` (override with variable `DEPLOY_REPO_DIR`). Set `PRODUCTION_DOCKER_DEPLOY=true` only after Ansible bootstrap under `/opt/plaud-exporter` — then systemd auto-deploy is skipped.
@@ -74,9 +74,9 @@ Bind-mounts: `./server/.data`, `./exports`.
 
 ## Persistent paths
 
-| Path | Role |
-|------|------|
+| Path                                    | Role                                                             |
+| --------------------------------------- | ---------------------------------------------------------------- |
 | Docker volume `plaud-exporter_app-data` | `server/.data/*.json` (session, sync index, owner chat, offsets) |
-| Host `PLAUD_EXPORTS_HOST_DIR` | Markdown exports (`/srv/plaud-exporter/exports` by default) |
+| Host `PLAUD_EXPORTS_HOST_DIR`           | Markdown exports (`/srv/plaud-exporter/exports` by default)      |
 
 There is no `TOKEN_ENCRYPTION_KEY` in this project — preserve `session.json` and the volume across deploys.

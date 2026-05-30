@@ -50,7 +50,8 @@ export class BotScheduler {
     this._readInterval = deps.intervalLoader || loadEffectiveIntervalMin;
     this._schedule =
       deps.schedule || ((cb, ms) => setTimeout(cb, ms).unref?.());
-    this._cancel = deps.cancel || ((handle) => clearTimeout(handle));
+    this._cancel =
+      deps.cancel || ((handle) => clearTimeout(/** @type {any} */ (handle)));
 
     this._stopped = false;
     this._inFlight = false;

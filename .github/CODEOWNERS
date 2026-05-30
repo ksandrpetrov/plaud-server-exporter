@@ -1,0 +1,24 @@
+# Default ownership.
+* @ksandrpetrov
+
+# Shared contract between server and extension — extra scrutiny on changes.
+/plaud-exporter/common/                @ksandrpetrov
+/scripts/verify-submodule.js           @ksandrpetrov
+/plaud-exporter/scripts/verify-*.js    @ksandrpetrov
+
+# CI / quality gate / deployment scripts.
+/.github/                              @ksandrpetrov
+/Dockerfile                            @ksandrpetrov
+/deploy/                               @ksandrpetrov
+/scripts/                              @ksandrpetrov
+
+# Quality gate config files (lint / typecheck / format / hooks).
+/.markdownlint-cli2.jsonc              @ksandrpetrov
+/.prettierrc.json                      @ksandrpetrov
+/.prettierignore                       @ksandrpetrov
+/.gitleaks.toml                        @ksandrpetrov
+/eslint.config.js                      @ksandrpetrov
+/server/eslint.config.js               @ksandrpetrov
+/plaud-exporter/eslint.config.js       @ksandrpetrov
+/server/tsconfig.json                  @ksandrpetrov
+/plaud-exporter/tsconfig.json          @ksandrpetrov

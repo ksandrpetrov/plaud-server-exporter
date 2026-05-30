@@ -40,7 +40,10 @@ test("effectiveVaultRoot falls back to export root when vault unset", () => {
       PLAUD_EXPORT_ROOT: "/tmp/plaud-test-exports-only",
     },
     () => {
-      assert.equal(effectiveVaultRoot(), resolve("/tmp/plaud-test-exports-only"));
+      assert.equal(
+        effectiveVaultRoot(),
+        resolve("/tmp/plaud-test-exports-only")
+      );
     }
   );
 });

@@ -3,7 +3,11 @@ import test from "node:test";
 import { mkdtemp, readFile, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadSyncIndex, saveSyncIndex, syncIndexInfo } from "../src/sync/serverSyncIndex.js";
+import {
+  loadSyncIndex,
+  saveSyncIndex,
+  syncIndexInfo,
+} from "../src/sync/serverSyncIndex.js";
 
 test("loadSyncIndex returns an empty normalized index for a missing file", async () => {
   const dir = await mkdtemp(join(tmpdir(), "plaud-idx-"));

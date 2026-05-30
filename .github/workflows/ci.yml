@@ -6,46 +6,20 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  test:
-    name: Lint, verify, test (Node 22.x)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node 22.x
-        uses: actions/setup-node@v5
-        with:
-          node-version: "22.x"
-          cache: npm
-
-      - name: Install workspaces (server)
-        run: npm install --workspaces --ignore-scripts
-
-      - name: Install extension devDependencies
-        working-directory: plaud-exporter
-        run: npm install --ignore-scripts
-
-      - name: Lint (server)
-        run: npm run lint
-
-      - name: Lint (extension)
-        working-directory: plaud-exporter
-        run: npm run lint
-
-      - name: Verify shared common imports
-        run: npm run verify
-
-      - name: Verify extension dynamic imports
-        working-directory: plaud-exporter
-        run: npm run verify
-
-      - name: Test server
-        run: npm test
-
-      - name: Smoke critical server imports
-        run: node scripts/smoke_container.mjs
-
-      - name: Test extension
-        run: npm run test:submodule
+  checks:
+    name: Checks (Node ${{ matrix.node-version }})
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["20.x", "22.x"]
+    uses: ./.github/workflows/checks.yml
+    with:
+      node-version: ${{ matrix.node-version }}

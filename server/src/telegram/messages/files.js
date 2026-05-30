@@ -22,8 +22,7 @@ export {
   treeFilePickOutOfRangeHtml,
 };
 
-export const FILES_MENU_HEADER =
-  "📁 <b>Файлы</b>\n\nВыбери, что показать:";
+export const FILES_MENU_HEADER = "📁 <b>Файлы</b>\n\nВыбери, что показать:";
 export const FILES_TREE_EMPTY =
   "🌳 <b>Дерево синка</b>\n\nПока пусто. Запусти синк через 🔄.";
 export const FILES_STATS_EMPTY =
@@ -61,9 +60,13 @@ export function filesTreeFolderHtml(folderPage) {
     ].join("\n");
   }
   const totalPages = Math.max(1, Number(folderPage.totalPages) || 1);
-  const curPage = Math.min(Math.max(1, Number(folderPage.page) || 1), totalPages);
+  const curPage = Math.min(
+    Math.max(1, Number(folderPage.page) || 1),
+    totalPages
+  );
   const pageSize = Math.max(1, Number(folderPage.pageSize) || 30);
-  const pageSuffix = totalPages > 1 ? ` — стр. ${curPage} из ${totalPages}` : "";
+  const pageSuffix =
+    totalPages > 1 ? ` — стр. ${curPage} из ${totalPages}` : "";
 
   const lines = [
     `📁 <b>${folderLabel}</b> (всего ${folderPage.total})${pageSuffix}`,

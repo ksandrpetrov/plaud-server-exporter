@@ -25,7 +25,13 @@ test("classifySyncFailure recognizes PlaudAuthError as exit code 2", () => {
 });
 
 test("classifySyncFailure recognizes PlaudChangedError as exit code 3", () => {
-  const stats = { new: 0, updated: 0, unchanged: 0, errors: 1, plaudChanged: true };
+  const stats = {
+    new: 0,
+    updated: 0,
+    unchanged: 0,
+    errors: 1,
+    plaudChanged: true,
+  };
   const err = new PlaudChangedError("unexpected shape", {});
   err.stats = stats;
   const f = classifySyncFailure(err);

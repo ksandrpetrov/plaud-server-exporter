@@ -68,7 +68,9 @@ function apiBaseFromSnapshot(snapshot, userId) {
     ? scopedValue(snapshot, `pld_${userId}:plaud_user_api_domain`)
     : null;
   const global = scopedValue(snapshot, "plaud_user_api_domain");
-  return normalizeApiBase(userScoped || global || snapshot?.apiBase || PLAUD_API_FALLBACK);
+  return normalizeApiBase(
+    userScoped || global || snapshot?.apiBase || PLAUD_API_FALLBACK
+  );
 }
 
 /**
@@ -150,8 +152,7 @@ export function createSessionFromSnapshot(snapshot) {
       workspaceId != null && String(workspaceId).trim()
         ? String(workspaceId).trim()
         : "",
-    sortBy:
-      typeof sortBy === "string" && sortBy.trim() ? sortBy : "start_time",
+    sortBy: typeof sortBy === "string" && sortBy.trim() ? sortBy : "start_time",
     userId,
   };
 }

@@ -9,14 +9,16 @@ export const ERR_TREE_AUTO_SYNC_FAILED_HTML =
   "Попробуй 🔄 в меню или повтори цифру через минуту.";
 
 /** @deprecated use ERR_TREE_AUTO_SYNC_FAILED_HTML */
-export const TREE_FILE_PICK_AUTO_SYNC_FAILED_HTML = ERR_TREE_AUTO_SYNC_FAILED_HTML;
+export const TREE_FILE_PICK_AUTO_SYNC_FAILED_HTML =
+  ERR_TREE_AUTO_SYNC_FAILED_HTML;
 
 export const ERR_TREE_FILE_STILL_MISSING_HTML =
   "🌳 Синк прошёл, но файл так и не появился.\n" +
   "Проверь, что запись есть в Plaud, и запусти синк ещё раз.";
 
 /** @deprecated use ERR_TREE_FILE_STILL_MISSING_HTML */
-export const TREE_FILE_PICK_STILL_MISSING_HTML = ERR_TREE_FILE_STILL_MISSING_HTML;
+export const TREE_FILE_PICK_STILL_MISSING_HTML =
+  ERR_TREE_FILE_STILL_MISSING_HTML;
 
 export const ERR_TREE_SEND_DOCUMENT_HTML =
   "⚠️ Не смог отправить файл в Telegram.\n" +

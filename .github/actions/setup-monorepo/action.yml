@@ -1,0 +1,31 @@
+name: Setup monorepo
+description: >-
+  Install Node.js with npm cache and run `npm ci` for both server (root workspace)
+  and the plaud-exporter extension. Callers must run actions/checkout beforehand.
+
+inputs:
+  node-version:
+    description: Node.js version (matrix-friendly)
+    required: false
+    default: "22.x"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node ${{ inputs.node-version }}
+      uses: actions/setup-node@v5
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+        cache-dependency-path: |
+          package-lock.json
+          plaud-exporter/package-lock.json
+
+    - name: Install server workspace
+      shell: bash
+      run: npm ci --workspaces --include-workspace-root --ignore-scripts
+
+    - name: Install extension devDependencies
+      shell: bash
+      working-directory: plaud-exporter
+      run: npm ci --ignore-scripts

@@ -1,4 +1,8 @@
-import { describeStatusVerdict, escapeHtml, formatDateTimeLocal } from "./format.js";
+import {
+  describeStatusVerdict,
+  escapeHtml,
+  formatDateTimeLocal,
+} from "./format.js";
 
 export const SYNC_LOADING_HTML =
   "🛰 <b>Запускаю синк…</b>\nЭто может занять до минуты.";
@@ -17,9 +21,7 @@ export function syncFetchStatusHtml(source) {
 
 export function syncBusyText(source = "manual") {
   const prefix = source === "scheduled" ? "➡️" : "📅";
-  return (
-    `${prefix} Уже готовлю сводку или недавно прислала — подожди немного и попробуй снова.`
-  );
+  return `${prefix} Уже готовлю сводку или недавно прислала — подожди немного и попробуй снова.`;
 }
 
 export const SYNC_BUSY_TOAST = syncBusyText("manual");

@@ -53,7 +53,7 @@ chown -R 1000:1000 "$VOL_PATH" 2>/dev/null || chown -R node:node "$VOL_PATH" 2>/
 
 docker compose up -d
 
-for i in $(seq 1 24); do
+for _ in $(seq 1 24); do
   if docker compose ps --format '{{.Health}}' 2>/dev/null | grep -q healthy; then
     echo "Migration complete. volume=$VOLUME_NAME files=$(count_json "$VOL_PATH")"
     exit 0

@@ -54,9 +54,11 @@ export function classifySyncFailure(error) {
     };
   }
   const classified = classifyError(error);
-  const explicit = Number(error?.exitCode);
+  const explicit = Number(/** @type {any} */ (error)?.exitCode);
   const exitCode =
-    Number.isInteger(explicit) && explicit > 0 ? explicit : classified.exitCode || 1;
+    Number.isInteger(explicit) && explicit > 0
+      ? explicit
+      : classified.exitCode || 1;
   return {
     kind: SYNC_FAILURE_OTHER,
     exitCode,

@@ -39,11 +39,11 @@ export function stripExpandableBlockquote(htmlText) {
 }
 
 /**
- * @param {string} htmlText
+ * @param {unknown} err
  * @returns {boolean}
  */
 export function isHtmlEntitiesRejected(err) {
-  const text = String(err?.message || err).toLowerCase();
+  const text = String(/** @type {any} */ (err)?.message || err).toLowerCase();
   return (
     text.includes("can't parse entities") ||
     text.includes("cant parse entities") ||

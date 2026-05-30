@@ -23,7 +23,9 @@ test("classifyError maps PlaudAuthError to exit 2", () => {
 
 test("classifyError maps PlaudChangedError via instanceof to exit 3", () => {
   const result = classifyError(
-    new PlaudChangedError("Unexpected list shape", { endpoint: "/file/simple/web" }),
+    new PlaudChangedError("Unexpected list shape", {
+      endpoint: "/file/simple/web",
+    }),
     { stage: "list-recordings" }
   );
   assert.equal(result.kind, ERROR_KIND_PLAUD_CHANGED);

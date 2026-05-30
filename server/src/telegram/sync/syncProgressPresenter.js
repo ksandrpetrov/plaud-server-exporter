@@ -24,7 +24,12 @@ import {
 } from "../streamingDelivery.js";
 import { redactError } from "../../security/redact.js";
 
-export async function sendOrEditLoading({ telegram, chatId, loadingMessageId, text }) {
+export async function sendOrEditLoading({
+  telegram,
+  chatId,
+  loadingMessageId,
+  text,
+}) {
   if (loadingMessageId) {
     try {
       await telegram.editMessageText({
@@ -55,7 +60,12 @@ export async function sendOrEditLoading({ telegram, chatId, loadingMessageId, te
   }
 }
 
-export async function editProgressBestEffort({ telegram, chatId, messageId, stats }) {
+export async function editProgressBestEffort({
+  telegram,
+  chatId,
+  messageId,
+  stats,
+}) {
   if (!messageId) return;
   try {
     await telegram.editMessageText({
@@ -214,6 +224,12 @@ async function replaceWithFinalMessage({
   }
 }
 
+/**
+ * @returns {Promise<{
+ *   status: "lock_busy" | "auth_rejected" | "failed",
+ *   summaryMessageId?: number
+ * }>}
+ */
 export async function handleSyncError({
   telegram,
   chatId,
@@ -253,7 +269,10 @@ export async function handleSyncError({
   if (failure.kind === SYNC_FAILURE_AUTH) {
     await reveal(SYNC_AUTH_REJECTED_HTML);
     logger.error("Sync failed: Plaud rejected the session", redactError(err));
-    return { status: "auth_rejected", summaryMessageId: messageId ?? undefined };
+    return {
+      status: "auth_rejected",
+      summaryMessageId: messageId ?? undefined,
+    };
   }
 
   if (failure.kind === SYNC_FAILURE_PLAUD_CHANGED) {

@@ -1,0 +1,6 @@
+{
+  "include": "src/",
+  "lines": 85,
+  "branches": 65,
+  "functions": 80
+}

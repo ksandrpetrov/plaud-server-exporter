@@ -247,8 +247,7 @@ test("manual sync success may attach message effect in private chat", async () =
     }),
   });
   const withEffect = telegram.events.find(
-    (e) =>
-      (e.type === "edit" || e.type === "send") && e.messageEffectId
+    (e) => (e.type === "edit" || e.type === "send") && e.messageEffectId
   );
   assert.ok(withEffect, "expected sparkle effect on final reveal");
   syncRunGuard.reset();

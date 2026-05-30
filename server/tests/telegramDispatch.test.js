@@ -21,7 +21,10 @@ import { join } from "node:path";
 import { dispatchUpdate } from "../src/telegram/handlers.js";
 import { loadBotSettings } from "../src/telegram/botSettings.js";
 import { createMessageAnimator } from "../src/telegram/messageAnimator.js";
-import { SYNC_ACTION_MANUAL, syncRunGuard } from "../src/telegram/syncGuards.js";
+import {
+  SYNC_ACTION_MANUAL,
+  syncRunGuard,
+} from "../src/telegram/syncGuards.js";
 import { syncBusyText } from "../src/telegram/messages.js";
 
 function makeFakeTelegram() {
@@ -195,10 +198,7 @@ test("dispatch: foreign /help in private chat is silently ignored", async () => 
 test("dispatch: owner /menu in a GROUP chat is silently ignored", async () => {
   await withOwnerChatDir(async () => {
     const tg = makeFakeTelegram();
-    await dispatchUpdate(
-      ctx(tg),
-      groupMessage({ text: "/menu", from: OWNER })
-    );
+    await dispatchUpdate(ctx(tg), groupMessage({ text: "/menu", from: OWNER }));
     assert.equal(
       tg.calls.length,
       0,
@@ -249,7 +249,11 @@ test("dispatch: second /start with a DIFFERENT chatId does not move owner chat",
     );
     const { loadOwnerChat } = await import("../src/telegram/ownerChat.js");
     const owner = await loadOwnerChat(file);
-    assert.equal(owner.chatId, 555, "owner chat must stay pinned to the first chatId");
+    assert.equal(
+      owner.chatId,
+      555,
+      "owner chat must stay pinned to the first chatId"
+    );
   });
 });
 
@@ -325,7 +329,8 @@ test("dispatch: duplicate run_sync shows busy toast without second runManualSync
     const answerPayload = answer.args?.[0] || {};
     assert.equal(answerPayload.text, syncBusyText("manual"));
     const busySend = tg.calls.find(
-      (c) => c.name === "sendMessage" && c.args?.[0]?.text === syncBusyText("manual")
+      (c) =>
+        c.name === "sendMessage" && c.args?.[0]?.text === syncBusyText("manual")
     );
     assert.ok(busySend, "duplicate sync should also post busy text in chat");
     syncRunGuard.reset();
@@ -337,7 +342,10 @@ test("dispatch: id-only mode rejects squatted username", async () => {
     const tg = makeFakeTelegram();
     await dispatchUpdate(
       ctx(tg, { allowedUsername: "", allowedUserId: 100 }),
-      privateMessage({ text: "/menu", from: { id: 999, username: "aleksanderpetrov" } })
+      privateMessage({
+        text: "/menu",
+        from: { id: 999, username: "aleksanderpetrov" },
+      })
     );
     assert.equal(tg.calls.length, 0);
   });
@@ -348,7 +356,10 @@ test("dispatch: username-only legacy mode still works for the matching username"
     const tg = makeFakeTelegram();
     await dispatchUpdate(
       ctx(tg, { allowedUsername: "aleksanderpetrov", allowedUserId: null }),
-      privateMessage({ text: "/menu", from: { id: 1, username: "AleksanderPetrov" } })
+      privateMessage({
+        text: "/menu",
+        from: { id: 1, username: "AleksanderPetrov" },
+      })
     );
     const sendMessages = tg.calls.filter((c) => c.name === "sendMessage");
     assert.equal(sendMessages.length, 1);
@@ -407,9 +418,20 @@ test("dispatch: with messageAnimator wired in, status callback drafts then edits
     const sends = tg.calls.filter((c) => c.name === "sendMessage");
     const drafts = tg.calls.filter((c) => c.name === "sendMessageDraft");
     const edits = tg.calls.filter((c) => c.name === "editMessageText");
-    assert.equal(sends.length, 0, "status callback must never sendMessage; only edit");
-    assert.ok(drafts.length >= 1, "status callback should preview via sendMessageDraft");
-    assert.equal(edits.length, 1, "status callback should edit the menu bubble once");
+    assert.equal(
+      sends.length,
+      0,
+      "status callback must never sendMessage; only edit"
+    );
+    assert.ok(
+      drafts.length >= 1,
+      "status callback should preview via sendMessageDraft"
+    );
+    assert.equal(
+      edits.length,
+      1,
+      "status callback should edit the menu bubble once"
+    );
     syncRunGuard.reset();
   });
 });
@@ -499,7 +521,11 @@ test("dispatch: files tree folder callback is routed without sendMessage", async
       privateCallback({ data: "tf:0:1", from: OWNER })
     );
     const sends = tg.calls.filter((c) => c.name === "sendMessage");
-    assert.equal(sends.length, 0, "folder callback must not send a new message");
+    assert.equal(
+      sends.length,
+      0,
+      "folder callback must not send a new message"
+    );
     assert.ok(
       tg.calls.some((c) => c.name === "editMessageText"),
       "folder callback should edit the existing bubble"

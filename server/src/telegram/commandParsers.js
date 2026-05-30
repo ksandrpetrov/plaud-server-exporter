@@ -5,7 +5,11 @@
  * them in isolation.
  */
 
-const COMMAND_HEAD = (raw) => String(raw || "").trim().split(/\s+/)[0].toLowerCase();
+const COMMAND_HEAD = (raw) =>
+  String(raw || "")
+    .trim()
+    .split(/\s+/)[0]
+    .toLowerCase();
 const COMMAND_RE = (name) => new RegExp(`^/${name}(?:@[a-z0-9_]+)?$`);
 
 /**

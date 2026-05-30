@@ -17,10 +17,7 @@
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
 import { Agent } from "node:https";
-import {
-  isHtmlEntitiesRejected,
-  stripUnsupportedHtml,
-} from "./htmlFormat.js";
+import { isHtmlEntitiesRejected, stripUnsupportedHtml } from "./htmlFormat.js";
 import { isMessageEffectRejected } from "./telegramVisual.js";
 
 const TELEGRAM_API = "https://api.telegram.org";
@@ -107,7 +104,9 @@ export class TelegramClient {
     if (this._token) {
       safe = safe.split(this._token).join("<telegram-token>");
     }
-    safe = safe.split(this._baseUrl).join(`${TELEGRAM_API}/bot<telegram-token>`);
+    safe = safe
+      .split(this._baseUrl)
+      .join(`${TELEGRAM_API}/bot<telegram-token>`);
     return safe;
   }
 
@@ -120,6 +119,7 @@ export class TelegramClient {
    *   parseMode?: string | null;
    *   replyMarkup?: object | null;
    *   disableWebPagePreview?: boolean;
+   *   messageEffectId?: string | null;
    * }} params
    */
   async sendMessage(params) {
@@ -131,7 +131,8 @@ export class TelegramClient {
           chat_id: params.chatId,
           text,
         };
-        if (params.parseMode !== null) data.parse_mode = params.parseMode || "HTML";
+        if (params.parseMode !== null)
+          data.parse_mode = params.parseMode || "HTML";
         if (params.disableWebPagePreview !== false) {
           data.link_preview_options = JSON.stringify({ is_disabled: true });
         }
@@ -156,6 +157,7 @@ export class TelegramClient {
    *   parseMode?: string | null;
    *   replyMarkup?: object | null;
    *   disableWebPagePreview?: boolean;
+   *   messageEffectId?: string | null;
    * }} params
    */
   async editMessageText(params) {
@@ -168,7 +170,8 @@ export class TelegramClient {
           message_id: params.messageId,
           text,
         };
-        if (params.parseMode !== null) data.parse_mode = params.parseMode || "HTML";
+        if (params.parseMode !== null)
+          data.parse_mode = params.parseMode || "HTML";
         if (params.disableWebPagePreview !== false) {
           data.link_preview_options = JSON.stringify({ is_disabled: true });
         }
@@ -298,7 +301,13 @@ export class TelegramClient {
 
   // --- internals ---------------------------------------------------------
 
-  async _sendOrEditWithFallback({ methodName, text, buildData, timeoutMs, maxRetries }) {
+  async _sendOrEditWithFallback({
+    methodName,
+    text,
+    buildData,
+    timeoutMs,
+    maxRetries,
+  }) {
     try {
       return await this._call(methodName, {
         data: buildData(text),
@@ -344,7 +353,9 @@ export class TelegramClient {
     // some test mocks; we set both so neither pool gets mixed up in
     // production or in tests using `node:http` shims.
     const agent =
-      methodName === LONG_POLL_METHOD ? this._longPollAgent : this._defaultAgent;
+      methodName === LONG_POLL_METHOD
+        ? this._longPollAgent
+        : this._defaultAgent;
     return this._retryingFetch(methodName, {
       buildInit: () => ({
         method: "POST",
@@ -371,7 +382,10 @@ export class TelegramClient {
    *   maxRetries?: number;
    * }} params
    */
-  async _retryingFetch(methodName, { buildInit, agent, timeoutMs, maxRetries }) {
+  async _retryingFetch(
+    methodName,
+    { buildInit, agent, timeoutMs, maxRetries }
+  ) {
     const url = `${this._baseUrl}/${methodName}`;
     const effectiveTimeout = timeoutMs || this._requestTimeoutMs;
     const effectiveMaxRetries = Math.max(0, maxRetries ?? this._maxRetries);
@@ -384,11 +398,14 @@ export class TelegramClient {
 
       let response;
       try {
-        response = await this._fetch(url, {
-          ...buildInit(),
-          signal: controller.signal,
-          agent,
-        });
+        response = await this._fetch(
+          url,
+          /** @type {any} */ ({
+            ...buildInit(),
+            signal: controller.signal,
+            agent,
+          })
+        );
       } catch (err) {
         clearTimeout(timer);
         const safeError = this.sanitize(String(err?.message || err));
@@ -504,7 +521,12 @@ export class TelegramClient {
   }
 }
 
+/**
+ * @param {Record<string, unknown> | null | undefined} data
+ * @returns {Record<string, string>}
+ */
 function stringifyForm(data) {
+  /** @type {Record<string, string>} */
   const out = {};
   if (!data) return out;
   for (const [key, value] of Object.entries(data)) {

@@ -53,8 +53,14 @@ test("parseSummaryFilename extracts date, title, year", () => {
 });
 
 test("plaudFolderLabelFromVaultPath maps legacy year dirs to Unfiled", () => {
-  assert.equal(plaudFolderLabelFromVaultPath("Plaud/2026", "Plaud"), PLAUD_FOLDER_UNFILED);
-  assert.equal(plaudFolderLabelFromVaultPath("Plaud/SocServ QA", "Plaud"), "SocServ QA");
+  assert.equal(
+    plaudFolderLabelFromVaultPath("Plaud/2026", "Plaud"),
+    PLAUD_FOLDER_UNFILED
+  );
+  assert.equal(
+    plaudFolderLabelFromVaultPath("Plaud/SocServ QA", "Plaud"),
+    "SocServ QA"
+  );
 });
 
 test("comparePlaudFolderLabels sorts Unfiled and Trash last", () => {
@@ -130,7 +136,10 @@ test("buildSyncIndexTreeRoot returns empty root for missing records", () => {
   const root = buildSyncIndexTreeRoot(null);
   assert.equal(root.total, 0);
   assert.deepEqual(root.folders, []);
-  assert.equal(filesTreeRootHtml(root), filesTreeRootHtml({ total: 0, folders: [] }));
+  assert.equal(
+    filesTreeRootHtml(root),
+    filesTreeRootHtml({ total: 0, folders: [] })
+  );
 });
 
 test("buildSyncIndexTreeRoot falls back to Unfiled when summaryPath is missing", () => {
@@ -228,7 +237,10 @@ test("buildSyncIndexFolderPage paginates files inside one folder", () => {
   const overlap = (a, b) => a.filter((x) => b.includes(x));
   assert.deepEqual(overlap(titles(page1), titles(page2)), []);
   assert.deepEqual(overlap(titles(page2), titles(page3)), []);
-  assert.equal(new Set([...titles(page1), ...titles(page2), ...titles(page3)]).size, 25);
+  assert.equal(
+    new Set([...titles(page1), ...titles(page2), ...titles(page3)]).size,
+    25
+  );
 
   // Other folders' items don't leak in.
   for (const t of titles(page1).concat(titles(page2), titles(page3))) {
@@ -291,7 +303,10 @@ test("stripLeadingDateFromTreeTitle", () => {
     "SocServ | QA"
   );
   assert.equal(stripLeadingDateFromTreeTitle("2026-04-20", "2026-04-20"), "");
-  assert.equal(stripLeadingDateFromTreeTitle("2026-04-20", "Standup"), "Standup");
+  assert.equal(
+    stripLeadingDateFromTreeTitle("2026-04-20", "Standup"),
+    "Standup"
+  );
 });
 
 test("formatNumberEmoji renders digits as keycap emoji", () => {
@@ -401,15 +416,30 @@ test("buildSyncIndexFolderPage clamps out-of-range pages and signals missing fol
 // ---------------------------------------------------------------------------
 
 test("filesTreeFolderCallback round-trips and parseFilesTreeFolderCallback rejects junk", () => {
-  assert.equal(filesTreeFolderCallback(2, 5), `${CB_FILES_TREE_FOLDER_PREFIX}2:5`);
-  assert.deepEqual(parseFilesTreeFolderCallback(filesTreeFolderCallback(0, 1)), {
-    folderIndex: 0,
-    page: 1,
-  });
+  assert.equal(
+    filesTreeFolderCallback(2, 5),
+    `${CB_FILES_TREE_FOLDER_PREFIX}2:5`
+  );
+  assert.deepEqual(
+    parseFilesTreeFolderCallback(filesTreeFolderCallback(0, 1)),
+    {
+      folderIndex: 0,
+      page: 1,
+    }
+  );
   assert.equal(parseFilesTreeFolderCallback("files_tree"), null);
-  assert.equal(parseFilesTreeFolderCallback(`${CB_FILES_TREE_FOLDER_PREFIX}abc:1`), null);
-  assert.equal(parseFilesTreeFolderCallback(`${CB_FILES_TREE_FOLDER_PREFIX}1`), null);
-  assert.equal(parseFilesTreeFolderCallback(`${CB_FILES_TREE_FOLDER_PREFIX}1:0`), null);
+  assert.equal(
+    parseFilesTreeFolderCallback(`${CB_FILES_TREE_FOLDER_PREFIX}abc:1`),
+    null
+  );
+  assert.equal(
+    parseFilesTreeFolderCallback(`${CB_FILES_TREE_FOLDER_PREFIX}1`),
+    null
+  );
+  assert.equal(
+    parseFilesTreeFolderCallback(`${CB_FILES_TREE_FOLDER_PREFIX}1:0`),
+    null
+  );
   assert.equal(parseFilesTreeFolderCallback(""), null);
 });
 
@@ -424,9 +454,15 @@ test("buildFilesTreeRootKeyboard renders one button per folder + back to menu", 
   const kb = buildFilesTreeRootKeyboard(root);
   assert.equal(kb.inline_keyboard.length, 3);
   assert.match(kb.inline_keyboard[0][0].text, /Clients \(2\)/);
-  assert.equal(kb.inline_keyboard[0][0].callback_data, filesTreeFolderCallback(0, 1));
+  assert.equal(
+    kb.inline_keyboard[0][0].callback_data,
+    filesTreeFolderCallback(0, 1)
+  );
   assert.match(kb.inline_keyboard[1][0].text, /Work \(1\)/);
-  assert.equal(kb.inline_keyboard[1][0].callback_data, filesTreeFolderCallback(1, 1));
+  assert.equal(
+    kb.inline_keyboard[1][0].callback_data,
+    filesTreeFolderCallback(1, 1)
+  );
   assert.equal(kb.inline_keyboard[2][0].callback_data, "back");
 });
 

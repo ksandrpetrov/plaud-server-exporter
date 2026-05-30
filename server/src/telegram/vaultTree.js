@@ -98,7 +98,9 @@ function dateFromIso(isoLike) {
  */
 export function plaudFolderLabelFromVaultPath(vaultRelativeDir, subfolder) {
   const sub = String(subfolder || "Plaud").replace(/\\/g, "/");
-  let dir = String(vaultRelativeDir || "").replace(/\\/g, "/").trim();
+  let dir = String(vaultRelativeDir || "")
+    .replace(/\\/g, "/")
+    .trim();
 
   if (!dir || dir === sub) return PLAUD_FOLDER_UNFILED;
   if (dir.startsWith(`${sub}/`)) dir = dir.slice(sub.length + 1);
@@ -285,7 +287,10 @@ export function buildSyncIndexFolderPage(syncIndex, options = {}) {
     subfolder: options.subfolder || "Plaud",
   };
   const rawPageSize = options.pageSize ?? DEFAULT_TREE_PAGE_SIZE;
-  const pageSize = Math.max(1, Math.floor(Number(rawPageSize) || DEFAULT_TREE_PAGE_SIZE));
+  const pageSize = Math.max(
+    1,
+    Math.floor(Number(rawPageSize) || DEFAULT_TREE_PAGE_SIZE)
+  );
 
   const byFolder = collectItemsByFolder(syncIndex, ctx);
   const labels = sortedFolderLabels(byFolder);
@@ -317,7 +322,9 @@ export function buildSyncIndexFolderPage(syncIndex, options = {}) {
   const items = byFolder.get(folderName) || [];
   const total = items.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const requestedPage = Number.isFinite(options.page) ? Math.floor(Number(options.page)) : 1;
+  const requestedPage = Number.isFinite(options.page)
+    ? Math.floor(Number(options.page))
+    : 1;
   const page = Math.min(Math.max(1, requestedPage), totalPages);
   const startIdx = (page - 1) * pageSize;
   const pageItems = items.slice(startIdx, startIdx + pageSize);
@@ -333,4 +340,3 @@ export function buildSyncIndexFolderPage(syncIndex, options = {}) {
     totalPages,
   };
 }
-

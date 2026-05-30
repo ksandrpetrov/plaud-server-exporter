@@ -1,0 +1,79 @@
+name: Infra lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  # actionlint / shellcheck push annotations via the GitHub PR check.
+  pull-requests: read
+
+concurrency:
+  group: infra-lint-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  actionlint:
+    name: actionlint (workflows)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run actionlint
+        uses: reviewdog/action-actionlint@v1
+        with:
+          reporter: github-pr-check
+          level: error
+          fail_level: error
+
+  shellcheck:
+    name: shellcheck (scripts/, deploy/)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run shellcheck
+        uses: ludeeus/action-shellcheck@2.0.0
+        env:
+          SHELLCHECK_OPTS: --severity=warning --shell=bash
+        with:
+          scandir: "./scripts"
+          ignore_paths: >-
+            node_modules
+            coverage
+            server/.data
+          check_together: "yes"
+
+  hadolint:
+    name: hadolint (Dockerfile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          # Pin a baseline. Tighten by removing ignored rules over time.
+          ignore: DL3008,DL3015
+          failure-threshold: warning
+
+  markdownlint:
+    name: markdownlint (docs)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22.x"
+
+      - name: Run markdownlint-cli2
+        run: npx -y markdownlint-cli2

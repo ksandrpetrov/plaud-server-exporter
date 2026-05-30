@@ -1,0 +1,6 @@
+{
+  "include": "common/",
+  "lines": 85,
+  "branches": 75,
+  "functions": 90
+}

@@ -50,8 +50,15 @@ function extractTitleHintForFile(payload, fileId) {
       return;
     }
     const o = value;
-    const oid = String(o.file_id || o.fileId || o.id || "").trim().toLowerCase();
-    const idMatches = !wantId || !oid || oid === wantId || oid.includes(wantId) || wantId.includes(oid);
+    const oid = String(o.file_id || o.fileId || o.id || "")
+      .trim()
+      .toLowerCase();
+    const idMatches =
+      !wantId ||
+      !oid ||
+      oid === wantId ||
+      oid.includes(wantId) ||
+      wantId.includes(oid);
     for (const key of TITLE_KEYS) {
       if (typeof o[key] !== "string") continue;
       const t = normalizeHumanTitle(o[key]);

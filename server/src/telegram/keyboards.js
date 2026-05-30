@@ -87,8 +87,14 @@ export function buildFilesTreeRootKeyboard(root) {
  */
 export function buildFilesTreeFolderKeyboard(folderPage) {
   const totalPages = Math.max(1, Number(folderPage?.totalPages) || 1);
-  const curPage = Math.min(Math.max(1, Number(folderPage?.page) || 1), totalPages);
-  const folderIndex = Math.max(0, Math.floor(Number(folderPage?.folderIndex) || 0));
+  const curPage = Math.min(
+    Math.max(1, Number(folderPage?.page) || 1),
+    totalPages
+  );
+  const folderIndex = Math.max(
+    0,
+    Math.floor(Number(folderPage?.folderIndex) || 0)
+  );
   const rows = [];
 
   if (totalPages > 1) {
@@ -121,9 +127,7 @@ export function buildSyncFinishedKeyboard() {
 
 export function buildSyncRunningKeyboard() {
   return {
-    inline_keyboard: [
-      [{ text: "⏳ Идёт синк…", callback_data: CB_RUN_SYNC }],
-    ],
+    inline_keyboard: [[{ text: "⏳ Идёт синк…", callback_data: CB_RUN_SYNC }]],
   };
 }
 

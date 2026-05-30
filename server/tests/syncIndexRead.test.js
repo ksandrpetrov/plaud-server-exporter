@@ -13,17 +13,17 @@ test("getIndexedRecords flattens records map", () => {
     },
   });
   assert.equal(rows.length, 2);
-  assert.deepEqual(
-    rows.find((r) => r.stableId === "plaud:abc")?.title,
-    "A"
-  );
+  assert.deepEqual(rows.find((r) => r.stableId === "plaud:abc")?.title, "A");
 });
 
 test("getRecordByStableId returns record or null", () => {
   const index = {
     records: { "plaud:x": { summaryPath: "/vault/a.md" } },
   };
-  assert.equal(getRecordByStableId(index, "plaud:x")?.summaryPath, "/vault/a.md");
+  assert.equal(
+    getRecordByStableId(index, "plaud:x")?.summaryPath,
+    "/vault/a.md"
+  );
   assert.equal(getRecordByStableId(index, ""), null);
   assert.equal(getRecordByStableId(index, "missing"), null);
 });

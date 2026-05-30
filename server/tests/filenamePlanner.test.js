@@ -16,9 +16,8 @@ const {
   collectOccupiedFilenames,
   fitsPathLengthBudget,
 } = await import("../src/sync/filenamePlanner.js");
-const { MAX_FILENAME_WITH_EXTENSION, MARKDOWN_EXTENSION } = await import(
-  "../../plaud-exporter/common/exportPathUtils.js"
-);
+const { MAX_FILENAME_WITH_EXTENSION, MARKDOWN_EXTENSION } =
+  await import("../../plaud-exporter/common/exportPathUtils.js");
 
 test("resolveMeetingTitle prefers Plaud metadata over boilerplate", () => {
   assert.equal(
@@ -54,7 +53,7 @@ test("resolveMeetingTitle uses date fallback when title missing", () => {
 
 test("planSummaryPath sanitizes forbidden characters and reserved Windows names", () => {
   const planned = planSummaryPath({
-    title: 'CON: bad <name>|?',
+    title: "CON: bad <name>|?",
     createdAt: "2026-05-17T12:00:00.000Z",
   });
   assert.match(planned.filename, /^2026-05-17 - /);
@@ -170,6 +169,9 @@ test("planSummaryPath fits cross-platform basename budget", () => {
     title: "A".repeat(800),
     createdAt: "2026-05-17T12:00:00.000Z",
   });
-  assert.ok(planned.filename.length <= MAX_FILENAME_WITH_EXTENSION, planned.filename.length);
+  assert.ok(
+    planned.filename.length <= MAX_FILENAME_WITH_EXTENSION,
+    planned.filename.length
+  );
   assert.match(planned.filename, /\.md$/);
 });

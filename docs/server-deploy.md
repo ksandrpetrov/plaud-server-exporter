@@ -2,20 +2,20 @@
 
 Пошаговая установка на Ubuntu. Первый sync и auth на Mac — в [getting-started.md](./getting-started.md).
 
-| Режим | Когда | Документ |
-|-------|--------|----------|
-| **systemd** | Node на хосте, `/srv/plaud-exporter` | Этот файл (ниже) |
-| **Docker** | Образ в GHCR, nginx, `/opt/plaud-exporter` | [deploy/README.md](../deploy/README.md) |
+| Режим       | Когда                                      | Документ                                |
+| ----------- | ------------------------------------------ | --------------------------------------- |
+| **systemd** | Node на хосте, `/srv/plaud-exporter`       | Этот файл (ниже)                        |
+| **Docker**  | Образ в GHCR, nginx, `/opt/plaud-exporter` | [deploy/README.md](../deploy/README.md) |
 
 Не запускайте оба режима с одним `TELEGRAM_BOT_TOKEN`. CI SSH-deploy включается только переменной `PRODUCTION_DOCKER_DEPLOY=true` — иначе push в `main` не трогает systemd.
 
 ## Целевой сервер
 
-| Параметр | Типичное значение |
-|----------|-------------------|
-| ОС | Ubuntu 22.04 LTS |
-| CPU / RAM | 1 vCPU, 1 GB RAM |
-| Диск | Только саммари — килобайты на встречу |
+| Параметр  | Типичное значение                     |
+| --------- | ------------------------------------- |
+| ОС        | Ubuntu 22.04 LTS                      |
+| CPU / RAM | 1 vCPU, 1 GB RAM                      |
+| Диск      | Только саммари — килобайты на встречу |
 
 **Важно:**
 
@@ -122,7 +122,7 @@ BOT_LONG_POLL_SEC=30
 ```
 
 > Авторизация бота построена на трёх слоях: `chat.type === "private"`, совпадение `from.id` с `TELEGRAM_ALLOWED_USER_ID` и совпадение `from.username` с `TELEGRAM_ALLOWED_USERNAME` (если задан). Все три должны пройти, иначе апдейт молча отбрасывается — посторонние не видят даже подсказки «бот приватный». Подробности — в [security.md](./security.md#доступ-к-telegram-боту).
-
+>
 > Если на сервере раньше стоял старый `plaud-exporter.service` (oneshot `server:sync`) и `plaud-exporter.timer`, сначала уберите их, иначе `cp` поверх существующего unit'а ничего не починит без `daemon-reload`/`disable`:
 >
 > ```bash
@@ -184,11 +184,11 @@ sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
 Коды выхода сохраняются для backup oneshot'а; работающий бот их не
 использует — там Restart=always.
 
-| Код | Значение |
-|-----|----------|
-| `0` | OK |
-| `2` | Снова auth на Mac + `scp` |
-| `3` | API Plaud изменился — см. `_errors/` |
+| Код | Значение                                                          |
+| --- | ----------------------------------------------------------------- |
+| `0` | OK                                                                |
+| `2` | Снова auth на Mac + `scp`                                         |
+| `3` | API Plaud изменился — см. `_errors/`                              |
 | `4` | Параллельный sync (только при ручном `server:sync` рядом с ботом) |
 
 ## Соседство с другими сервисами
@@ -222,13 +222,13 @@ sudo systemctl restart plaud-exporter.service
 sudo systemctl status plaud-exporter.service --no-pager -l
 ```
 
-| Шаг | Зачем |
-|-----|--------|
-| `stop` | Бот не держит файлы и lock во время `git`/`npm` |
-| `fetch` + `reset --hard` | Рабочая копия строго как `origin/main`, без локальных коммитов/конфликтов |
-| `clean -fd` | Убрать неотслеживаемые артефакты после смены структуры репо |
-| `chown` | После `sudo`/`root` git снова `plaud:plaud`, иначе `dubious ownership` |
-| `cp` unit + `daemon-reload` | Новый `ExecStart` (например `server:bot`) не подхватится одним `restart` |
+| Шаг                         | Зачем                                                                     |
+| --------------------------- | ------------------------------------------------------------------------- |
+| `stop`                      | Бот не держит файлы и lock во время `git`/`npm`                           |
+| `fetch` + `reset --hard`    | Рабочая копия строго как `origin/main`, без локальных коммитов/конфликтов |
+| `clean -fd`                 | Убрать неотслеживаемые артефакты после смены структуры репо               |
+| `chown`                     | После `sudo`/`root` git снова `plaud:plaud`, иначе `dubious ownership`    |
+| `cp` unit + `daemon-reload` | Новый `ExecStart` (например `server:bot`) не подхватится одним `restart`  |
 
 Не трогает `.env`, `server/.data/session.json`, `owner-chat.json` и `exports/` — они в `.gitignore`.
 

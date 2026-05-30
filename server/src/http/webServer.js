@@ -35,7 +35,10 @@ function readInitData(req) {
  */
 function handleRequest(req, res) {
   const method = req.method || "GET";
-  const url = new URL(req.url || "/", `http://${req.headers.host || "localhost"}`);
+  const url = new URL(
+    req.url || "/",
+    `http://${req.headers.host || "localhost"}`
+  );
   const path = url.pathname;
 
   if (method === "GET" && path === "/healthz") {
@@ -53,7 +56,12 @@ function handleRequest(req, res) {
   if (path.startsWith("/api/")) {
     if (!readInitData(req)) {
       res.writeHead(401, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ error: "unauthorized", detail: "Missing X-Telegram-Init-Data" }));
+      res.end(
+        JSON.stringify({
+          error: "unauthorized",
+          detail: "Missing X-Telegram-Init-Data",
+        })
+      );
       return;
     }
     if (method === "GET" && path === "/api/v1/status") {

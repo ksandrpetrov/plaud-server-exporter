@@ -6,9 +6,7 @@ import { join } from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
-const cliPath = fileURLToPath(
-  new URL("../src/cli/index.js", import.meta.url)
-);
+const cliPath = fileURLToPath(new URL("../src/cli/index.js", import.meta.url));
 
 function runCli(args, env = {}) {
   return new Promise((resolve, reject) => {
@@ -89,7 +87,8 @@ test("sync against a read-only export root surfaces write_error", async () => {
   }
   const hasErrorReport = names.some((n) => n.endsWith(".md"));
   assert.ok(
-    hasErrorReport || /EACCES|EPERM|write|failed/i.test(result.stderr + result.stdout),
+    hasErrorReport ||
+      /EACCES|EPERM|write|failed/i.test(result.stderr + result.stdout),
     "expected write failure to be visible"
   );
 });

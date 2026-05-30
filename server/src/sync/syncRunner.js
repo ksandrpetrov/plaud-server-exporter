@@ -121,8 +121,22 @@ async function buildCandidate(file, summaries) {
     sourceUrl: "",
     summaryHash: await hashSummary(summaryBundle),
     audioSignature: buildAudioSignature(file),
-    createdAt: getRawField(file.raw, ["created_at", "createdAt", "create_time", "createTime", "start_time", "startTime"]),
-    updatedAt: getRawField(file.raw, ["updated_at", "updatedAt", "update_time", "updateTime", "modified_at", "modifiedAt"]),
+    createdAt: getRawField(file.raw, [
+      "created_at",
+      "createdAt",
+      "create_time",
+      "createTime",
+      "start_time",
+      "startTime",
+    ]),
+    updatedAt: getRawField(file.raw, [
+      "updated_at",
+      "updatedAt",
+      "update_time",
+      "updateTime",
+      "modified_at",
+      "modifiedAt",
+    ]),
     normalizedFilename: "",
     folderSegment: resolveSyncFolderSegment(file),
   };
@@ -205,7 +219,9 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
       lastAuthError:
         reported.classified.kind === ERROR_KIND_AUTH ? error.message : null,
     });
-    const err = error instanceof Error ? error : new Error(String(error));
+    const err = /** @type {Error & { exitCode?: number }} */ (
+      error instanceof Error ? error : new Error(String(error))
+    );
     err.exitCode = reported.classified.exitCode;
     throw err;
   }
@@ -220,7 +236,10 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
         summaries = await fetchSummaries(session, file);
       } catch (summaryError) {
         stats.errors++;
-        logger.warn(`Summary read failed for ${file.id}.`, redactError(summaryError));
+        logger.warn(
+          `Summary read failed for ${file.id}.`,
+          redactError(summaryError)
+        );
         const reported = await reportError(summaryError, {
           stage: "fetch-summary",
           runId,
@@ -283,7 +302,10 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
             { status: SYNC_STATUS_SUCCESS, summaryPath: planned.absolutePath }
           );
         }
-        onProgress?.({ ...stats, lastMessage: `Unchanged: ${candidate.title}` });
+        onProgress?.({
+          ...stats,
+          lastMessage: `Unchanged: ${candidate.title}`,
+        });
         continue;
       }
 
@@ -293,7 +315,11 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
         stats.metadataUpdated++;
         stats.processed++;
         if (!dryRun) {
-          const document = buildMarkdownDocument({ file, summaries, candidate });
+          const document = buildMarkdownDocument({
+            file,
+            summaries,
+            candidate,
+          });
           await writeMarkdownFile({
             absolutePath: planned.absolutePath,
             contents: document,
@@ -386,7 +412,11 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
 
   if (!dryRun) await saveSyncIndex(syncIndex);
 
-  stats.status = stats.plaudChanged ? "plaud_changed" : stats.errors > 0 ? "completed_with_errors" : "completed";
+  stats.status = stats.plaudChanged
+    ? "plaud_changed"
+    : stats.errors > 0
+      ? "completed_with_errors"
+      : "completed";
   stats.finishedAt = new Date().toISOString();
 
   await writeStatusFile({ stats });
@@ -400,7 +430,9 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
   }
 
   if (stats.errors > 0) {
-    const err = new Error(`Sync finished with ${stats.errors} error(s).`);
+    const err = /** @type {Error & { exitCode?: number }} */ (
+      new Error(`Sync finished with ${stats.errors} error(s).`)
+    );
     err.exitCode = 1;
     throw err;
   }
@@ -413,9 +445,13 @@ async function writeMarkdownFile(args) {
   return writeMd(args);
 }
 
+/**
+ * @param {{ stats?: object | null, lastAuthError?: string | null }} [params]
+ */
 async function writeStatusFile({ stats, lastAuthError } = {}) {
   const payload = {
-    lastSyncAt: stats?.finishedAt || null,
+    lastSyncAt:
+      /** @type {{finishedAt?: string}} */ (stats || {}).finishedAt || null,
     lastSyncStats: stats || null,
     lastAuthError: lastAuthError || null,
     updatedAt: new Date().toISOString(),
@@ -433,7 +469,10 @@ export async function recordAuthError(message) {
   }
   const payload = {
     ...existing,
-    lastAuthError: { message: String(message || "").slice(0, 500), at: new Date().toISOString() },
+    lastAuthError: {
+      message: String(message || "").slice(0, 500),
+      at: new Date().toISOString(),
+    },
     updatedAt: new Date().toISOString(),
   };
   await writeJsonAtomic(config.statusPath, payload);

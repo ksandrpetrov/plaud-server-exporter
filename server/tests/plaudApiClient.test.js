@@ -131,7 +131,11 @@ test("fetchSummaries returns empty array when API reports no notes", async () =>
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async () => jsonResponse({ status: 0, data: [] });
   try {
-    const summaries = await fetchSummaries(session, { id: "f1", title: "T", raw: {} });
+    const summaries = await fetchSummaries(session, {
+      id: "f1",
+      title: "T",
+      raw: {},
+    });
     assert.deepEqual(summaries, []);
   } finally {
     globalThis.fetch = originalFetch;
@@ -141,7 +145,8 @@ test("fetchSummaries returns empty array when API reports no notes", async () =>
 test("fetchSummaries throws PlaudChangedError on unrecognized non-empty payload", async () => {
   const session = makeSession();
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => jsonResponse({ status: 0, data: { unknown: true } });
+  globalThis.fetch = async () =>
+    jsonResponse({ status: 0, data: { unknown: true } });
   try {
     await assert.rejects(
       () => fetchSummaries(session, { id: "f1", title: "T", raw: {} }),

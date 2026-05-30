@@ -86,11 +86,13 @@ export async function scanVaultSummary(params) {
       }
       const abs = join(dir, entry.name);
       if (entry.isDirectory()) {
-        if (entry.name === "_attachments" || entry.name.startsWith(".")) continue;
+        if (entry.name === "_attachments" || entry.name.startsWith("."))
+          continue;
         await walk(abs, depth + 1);
         continue;
       }
-      if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".md")) continue;
+      if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".md"))
+        continue;
       try {
         const s = await stat(abs);
         const rel = relative(vaultRoot, abs).replace(/\\/g, "/");

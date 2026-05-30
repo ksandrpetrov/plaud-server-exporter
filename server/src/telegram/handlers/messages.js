@@ -19,11 +19,7 @@ import {
 } from "../commandParsers.js";
 import { safeSend } from "../botMessageUtils.js";
 import { handleTreeFilePick } from "../treeBrowse.js";
-import {
-  handleStart,
-  openMenu,
-  sendStatusMessage,
-} from "./menu.js";
+import { handleStart, openMenu, sendStatusMessage } from "./menu.js";
 
 export async function handleMessage(ctx, message) {
   const text = String(message?.text || "").trim();

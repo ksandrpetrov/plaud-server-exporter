@@ -82,7 +82,9 @@ async function commandAuth() {
   assertSnapshotReadyForApi(snapshot);
   const session = createSessionFromSnapshot(snapshot);
   const count = await validateSession(session);
-  logger.info("Session validated against Plaud API.", { recordsVisible: count });
+  logger.info("Session validated against Plaud API.", {
+    recordsVisible: count,
+  });
 }
 
 async function commandSync(flags) {

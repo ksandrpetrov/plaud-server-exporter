@@ -45,7 +45,10 @@ export async function runSyncSilent({
   chatId = null,
 } = {}) {
   const guardChatId = Number.isInteger(chatId) ? chatId : null;
-  if (guardChatId != null && !syncRunGuard.tryAcquire(guardChatId, SYNC_ACTION_MANUAL)) {
+  if (
+    guardChatId != null &&
+    !syncRunGuard.tryAcquire(guardChatId, SYNC_ACTION_MANUAL)
+  ) {
     logger.info("Silent sync skipped: ActionGuard busy or cooldown");
     return { status: "lock_busy" };
   }
@@ -78,7 +81,10 @@ export async function runSyncSilent({
         return { status: "auth_rejected" };
       }
       if (failure.kind === SYNC_FAILURE_PLAUD_CHANGED) {
-        logger.error("Silent sync detected Plaud API changes", redactError(err));
+        logger.error(
+          "Silent sync detected Plaud API changes",
+          redactError(err)
+        );
         return { status: "plaud_changed" };
       }
       logger.error("Silent sync failed", redactError(err));

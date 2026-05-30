@@ -71,7 +71,9 @@ test("animator.send: long text streams via sendMessageDraft + final sendMessage"
     sleep: () => Promise.resolve(),
     frameMs: 0,
   });
-  const replyMarkup = { inline_keyboard: [[{ text: "ok", callback_data: "x" }]] };
+  const replyMarkup = {
+    inline_keyboard: [[{ text: "ok", callback_data: "x" }]],
+  };
   const finalId = await animator.send({
     chatId: 42,
     text: longText,
@@ -83,18 +85,41 @@ test("animator.send: long text streams via sendMessageDraft + final sendMessage"
   const drafts = telegram.calls.filter((c) => c.name === "sendMessageDraft");
   const edits = telegram.calls.filter((c) => c.name === "editMessageText");
   assert.equal(sends.length, 1, "exactly one sendMessage (final delivery)");
-  assert.equal(edits.length, 0, "must never edit; jumpy editMessageText path is gone");
-  assert.ok(drafts.length >= 2, `expected several draft frames, got ${drafts.length}`);
+  assert.equal(
+    edits.length,
+    0,
+    "must never edit; jumpy editMessageText path is gone"
+  );
+  assert.ok(
+    drafts.length >= 2,
+    `expected several draft frames, got ${drafts.length}`
+  );
   const draftIds = new Set(drafts.map((d) => d.payload.draftId));
-  assert.equal(draftIds.size, 1, "all draft frames share one draft_id for smooth animation");
+  assert.equal(
+    draftIds.size,
+    1,
+    "all draft frames share one draft_id for smooth animation"
+  );
   const lastDraft = drafts[drafts.length - 1].payload;
   assert.ok(
     lastDraft.text.length < longText.length,
     "draft typewriter ends on a partial prefix (Чайка); full text only in sendMessage"
   );
-  assert.equal(sends[0].payload.text, longText, "final sendMessage carries the full text");
-  assert.deepEqual(sends[0].payload.replyMarkup, replyMarkup, "final delivery keeps the keyboard");
-  assert.equal(sends[0].payload.messageEffectId, "fxA", "final delivery keeps the effect");
+  assert.equal(
+    sends[0].payload.text,
+    longText,
+    "final sendMessage carries the full text"
+  );
+  assert.deepEqual(
+    sends[0].payload.replyMarkup,
+    replyMarkup,
+    "final delivery keeps the keyboard"
+  );
+  assert.equal(
+    sends[0].payload.messageEffectId,
+    "fxA",
+    "final delivery keeps the effect"
+  );
 });
 
 test("animator.edit: long text drafts then a single editMessageText", async () => {
@@ -117,7 +142,10 @@ test("animator.edit: long text drafts then a single editMessageText", async () =
   const sends = telegram.calls.filter((c) => c.name === "sendMessage");
   assert.equal(sends.length, 0, "edit must never call sendMessage");
   const drafts = telegram.calls.filter((c) => c.name === "sendMessageDraft");
-  assert.ok(drafts.length >= 1, `edit should preview via sendMessageDraft, got ${drafts.length}`);
+  assert.ok(
+    drafts.length >= 1,
+    `edit should preview via sendMessageDraft, got ${drafts.length}`
+  );
   const edits = telegram.calls.filter((c) => c.name === "editMessageText");
   assert.equal(edits.length, 1, "edit lands with exactly one editMessageText");
   const payload = edits[0].payload;
@@ -156,7 +184,10 @@ test("animator.send: draft errors do not block the final sendMessage", async () 
     frameMs: 0,
   });
   const id = await animator.send({ chatId: 1, text: longText });
-  assert.ok(Number.isInteger(id), "final sendMessage still delivers when draft is unavailable");
+  assert.ok(
+    Number.isInteger(id),
+    "final sendMessage still delivers when draft is unavailable"
+  );
   const sends = telegram.calls.filter((c) => c.name === "sendMessage");
   assert.equal(sends.length, 1);
   assert.equal(sends[0].payload.text, longText);

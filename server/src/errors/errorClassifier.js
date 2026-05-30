@@ -23,7 +23,9 @@ export const ERROR_KIND_UNKNOWN = "unknown_error";
  */
 export function classifyError(error, context = {}) {
   const stage = context.stage || "sync";
-  const message = String(error?.message || error || "Unknown error");
+  const message = String(
+    /** @type {any} */ (error)?.message || error || "Unknown error"
+  );
 
   if (error instanceof PlaudAuthError) {
     return {
@@ -64,7 +66,10 @@ export function classifyError(error, context = {}) {
 
   if (
     /ENOENT|EACCES|EPERM|EROFS|write|disk|quota/i.test(message) ||
-    (error && typeof error === "object" && "code" in error && /^E/.test(String(error.code)))
+    (error &&
+      typeof error === "object" &&
+      "code" in error &&
+      /^E/.test(String(error.code)))
   ) {
     return {
       kind: ERROR_KIND_WRITE,

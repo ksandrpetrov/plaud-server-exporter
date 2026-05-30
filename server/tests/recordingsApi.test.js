@@ -50,7 +50,8 @@ test("listAllRecordings throws PlaudChangedError when the first page has no file
   const { PlaudChangedError } = await import("../src/plaud/errors.js");
   const session = makeSession();
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => jsonResponse({ status: 0, data: { unexpected: true } });
+  globalThis.fetch = async () =>
+    jsonResponse({ status: 0, data: { unexpected: true } });
 
   try {
     await assert.rejects(
@@ -96,9 +97,10 @@ test("listAllRecordings with mirror folders fans out per-folder queries", async 
     const queriedFolderIds = new Set(
       folderTaggedUrls.flatMap((href) => {
         const u = new URL(href);
-        return [u.searchParams.get("filetag_id"), u.searchParams.get("file_tag_id")].filter(
-          Boolean
-        );
+        return [
+          u.searchParams.get("filetag_id"),
+          u.searchParams.get("file_tag_id"),
+        ].filter(Boolean);
       })
     );
     assert.ok(queriedFolderIds.has("dev"), "expected dev folder fan-out");

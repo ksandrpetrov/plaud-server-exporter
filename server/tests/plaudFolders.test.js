@@ -48,7 +48,9 @@ test("resolveFolderPathSegment prefers a named folder over unfiled", () => {
 });
 
 test("resolveFolderPathSegment uses unfiled label when only unfiled tags", () => {
-  const tagById = buildTagByIdMap([{ id: "t-inbox", name: "Unfiled", is_unfiled: true }]);
+  const tagById = buildTagByIdMap([
+    { id: "t-inbox", name: "Unfiled", is_unfiled: true },
+  ]);
   const unfiledIds = new Set(["t-inbox"]);
   assert.equal(
     resolveFolderPathSegment(["t-inbox"], tagById, unfiledIds),

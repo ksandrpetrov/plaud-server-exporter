@@ -1,14 +1,13 @@
 import { config } from "../config/config.js";
 import { logger } from "../logger.js";
-import {
-  isLocalStorageSessionReady,
-} from "./plaudSessionExtractor.js";
-import {
-  ensureSecureDir,
-  saveSessionSnapshot,
-} from "./sessionStore.js";
+import { isLocalStorageSessionReady } from "./plaudSessionExtractor.js";
+import { ensureSecureDir, saveSessionSnapshot } from "./sessionStore.js";
 
-const REQUIRED_LOCALSTORAGE_PREFIXES = ["pld_", "plaud_user_api_domain", "tokenstr"];
+const REQUIRED_LOCALSTORAGE_PREFIXES = [
+  "pld_",
+  "plaud_user_api_domain",
+  "tokenstr",
+];
 
 // A realistic UA matching a recent stable Chrome on macOS/Linux. Playwright's
 // bundled Chromium advertises `HeadlessChrome` / older Chromium versions which
@@ -29,7 +28,8 @@ const STEALTH_INIT_SCRIPT = `
 
 function shouldKeepKey(key) {
   if (!key) return false;
-  if (REQUIRED_LOCALSTORAGE_PREFIXES.some((p) => key.startsWith(p))) return true;
+  if (REQUIRED_LOCALSTORAGE_PREFIXES.some((p) => key.startsWith(p)))
+    return true;
   if (key.includes(":currentWorkspaceId")) return true;
   if (key.includes(":workspaceList")) return true;
   if (key.includes(":sort_by")) return true;
@@ -98,7 +98,9 @@ async function applyStealth(context) {
  */
 export function assertInteractiveAuthEnvironment() {
   const onLinux = process.platform === "linux";
-  const hasDisplay = Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
+  const hasDisplay = Boolean(
+    process.env.DISPLAY || process.env.WAYLAND_DISPLAY
+  );
   const deployRoot = String(process.env.PLAUD_DEPLOY_ROOT || "").trim();
   const cwdLooksLikeVps =
     process.cwd().startsWith("/opt/plaud-server-exporter") ||
@@ -116,10 +118,14 @@ export function assertInteractiveAuthEnvironment() {
 function explainLaunchFailure(error) {
   const message = String(error?.message || error);
   const onHeadlessLinux =
-    process.platform === "linux" && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY;
+    process.platform === "linux" &&
+    !process.env.DISPLAY &&
+    !process.env.WAYLAND_DISPLAY;
 
-  if (/Chromium distribution 'chrome' is not found/i.test(message) ||
-      /Executable doesn't exist/i.test(message)) {
+  if (
+    /Chromium distribution 'chrome' is not found/i.test(message) ||
+    /Executable doesn't exist/i.test(message)
+  ) {
     if (onHeadlessLinux) {
       return (
         "Google Chrome is not available on this Linux host (typical for a VPS). " +
@@ -182,18 +188,20 @@ export async function runInteractiveLogin(options = {}) {
     logger.info(
       "Please complete the Plaud Web login in the opened browser window. " +
         "This CLI will detect the session automatically. If Google blocks " +
-        "the sign-in with \"this browser may not be secure\", sign into " +
+        'the sign-in with "this browser may not be secure", sign into ' +
         "Plaud with your email/password (not Google), or follow " +
         "docs/troubleshooting.md → «Google блокирует вход»."
     );
 
     const deadline = Date.now() + loginTimeoutMs;
+    /** @type {Record<string, string>} */
     let snapshotKeys = {};
     let loggedWaitingForWorkspace = false;
 
     while (Date.now() < deadline) {
       try {
         snapshotKeys = await page.evaluate(() => {
+          /** @type {Record<string, string>} */
           const out = {};
           for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
@@ -211,7 +219,9 @@ export async function runInteractiveLogin(options = {}) {
       const readiness = isLocalStorageSessionReady(snapshotKeys);
       if (readiness.ready) break;
 
-      const hasToken = !!(snapshotKeys["pld_tokenstr"] || snapshotKeys["tokenstr"]);
+      const hasToken = !!(
+        snapshotKeys["pld_tokenstr"] || snapshotKeys["tokenstr"]
+      );
       if (hasToken && !loggedWaitingForWorkspace) {
         loggedWaitingForWorkspace = true;
         logger.info(

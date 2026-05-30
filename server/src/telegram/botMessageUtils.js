@@ -60,6 +60,16 @@ export async function safeSend(ctx, chatId, text, options = {}) {
   }
 }
 
+/**
+ * @param {HasTelegram} ctx
+ * @param {{
+ *   chatId: number,
+ *   messageId: number,
+ *   text: string,
+ *   keyboard: object | null,
+ *   animate?: boolean,
+ * }} params
+ */
 export async function editToMenuScreen(
   ctx,
   { chatId, messageId, text, keyboard, animate }
@@ -75,9 +85,12 @@ export async function editToMenuScreen(
       });
       return;
     } catch (err) {
-      logger.info("animator edit failed; falling back to bare editMessageText", {
-        error: String(err?.message || err),
-      });
+      logger.info(
+        "animator edit failed; falling back to bare editMessageText",
+        {
+          error: String(err?.message || err),
+        }
+      );
     }
   }
   try {

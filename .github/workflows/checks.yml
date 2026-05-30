@@ -1,0 +1,99 @@
+name: Checks (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node.js version to run checks against
+        type: string
+        default: "22.x"
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Lint, verify, test (Node ${{ inputs.node-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup monorepo
+        uses: ./.github/actions/setup-monorepo
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Lint (server)
+        run: npm run lint
+
+      - name: Lint (extension)
+        run: npm run lint:extension
+
+      - name: Typecheck (server JSDoc + tsc)
+        run: npm run typecheck:server
+
+      - name: Typecheck (extension JSDoc + tsc)
+        run: npm run typecheck:extension
+
+      - name: Prettier (format check)
+        run: npm run format:check
+
+      - name: Verify shared common imports
+        run: npm run verify
+
+      - name: Verify extension dynamic imports
+        run: npm run verify:extension
+
+      - name: Test server (no coverage)
+        if: inputs.node-version != '22.x'
+        run: npm test
+
+      - name: Test extension (no coverage)
+        if: inputs.node-version != '22.x'
+        run: npm run test:extension
+
+      - name: Test with coverage + thresholds
+        if: inputs.node-version == '22.x'
+        run: npm run test:coverage
+
+      - name: Upload coverage artifact
+        if: inputs.node-version == '22.x'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/*.lcov.info
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Smoke critical server imports
+        run: node scripts/smoke_container.mjs
+
+      - name: Static check deploy script ordering (Docker)
+        run: bash scripts/ci-deploy-remote.test.sh
+
+      - name: Static check deploy script ordering (systemd)
+        run: bash scripts/ci-deploy-systemd-remote.test.sh
+
+      - name: npm audit (production dependencies, high+ only)
+        # Dev devDeps (typescript, eslint, prettier) churn frequently with low-severity
+        # advisories; production deps power the running bot and must stay clean.
+        run: |
+          npm audit --omit=dev --audit-level=high
+          (cd plaud-exporter && npm audit --omit=dev --audit-level=high)
+
+      # Docker PR build: guards against Dockerfile drift before merge. Only runs
+      # on the primary Node version to avoid duplicating buildx setup across the
+      # 20.x/22.x matrix.
+      - name: Set up Docker Buildx
+        if: inputs.node-version == '22.x'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker build (load locally) + smoke
+        if: inputs.node-version == '22.x'
+        env:
+          IMAGE: plaud-exporter:pr-${{ github.sha }}
+        run: |
+          docker buildx build --load -t "$IMAGE" .
+          SKIP_BUILD=1 ALLOW_PULL=0 bash scripts/docker-smoke-image.sh "$IMAGE"

@@ -126,8 +126,9 @@ export async function runBot() {
     }
   };
 
-  const runSyncQuiet = async ({ chatId } = {}) =>
-    runSyncSilent({ chatId: chatId ?? null });
+  const runSyncQuiet = async (
+    /** @type {{ chatId?: number | null }} */ { chatId } = {}
+  ) => runSyncSilent({ chatId: chatId ?? null });
 
   const scheduler = new BotScheduler({
     telegram,

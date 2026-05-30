@@ -1,5 +1,9 @@
 import { logger } from "../../logger.js";
-import { buildBackToMenuKeyboard, buildMainMenuKeyboard, buildSettingsKeyboard } from "../keyboards.js";
+import {
+  buildBackToMenuKeyboard,
+  buildMainMenuKeyboard,
+  buildSettingsKeyboard,
+} from "../keyboards.js";
 import {
   BOT_WELCOME_HTML,
   lastSyncSummaryLine,
@@ -69,7 +73,10 @@ export async function sendStatusMessage(ctx, chatId) {
   });
 }
 
-export async function handleSetInterval(ctx, { chatId, messageId, intervalMin }) {
+export async function handleSetInterval(
+  ctx,
+  { chatId, messageId, intervalMin }
+) {
   if (!isAllowedInterval(intervalMin)) {
     logger.info("Ignored unsupported interval value", { intervalMin });
     return;

@@ -1,0 +1,28 @@
+# Vendored / generated files
+node_modules
+coverage
+server/.data
+exports
+logs
+**/.DS_Store
+**/._*
+
+# Vendored data files (size + auto-generated)
+plaud-exporter/common/plaud-i18n-messages.js
+
+# Lockfiles (handled by npm)
+package-lock.json
+**/package-lock.json
+
+# Build artefacts (none expected, but defensive)
+dist
+build
+.cache
+.tmp
+
+# Ansible vault (deploy/) — owned by Ansible formatting
+deploy/ansible
+
+# Documentation that intentionally uses opinionated whitespace
+docs/stabilization-result.md
+docs/stabilization-audit.md

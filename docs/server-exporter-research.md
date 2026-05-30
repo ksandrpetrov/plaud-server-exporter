@@ -23,11 +23,11 @@ Server exporter переносит рабочую логику Chrome-расши
 
 Manifest V3, три слоя runtime.
 
-| Слой | Файлы | Задача |
-|------|-------|--------|
-| Service worker | `background.js`, `background/*` | Уведомления, оркестрация; `chromeDownloadBridge.js` — `chrome.downloads`; `tabMessaging.js` — сообщения во вкладку |
+| Слой           | Файлы                                  | Задача                                                                                                             |
+| -------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Service worker | `background.js`, `background/*`        | Уведомления, оркестрация; `chromeDownloadBridge.js` — `chrome.downloads`; `tabMessaging.js` — сообщения во вкладку |
 | Content script | `content.js`, `features/audioExport/*` | На `web.plaud.ai` / `app.plaud.ai`; `plaudBrowserSession.js` — `localStorage`; API и smart sync в `audioExport.js` |
-| Popup | `popup/*` | Запуск экспорта, настройка подпапки sync |
+| Popup          | `popup/*`                              | Запуск экспорта, настройка подпапки sync                                                                           |
 
 Протокол сообщений между слоями: константы `action` в
 [`runtimeMessages.js`](../plaud-exporter/common/runtimeMessages.js) (SW и
@@ -74,20 +74,20 @@ flowchart TD
 
 Расширение **не** читает cookies в коде. Сессия — из `localStorage` вкладки Plaud.
 
-| Ключ (`localStorage` Plaud Web) | Назначение |
-|---------------------------------|------------|
-| `pld_tokenstr` (или `tokenstr`) | JWT пользователя |
-| claim `sub` в JWT | `userId` для других ключей |
-| `pld_{userId}:currentWorkspaceId` | активный workspace → заголовок `workspace-id` |
-| `pld_{userId}:workspaceList` | `[{ workspaceId, workspaceToken, expiresAt }]` |
+| Ключ (`localStorage` Plaud Web)      | Назначение                                       |
+| ------------------------------------ | ------------------------------------------------ |
+| `pld_tokenstr` (или `tokenstr`)      | JWT пользователя                                 |
+| claim `sub` в JWT                    | `userId` для других ключей                       |
+| `pld_{userId}:currentWorkspaceId`    | активный workspace → заголовок `workspace-id`    |
+| `pld_{userId}:workspaceList`         | `[{ workspaceId, workspaceToken, expiresAt }]`   |
 | `pld_{userId}:plaud_user_api_domain` | API-хост пользователя (должен быть `*.plaud.ai`) |
-| `plaud_user_api_domain` | глобальный fallback |
-| `pld_{userId}_{workspaceId}:sort_by` | сортировка списка, по умолчанию `start_time` |
+| `plaud_user_api_domain`              | глобальный fallback                              |
+| `pld_{userId}_{workspaceId}:sort_by` | сортировка списка, по умолчанию `start_time`     |
 
 `getPlaudSession()` выставляет `Authorization`: **workspaceToken**, если не истёк,
-иначе userToken, с префиксом `Bearer `. Заголовки запросов:
+иначе userToken, с префиксом `Bearer`. Заголовки запросов:
 
-```
+```text
 Authorization: Bearer …
 edit-from: web
 app-platform: web
@@ -104,13 +104,13 @@ file-id: <id>                    (только на /ai/query_note)
 База: `session.apiBase` (по умолчанию `https://api.plaud.ai`, переопределение через
 `plaud_user_api_domain`, проверка `*.plaud.ai`).
 
-| Метод | Путь | Назначение | Доп. заголовки |
-|-------|------|------------|----------------|
-| GET | `/file/simple/web?…` | Пагинированный список | — |
-| GET | `/filetag/` (fallback `/filetag`) | Виртуальные папки/теги | — |
-| GET | `/file/temp-url/{fileId}` | Presigned URL аудио | — |
-| GET | `/ai/query_note` | Заметки саммари | `file-id` |
-| GET | `<note.data_link>` | Тело markdown (внешний URL) | без auth Plaud |
+| Метод | Путь                              | Назначение                  | Доп. заголовки |
+| ----- | --------------------------------- | --------------------------- | -------------- |
+| GET   | `/file/simple/web?…`              | Пагинированный список       | —              |
+| GET   | `/filetag/` (fallback `/filetag`) | Виртуальные папки/теги      | —              |
+| GET   | `/file/temp-url/{fileId}`         | Presigned URL аудио         | —              |
+| GET   | `/ai/query_note`                  | Заметки саммари             | `file-id`      |
+| GET   | `<note.data_link>`                | Тело markdown (внешний URL) | без auth Plaud |
 
 Дополнительно:
 
@@ -162,14 +162,14 @@ file-id: <id>                    (только на /ai/query_note)
 
 ## Риски
 
-| Риск | Вероятность | Смягчение |
-|------|-------------|-----------|
-| Неожиданное истечение JWT | Средняя | `server:auth`, `auth_expired` в status, без retry 401/403 |
-| Смена полей/кодов Plaud | Низкая/средняя | Версионированный клиент; диагностика статусов без тел |
-| Список API короче DOM-merge | Низкая | Лог расхождения; фаза 2 — теги и скан снимка |
-| Headless без UI для login | Высокая при деплое | X11, auth на Mac + scp, `--import` DevTools |
-| Утечка секретов в логах | Средняя | Центральная редакция; запрет печати токенов |
-| Расхождение с `plaud-exporter/common` | Низкая | `npm run verify` |
+| Риск                                  | Вероятность        | Смягчение                                                 |
+| ------------------------------------- | ------------------ | --------------------------------------------------------- |
+| Неожиданное истечение JWT             | Средняя            | `server:auth`, `auth_expired` в status, без retry 401/403 |
+| Смена полей/кодов Plaud               | Низкая/средняя     | Версионированный клиент; диагностика статусов без тел     |
+| Список API короче DOM-merge           | Низкая             | Лог расхождения; фаза 2 — теги и скан снимка              |
+| Headless без UI для login             | Высокая при деплое | X11, auth на Mac + scp, `--import` DevTools               |
+| Утечка секретов в логах               | Средняя            | Центральная редакция; запрет печати токенов               |
+| Расхождение с `plaud-exporter/common` | Низкая             | `npm run verify`                                          |
 
 ## Рекомендуемый путь реализации
 
@@ -193,14 +193,14 @@ file-id: <id>                    (только на /ai/query_note)
 
 На VPS вместо systemd timer — один процесс `server:bot` (`server/src/telegram/`):
 
-| Модуль | Назначение |
-|--------|------------|
-| `bot.js` | Long-polling, маршрутизация updates |
-| `handlers.js` | Команды `/start`, `/menu`, `/status`, inline-кнопки |
-| `scheduler.js` | Таймер автосинка (`BOT_SYNC_INTERVAL_MIN` / `bot-settings.json`) |
-| `syncOrchestrator.js` | Общий lock и отчёты в чат (тот же `runSync`, что CLI) |
-| `ownerChat.js` | Персистентный `chat_id` после первого `/start` |
-| `auth.js` | Gate по `TELEGRAM_ALLOWED_USERNAME` |
+| Модуль                | Назначение                                                       |
+| --------------------- | ---------------------------------------------------------------- |
+| `bot.js`              | Long-polling, маршрутизация updates                              |
+| `handlers.js`         | Команды `/start`, `/menu`, `/status`, inline-кнопки              |
+| `scheduler.js`        | Таймер автосинка (`BOT_SYNC_INTERVAL_MIN` / `bot-settings.json`) |
+| `syncOrchestrator.js` | Общий lock и отчёты в чат (тот же `runSync`, что CLI)            |
+| `ownerChat.js`        | Персистентный `chat_id` после первого `/start`                   |
+| `auth.js`             | Gate по `TELEGRAM_ALLOWED_USERNAME`                              |
 
 Поток:
 

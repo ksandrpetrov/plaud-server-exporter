@@ -24,6 +24,9 @@ echo "==> Upload session to ${DEPLOY_USER}@${DEPLOY_HOST}"
 scp "$SESSION" "${DEPLOY_USER}@${DEPLOY_HOST}:/tmp/session.json"
 
 echo "==> Install session and restart bot"
+# REMOTE_DATA must be expanded locally before sending, so the unquoted EOF is
+# intentional (shellcheck SC2087 is acknowledged here).
+# shellcheck disable=SC2087
 ssh "${DEPLOY_USER}@${DEPLOY_HOST}" bash -s <<EOF
 set -euo pipefail
 sudo install -d -o plaud -g plaud -m 700 '${REMOTE_DATA}'

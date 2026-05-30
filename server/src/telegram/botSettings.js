@@ -76,13 +76,16 @@ export async function loadBotSettings(path = config.botSettingsPath) {
  * @param {string} [path]
  * @returns {Promise<BotSettings>}
  */
-export async function saveBotSettings(input = {}, path = config.botSettingsPath) {
+export async function saveBotSettings(
+  input = {},
+  path = config.botSettingsPath
+) {
   const existing = await loadBotSettings(path);
 
   const intervalCandidate =
     input?.intervalMin !== undefined
       ? Number(input.intervalMin)
-      : existing?.intervalMin ?? config.botSyncIntervalMin;
+      : (existing?.intervalMin ?? config.botSyncIntervalMin);
   if (!Number.isFinite(intervalCandidate) || intervalCandidate <= 0) {
     throw new Error("saveBotSettings: intervalMin must be a positive integer");
   }
@@ -90,7 +93,8 @@ export async function saveBotSettings(input = {}, path = config.botSettingsPath)
   const summaryVisible =
     input?.scheduledSummaryVisible !== undefined
       ? Boolean(input.scheduledSummaryVisible)
-      : existing?.scheduledSummaryVisible ?? DEFAULT_SCHEDULED_SUMMARY_VISIBLE;
+      : (existing?.scheduledSummaryVisible ??
+        DEFAULT_SCHEDULED_SUMMARY_VISIBLE);
 
   const record = {
     intervalMin: Math.floor(intervalCandidate),

@@ -1,5 +1,9 @@
 import { blockquote, expandableBlockquote } from "../htmlFormat.js";
-import { describeStatusVerdict, escapeHtml, formatDateTimeLocal } from "./format.js";
+import {
+  describeStatusVerdict,
+  escapeHtml,
+  formatDateTimeLocal,
+} from "./format.js";
 
 const BOT_COMMANDS_BLOCK =
   "Команды:\n" +

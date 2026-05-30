@@ -15,7 +15,10 @@ import {
   CB_SETTINGS_TOGGLE_SUMMARY,
   CB_STATUS,
 } from "../callbackData.js";
-import { buildBackToMenuKeyboard, buildSettingsKeyboard } from "../keyboards.js";
+import {
+  buildBackToMenuKeyboard,
+  buildSettingsKeyboard,
+} from "../keyboards.js";
 import {
   BOT_HELP_HTML,
   MENU_CLOSED_TEXT,
@@ -29,7 +32,11 @@ import {
   loadEffectiveScheduledSummaryVisible,
   saveBotSettings,
 } from "../botSettings.js";
-import { answerBestEffort, editToMenuScreen, safeSend } from "../botMessageUtils.js";
+import {
+  answerBestEffort,
+  editToMenuScreen,
+  safeSend,
+} from "../botMessageUtils.js";
 import { readStatus } from "../statusReader.js";
 import { SYNC_ACTION_MANUAL, syncRunGuard } from "../syncGuards.js";
 import {
@@ -108,7 +115,8 @@ async function handleToggleSummaryCallback({ ctx, chatId, messageId }) {
     });
     return false;
   }
-  const intervalMin = existing?.intervalMin ?? (await loadEffectiveIntervalMin());
+  const intervalMin =
+    existing?.intervalMin ?? (await loadEffectiveIntervalMin());
   const status = await readStatus();
   await editToMenuScreen(ctx, {
     chatId,

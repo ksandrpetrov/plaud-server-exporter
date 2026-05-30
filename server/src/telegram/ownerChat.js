@@ -59,7 +59,9 @@ export async function loadOwnerChat(path = config.ownerChatPath) {
     };
   } catch (err) {
     if (err && err.code === "ENOENT") return null;
-    logger.warn("Failed to read owner-chat.json", { error: String(err?.message || err) });
+    logger.warn("Failed to read owner-chat.json", {
+      error: String(err?.message || err),
+    });
     return null;
   }
 }
@@ -83,7 +85,9 @@ export async function saveOwnerChat(input, path = config.ownerChatPath) {
   }
   const username = String(input.username || "").toLowerCase();
   const userId =
-    typeof input.userId === "number" && Number.isInteger(input.userId) && input.userId > 0
+    typeof input.userId === "number" &&
+    Number.isInteger(input.userId) &&
+    input.userId > 0
       ? input.userId
       : null;
 

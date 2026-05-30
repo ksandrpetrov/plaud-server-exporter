@@ -16,17 +16,11 @@ test("extractRawRecordingId reads first present key", () => {
 
 test("normalizePlaudRecordingId lowercases 32-hex ids", () => {
   const hex = "a".repeat(32);
-  assert.equal(
-    normalizePlaudRecordingId({ file_id: hex.toUpperCase() }),
-    hex
-  );
+  assert.equal(normalizePlaudRecordingId({ file_id: hex.toUpperCase() }), hex);
 });
 
 test("normalizePlaudRecordingId keeps non-hex ids for API edge cases", () => {
-  assert.equal(
-    normalizePlaudRecordingId({ audioId: "aud-002" }),
-    "aud-002"
-  );
+  assert.equal(normalizePlaudRecordingId({ audioId: "aud-002" }), "aud-002");
 });
 
 test("normalizeHexRecordingId matches shared contract", () => {

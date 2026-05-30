@@ -2,15 +2,15 @@
 
 ## Где лежат секреты
 
-| Путь | Содержимое | Права |
-|------|------------|-------|
-| `server/.data/session.json` | JWT Plaud, cookies, id workspace | `600`, каталог `700` |
-| `server/.data/playwright-profile/` | Профиль браузера (могут быть cookies) | в `.gitignore` |
-| `.env` | Пути, тюнинг, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USER_ID`, `TELEGRAM_ALLOWED_USERNAME` — **без паролей Plaud** | `600` |
-| `server/.data/owner-chat.json` | `chatId` владельца для уведомлений бота | рекомендуется `600` |
-| `server/.data/bot-settings.json` | Интервал автосинка из меню бота | рекомендуется `600` |
-| `server/.data/telegram-offset.json` | Смещение `getUpdates` (не секрет, но локальное состояние) | рекомендуется `600` |
-| `server/.data/sync-index.json` | Пути, хеши, названия — не токены | рекомендуется `600` |
+| Путь                                | Содержимое                                                                                                          | Права                |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| `server/.data/session.json`         | JWT Plaud, cookies, id workspace                                                                                    | `600`, каталог `700` |
+| `server/.data/playwright-profile/`  | Профиль браузера (могут быть cookies)                                                                               | в `.gitignore`       |
+| `.env`                              | Пути, тюнинг, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USER_ID`, `TELEGRAM_ALLOWED_USERNAME` — **без паролей Plaud** | `600`                |
+| `server/.data/owner-chat.json`      | `chatId` владельца для уведомлений бота                                                                             | рекомендуется `600`  |
+| `server/.data/bot-settings.json`    | Интервал автосинка из меню бота                                                                                     | рекомендуется `600`  |
+| `server/.data/telegram-offset.json` | Смещение `getUpdates` (не секрет, но локальное состояние)                                                           | рекомендуется `600`  |
+| `server/.data/sync-index.json`      | Пути, хеши, названия — не токены                                                                                    | рекомендуется `600`  |
 
 **Не коммитьте:** `.env`, `session.json`, `playwright-profile/`, `owner-chat.json`, деревья экспорта с реальными данными.
 

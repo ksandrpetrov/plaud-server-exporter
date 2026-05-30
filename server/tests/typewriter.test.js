@@ -43,7 +43,10 @@ test("typewriterChunks matches Чайка: empty below 60 chars, partial prefixe
   assert.ok(chunks.length >= 2);
   for (const chunk of chunks) {
     assert.ok(chunk.length < text.length);
-    assert.equal((chunk.match(/<b>/g) || []).length, (chunk.match(/<\/b>/g) || []).length);
+    assert.equal(
+      (chunk.match(/<b>/g) || []).length,
+      (chunk.match(/<\/b>/g) || []).length
+    );
   }
 });
 
@@ -51,7 +54,10 @@ test("clipTelegramText keeps HTML balanced under TELEGRAM_HTML_MAX_LEN", () => {
   const long = "<b>" + "a".repeat(5000) + "</b>";
   const clipped = clipTelegramText(long);
   assert.ok(clipped.length <= TELEGRAM_HTML_MAX_LEN);
-  assert.equal((clipped.match(/<b>/g) || []).length, (clipped.match(/<\/b>/g) || []).length);
+  assert.equal(
+    (clipped.match(/<b>/g) || []).length,
+    (clipped.match(/<\/b>/g) || []).length
+  );
 });
 
 test("buildTypewriterFrames chunks are monotonic and html-safe", () => {

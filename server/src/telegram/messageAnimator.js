@@ -73,7 +73,11 @@ export function createMessageAnimator({
       const finalText = clipTelegramText(String(text ?? ""));
       if (!finalText) return null;
 
-      await runDraftTypewriterPreview({ ...previewOpts, chatId, text: finalText });
+      await runDraftTypewriterPreview({
+        ...previewOpts,
+        chatId,
+        text: finalText,
+      });
 
       return sendDirect({
         telegram,
@@ -84,12 +88,22 @@ export function createMessageAnimator({
       });
     },
 
-    async edit({ chatId, messageId, text, replyMarkup = null, messageEffectId = null }) {
+    async edit({
+      chatId,
+      messageId,
+      text,
+      replyMarkup = null,
+      messageEffectId = null,
+    }) {
       if (!messageId) return null;
       const finalText = clipTelegramText(String(text ?? ""));
       if (!finalText) return null;
 
-      await runDraftTypewriterPreview({ ...previewOpts, chatId, text: finalText });
+      await runDraftTypewriterPreview({
+        ...previewOpts,
+        chatId,
+        text: finalText,
+      });
 
       try {
         await telegram.editMessageText({
@@ -110,7 +124,13 @@ export function createMessageAnimator({
   };
 }
 
-async function sendDirect({ telegram, chatId, text, replyMarkup, messageEffectId }) {
+async function sendDirect({
+  telegram,
+  chatId,
+  text,
+  replyMarkup,
+  messageEffectId,
+}) {
   try {
     const res = await telegram.sendMessage({
       chatId,

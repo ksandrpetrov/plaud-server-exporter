@@ -59,17 +59,14 @@ export function buildDatedFilenameBase({ title, createdAt, maxTitleLength }) {
     maxTitleLength ??
     Math.max(
       40,
-      MAX_FILENAME_WITH_EXTENSION -
-        MARKDOWN_EXTENSION.length -
-        prefix.length
+      MAX_FILENAME_WITH_EXTENSION - MARKDOWN_EXTENSION.length - prefix.length
     );
   const safeTitle = sanitizePathSegment(title, {
     fallback: "Plaud summary",
     maxLength: titleBudget,
   });
   let base = `${prefix}${safeTitle}`;
-  const maxBase =
-    MAX_FILENAME_WITH_EXTENSION - MARKDOWN_EXTENSION.length;
+  const maxBase = MAX_FILENAME_WITH_EXTENSION - MARKDOWN_EXTENSION.length;
   if (base.length > maxBase) {
     const titlePart = truncateToGraphemes(safeTitle, Math.max(20, titleBudget));
     base = `${prefix}${titlePart}`.trimEnd();
@@ -86,19 +83,11 @@ export function buildDatedFilenameBase({ title, createdAt, maxTitleLength }) {
 }
 
 /**
- * @param {{
- *   title: string;
- *   createdAt?: string;
- *   occupiedFilenames?: Set<string>;
- *   stableId?: string;
- * }} input
- * @returns {{
- *   absolutePath: string;
- *   relativePath: string;
- *   filename: string;
- *   dateOnly: string;
- *   normalizedFilename: string;
- * }}
+ * @param {string} base Stem of the filename without extension.
+ * @param {string} filename Initially proposed filename (with extension).
+ * @param {Set<string> | undefined} occupiedFilenames Lowercased existing names.
+ * @param {string | undefined} stableId Plaud recording id used for disambiguation.
+ * @returns {{ base: string, filename: string }}
  */
 function applyFilenameCollision(base, filename, occupiedFilenames, stableId) {
   if (!occupiedFilenames?.has(filename.toLowerCase())) {
@@ -137,9 +126,7 @@ export function planSummaryPath({
       titleBudget ??
         Math.max(
           40,
-          MAX_FILENAME_WITH_EXTENSION -
-            MARKDOWN_EXTENSION.length -
-            prefixLen
+          MAX_FILENAME_WITH_EXTENSION - MARKDOWN_EXTENSION.length - prefixLen
         ),
       pathFilenameCap - MARKDOWN_EXTENSION.length - prefixLen
     );
@@ -184,9 +171,7 @@ export function planSummaryPath({
       titleBudget ??
       Math.max(
         40,
-        MAX_FILENAME_WITH_EXTENSION -
-          MARKDOWN_EXTENSION.length -
-          prefixLen
+        MAX_FILENAME_WITH_EXTENSION - MARKDOWN_EXTENSION.length - prefixLen
       );
     titleBudget = Math.max(20, Math.floor(currentBudget * 0.85));
     titleForPath = truncateToGraphemes(String(title || ""), titleBudget);

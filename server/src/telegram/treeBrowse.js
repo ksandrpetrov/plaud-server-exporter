@@ -21,10 +21,7 @@
 import { access } from "node:fs/promises";
 import { config, effectiveVaultRoot } from "../config/config.js";
 import { logger } from "../logger.js";
-import {
-  getRecordByStableId,
-  loadIndexForBot,
-} from "../sync/syncIndexRead.js";
+import { getRecordByStableId, loadIndexForBot } from "../sync/syncIndexRead.js";
 import {
   buildBackToMenuKeyboard,
   buildFilesTreeFolderKeyboard,
@@ -81,8 +78,7 @@ export async function loadTreeSource() {
     : await loadIndexForBot();
   try {
     const loadLive =
-      _testHooks?.loadLive ||
-      ((args) => loadPlaudLiveSyncTree(args));
+      _testHooks?.loadLive || ((args) => loadPlaudLiveSyncTree(args));
     const live = await loadLive({ syncIndex: real });
     if (live && Object.keys(live.records || {}).length > 0) return live;
   } catch (err) {
@@ -124,7 +120,10 @@ export async function showFilesTreeRoot(ctx, { chatId, messageId }) {
   }
 }
 
-export async function showFilesTreeFolder(ctx, { chatId, messageId, folderIndex, page }) {
+export async function showFilesTreeFolder(
+  ctx,
+  { chatId, messageId, folderIndex, page }
+) {
   const typing = new TypingIndicator({ telegram: ctx.telegram, chatId });
   typing.start();
   try {
@@ -182,7 +181,11 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
   }
   const item = treeBrowseItemAtPick(state, pick);
   if (!item) {
-    await safeSend(ctx, chatId, treeFilePickOutOfRangeHtml(pick, state.items.length));
+    await safeSend(
+      ctx,
+      chatId,
+      treeFilePickOutOfRangeHtml(pick, state.items.length)
+    );
     return;
   }
 
@@ -239,7 +242,9 @@ async function trySendDocument(ctx, chatId, documentPath) {
 
 async function runQuietSyncSafely(ctx, chatId) {
   if (typeof ctx.runSyncQuiet !== "function") {
-    logger.warn("Auto-sync requested but runSyncQuiet is not wired into the bot");
+    logger.warn(
+      "Auto-sync requested but runSyncQuiet is not wired into the bot"
+    );
     return { status: "failed" };
   }
   try {

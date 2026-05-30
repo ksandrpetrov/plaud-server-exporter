@@ -20,32 +20,24 @@ env:
 
 jobs:
   checks:
-    name: Lint, verify, test (Node 22.x)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: "22.x"
-          cache: npm
-
-      - run: npm install --workspaces --ignore-scripts
-      - run: npm install --ignore-scripts
-        working-directory: plaud-exporter
-
-      - run: npm run lint
-      - run: npm run verify
-      - run: npm test
-      - run: node scripts/smoke_container.mjs
-      - run: bash scripts/ci-deploy-remote.test.sh
-      - run: bash scripts/ci-deploy-systemd-remote.test.sh
-      - run: npm run test:submodule
+    name: Checks
+    uses: ./.github/workflows/checks.yml
+    with:
+      node-version: "22.x"
 
   build:
     name: Build and push image
     needs: checks
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+      # Required by docker/build-push-action for SBOM + SLSA provenance
+      # (`sbom: true`, `provenance: mode=max`) so the attestations can be
+      # signed and attached to the GHCR image.
+      attestations: write
+      id-token: write
     outputs:
       image_tag: ${{ steps.sha.outputs.sha_tag }}
     steps:
@@ -91,6 +83,10 @@ jobs:
           push: true
           tags: ${{ steps.dtags.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # Supply-chain attestations: SBOM (CycloneDX/SPDX) + SLSA build provenance.
+          # GHCR consumers can verify via `gh attestation verify` or `cosign verify`.
+          sbom: true
+          provenance: mode=max
 
       - name: Tag semver on release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -104,6 +100,7 @@ jobs:
     name: Docker image smoke
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -126,6 +123,7 @@ jobs:
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
       && vars.PRODUCTION_DOCKER_DEPLOY == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: production
     steps:
       - uses: actions/checkout@v5
@@ -148,6 +146,12 @@ jobs:
           export APP_IMAGE
           bash scripts/ci-deploy-remote.sh
 
+      - name: Smoke prod (public HTTPS)
+        if: vars.SMOKE_PUBLIC_BASE_URL != ''
+        env:
+          SMOKE_PUBLIC_BASE_URL: ${{ vars.SMOKE_PUBLIC_BASE_URL }}
+        run: bash scripts/smoke-prod.sh
+
   deploy-systemd:
     name: Deploy to production (systemd)
     needs: checks
@@ -157,6 +161,7 @@ jobs:
       (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
       && vars.PRODUCTION_DOCKER_DEPLOY != 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: production
     steps:
       - uses: actions/checkout@v5
@@ -176,3 +181,9 @@ jobs:
           chmod 600 ~/.ssh/id_ed25519
           export DEPLOY_REPO_DIR="${DEPLOY_REPO_DIR:-}"
           bash scripts/ci-deploy-systemd-remote.sh
+
+      - name: Smoke prod (public HTTPS)
+        if: vars.SMOKE_PUBLIC_BASE_URL != ''
+        env:
+          SMOKE_PUBLIC_BASE_URL: ${{ vars.SMOKE_PUBLIC_BASE_URL }}
+        run: bash scripts/smoke-prod.sh

@@ -2,6 +2,14 @@ import { escapeHtml, formatDateTimeLocal } from "./format.js";
 
 export const SETTINGS_CLOSED_TEXT = "⚙️ Настройки закрыты.";
 
+/**
+ * @param {{
+ *   intervalMin: number,
+ *   lastSyncAt: string | null,
+ *   nowMs?: number,
+ *   scheduledSummaryVisible?: boolean,
+ * }} params
+ */
 export function settingsScreenHtml({
   intervalMin,
   lastSyncAt,

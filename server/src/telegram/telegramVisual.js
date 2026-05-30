@@ -36,7 +36,7 @@ export function privateMessageEffect(effectId, chatId) {
  * @returns {boolean}
  */
 export function isMessageEffectRejected(err) {
-  const text = String(err?.message || err).toLowerCase();
+  const text = String(/** @type {any} */ (err)?.message || err).toLowerCase();
   return (
     text.includes("message_effect") || text.includes("premium_account_required")
   );
@@ -83,7 +83,10 @@ export class TypingIndicator {
     if (now - this._lastPingMs < CHAT_ACTION_REFRESH_MS - 200) return;
     this._lastPingMs = now;
     try {
-      await this._telegram.sendChatAction({ chatId: this._chatId, action: "typing" });
+      await this._telegram.sendChatAction({
+        chatId: this._chatId,
+        action: "typing",
+      });
     } catch {
       // best-effort
     }

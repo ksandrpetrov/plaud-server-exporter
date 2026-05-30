@@ -1,0 +1,36 @@
+{
+  // Project-friendly markdownlint baseline:
+  //   - line length / HTML / first-line-h1 disabled (docs use long URLs, HTML
+  //     anchors, and YAML frontmatter is OK).
+  //   - inline-html-blocks disabled (we render mermaid + <details> in places).
+  //   - duplicate headings disabled (`Что плохо` etc. recurs intentionally).
+  //   - emphasis-as-heading disabled (Russian docs sometimes use bold callouts).
+  // Keep `default: true` so newly added rules turn on automatically.
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD024": false,
+    "MD025": false,
+    "MD033": false,
+    "MD034": false,
+    "MD036": false,
+    "MD041": false,
+    "MD046": false
+  },
+  "globs": [
+    "README.md",
+    "AGENTS.md",
+    "docs/**/*.md",
+    "deploy/**/*.md",
+    "plaud-exporter/README.md",
+    "server/README.md"
+  ],
+  "ignores": [
+    "node_modules",
+    "**/node_modules/**",
+    "coverage",
+    "server/.data",
+    "docs/stabilization-audit.md",
+    "docs/stabilization-result.md"
+  ]
+}

@@ -86,10 +86,13 @@ export async function reportError(error, context = {}) {
 
   const existing = await findExistingReport(dedupeKey);
   if (existing) {
-    logger.warn("Error report already exists for this failure; skipping duplicate.", {
-      path: existing,
-      kind: classified.kind,
-    });
+    logger.warn(
+      "Error report already exists for this failure; skipping duplicate.",
+      {
+        path: existing,
+        kind: classified.kind,
+      }
+    );
     return { path: existing, classified, skipped: true };
   }
 

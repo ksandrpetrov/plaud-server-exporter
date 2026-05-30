@@ -20,7 +20,8 @@ function format(level, message, meta) {
 
 function emit(level, message, meta) {
   if (LEVELS[level] < currentLevel()) return;
-  const stream = level === "error" || level === "warn" ? process.stderr : process.stdout;
+  const stream =
+    level === "error" || level === "warn" ? process.stderr : process.stdout;
   stream.write(`${format(level, message, meta)}\n`);
 }
 

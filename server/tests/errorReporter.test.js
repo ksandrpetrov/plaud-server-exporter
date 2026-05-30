@@ -22,7 +22,9 @@ const {
 } = await import("../src/errors/errorClassifier.js");
 
 test("classifyError maps auth and plaud_changed", () => {
-  const auth = classifyError(new PlaudAuthError("expired", 401), { stage: "auth" });
+  const auth = classifyError(new PlaudAuthError("expired", 401), {
+    stage: "auth",
+  });
   assert.equal(auth.kind, ERROR_KIND_AUTH);
   assert.equal(auth.exitCode, 2);
 
@@ -48,7 +50,9 @@ test("classifyError maps network, rate-limit, write, config, and unknown", () =>
   const w = classifyError(writeErr);
   assert.equal(w.kind, ERROR_KIND_WRITE);
 
-  const cfg = classifyError(new Error("invalid path PLAUD_EXPORT_ROOT not found"));
+  const cfg = classifyError(
+    new Error("invalid path PLAUD_EXPORT_ROOT not found")
+  );
   assert.equal(cfg.kind, ERROR_KIND_CONFIG);
   assert.equal(cfg.exitCode, 2);
 

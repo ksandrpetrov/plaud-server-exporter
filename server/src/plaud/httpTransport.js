@@ -49,10 +49,13 @@ async function fetchWithTimeout(url, init, timeoutMs) {
 }
 
 function normalizeApiBase(rawBase) {
-  const parsed = typeof rawBase === "object" && rawBase ? rawBase.domain : rawBase;
+  const parsed =
+    typeof rawBase === "object" && rawBase ? rawBase.domain : rawBase;
   if (!parsed || typeof parsed !== "string") return PLAUD_API_FALLBACK;
   try {
-    const withProtocol = parsed.startsWith("http") ? parsed : `https://${parsed}`;
+    const withProtocol = parsed.startsWith("http")
+      ? parsed
+      : `https://${parsed}`;
     const url = new URL(withProtocol);
     if (!url.hostname.endsWith(".plaud.ai")) return PLAUD_API_FALLBACK;
     return url.origin;
@@ -82,9 +85,16 @@ async function fetchPlaudApiOnce(session, path, options = {}) {
 
   const payload = await response.json().catch(() => null);
 
-  if (retryDomainSwitch && payload?.status === -302 && payload?.data?.domains?.api) {
+  if (
+    retryDomainSwitch &&
+    payload?.status === -302 &&
+    payload?.data?.domains?.api
+  ) {
     session.apiBase = normalizeApiBase(payload.data.domains.api);
-    return fetchPlaudApiOnce(session, path, { ...options, retryDomainSwitch: false });
+    return fetchPlaudApiOnce(session, path, {
+      ...options,
+      retryDomainSwitch: false,
+    });
   }
 
   if (response.status === 401 || response.status === 403) {
@@ -99,7 +109,9 @@ async function fetchPlaudApiOnce(session, path, options = {}) {
   }
 
   if (typeof payload?.status === "number" && payload.status < 0) {
-    throw new Error(payload?.message || `Plaud API returned status ${payload.status}`);
+    throw new Error(
+      payload?.message || `Plaud API returned status ${payload.status}`
+    );
   }
 
   return payload;
@@ -157,8 +169,13 @@ export async function fetchUrlTextWithRetries(url) {
     try {
       const response = await fetchWithTimeout(url, {}, config.apiTimeoutMs);
       if (!response.ok) {
-        const err = new Error(`HTTP ${response.status} when fetching summary body`);
-        if (![429, 502, 503, 504].includes(response.status) || attempt >= max - 1) {
+        const err = new Error(
+          `HTTP ${response.status} when fetching summary body`
+        );
+        if (
+          ![429, 502, 503, 504].includes(response.status) ||
+          attempt >= max - 1
+        ) {
           throw err;
         }
         lastError = err;

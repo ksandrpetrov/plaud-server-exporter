@@ -27,7 +27,10 @@ test("createSyncProgressDelivery falls back to legacy when draft API missing", a
   });
 
   await delivery.pushProgress("<b>Step 1</b>");
-  assert.ok(edits.length >= 1 || sends.length >= 1, "legacy path should update chat");
+  assert.ok(
+    edits.length >= 1 || sends.length >= 1,
+    "legacy path should update chat"
+  );
 
   const mid = await delivery.finish({
     text: "<b>Done</b>",

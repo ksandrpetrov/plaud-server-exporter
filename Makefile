@@ -1,17 +1,22 @@
-.PHONY: check test lint verify docker-build docker-up docker-down docker-smoke deploy smoke-prod
+.PHONY: check test test-extension lint lint-extension verify verify-extension docker-build docker-up docker-down docker-smoke deploy smoke-prod
 
-check: lint verify test
+# Mirrors `npm run check` (CI parity).
+check:
+	npm run check
 
 test:
 	npm test
 
+test-extension:
+	npm run test:extension
+
 lint:
 	npm run lint
-	cd plaud-exporter && npm run lint
+	npm run lint:extension
 
 verify:
 	npm run verify
-	cd plaud-exporter && npm run verify
+	npm run verify:extension
 
 docker-build:
 	docker build -t plaud-exporter:local .

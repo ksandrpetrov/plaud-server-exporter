@@ -275,7 +275,9 @@ test("recordings without folder tags export under Plaud/Unfiled/ when mirror fol
     if (u.includes("/filetag")) {
       return jsonResponse({
         data: {
-          data_filetag_list: [{ id: "t-inbox", name: "Unfiled", is_unfiled: true }],
+          data_filetag_list: [
+            { id: "t-inbox", name: "Unfiled", is_unfiled: true },
+          ],
         },
       });
     }
@@ -400,7 +402,12 @@ test("moves legacy Plaud root summaries into Plaud/Unfiled/ on next sync", async
   globalThis.fetch = mockFetch();
   try {
     await runSync({ session, summaryOnly: true });
-    const legacyPath = join(dir, "exports", "Plaud", "2026-05-17 - Team sync.md");
+    const legacyPath = join(
+      dir,
+      "exports",
+      "Plaud",
+      "2026-05-17 - Team sync.md"
+    );
     await stat(legacyPath);
 
     process.env.PLAUD_MIRROR_FOLDERS = "true";
@@ -409,7 +416,9 @@ test("moves legacy Plaud root summaries into Plaud/Unfiled/ on next sync", async
       if (u.includes("/filetag")) {
         return jsonResponse({
           data: {
-            data_filetag_list: [{ id: "t-inbox", name: "Unfiled", is_unfiled: true }],
+            data_filetag_list: [
+              { id: "t-inbox", name: "Unfiled", is_unfiled: true },
+            ],
           },
         });
       }
@@ -428,7 +437,9 @@ test("moves legacy Plaud root summaries into Plaud/Unfiled/ on next sync", async
       }
       if (u.includes("/ai/query_note")) {
         return jsonResponse({
-          data: [{ data_type: "summary", data_content: "# Team sync\n\nNotes v1" }],
+          data: [
+            { data_type: "summary", data_content: "# Team sync\n\nNotes v1" },
+          ],
         });
       }
       return jsonResponse({});

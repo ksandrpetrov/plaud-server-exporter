@@ -9,7 +9,7 @@ import { loadSyncIndex } from "./serverSyncIndex.js";
 
 /**
  * @param {string} [path]
- * @returns {Promise<import("../../../plaud-exporter/common/syncCore.js").SyncIndex>}
+ * @returns {Promise<object>} Sync index document (records keyed by stableId).
  */
 export async function loadIndexForBot(path) {
   return loadSyncIndex(path);

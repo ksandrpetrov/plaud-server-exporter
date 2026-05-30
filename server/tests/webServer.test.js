@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { startWebServer, stopWebServer, getWebServerPort } = await import(
-  "../src/http/webServer.js"
-);
+const { startWebServer, stopWebServer, getWebServerPort } =
+  await import("../src/http/webServer.js");
 
 async function withServer(port, fn) {
   process.env.WEBAPP_HOST = "127.0.0.1";

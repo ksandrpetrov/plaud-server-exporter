@@ -12,9 +12,8 @@ process.env.PLAUD_MIRROR_FOLDERS = "false";
 
 const { runSync, SyncLockError } = await import("../src/sync/syncRunner.js");
 const { acquireSyncLock } = await import("../src/sync/runLock.js");
-const { ERROR_KIND_PLAUD_CHANGED } = await import(
-  "../src/errors/errorClassifier.js"
-);
+const { ERROR_KIND_PLAUD_CHANGED } =
+  await import("../src/errors/errorClassifier.js");
 const { PlaudChangedError } = await import("../src/plaud/plaudApiClient.js");
 
 function jsonResponse(body, status = 200) {
@@ -133,7 +132,11 @@ test("recordings without a normalizable id are skipped, not crashed on", async (
   };
   try {
     const stats = await runSync({ session, summaryOnly: true });
-    assert.equal(stats.total, 1, "no-id recordings must be filtered before sync");
+    assert.equal(
+      stats.total,
+      1,
+      "no-id recordings must be filtered before sync"
+    );
     assert.equal(stats.new, 1);
   } finally {
     globalThis.fetch = originalFetch;

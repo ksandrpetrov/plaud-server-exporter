@@ -12,5 +12,6 @@ logs
 plaud-exporter/node_modules
 docs
 deploy/ansible
+coverage
 **/*.test.js
 **/.DS_Store

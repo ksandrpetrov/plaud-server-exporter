@@ -18,23 +18,33 @@ CLI выгружает **саммари** записей Plaud в Markdown дл�
 2. Скопируйте `.env.example` в `.env`. Задайте `PLAUD_EXPORT_ROOT` на локальную папку, например `~/plaud-exports`, и `PLAUD_TIMEZONE`.
 3. Создайте каталог выгрузки: `mkdir -p ~/plaud-exports`.
 4. Войдите в Plaud и сохраните сессию:
+
    ```bash
    npm run server:auth
    ```
+
    Откроется Chrome → войдите в Plaud (email/Google). Дождитесь сообщения в терминале про успешную валидацию сессии. Файл: `server/.data/session.json`.
+
 5. Проверьте конфиг и сессию:
+
    ```bash
    npm run server:status
    ```
+
    Должно быть `session.snapshot.present: true` и корректный `PLAUD_EXPORT_ROOT`.
+
 6. (Опционально) Пробный прогон без записи на диск:
+
    ```bash
    npm run server:sync -- --dry-run
    ```
+
 7. Первый реальный sync:
+
    ```bash
    npm run server:sync
    ```
+
 8. Убедитесь, что появились `.md` в `{PLAUD_EXPORT_ROOT}/Plaud/…` (год и дата в имени файла). Код выхода `0` — успех.
 
 Если `server:auth` ругается на Google — [troubleshooting.md](troubleshooting.md#google-блокирует-вход-при-serverauth).
@@ -47,49 +57,63 @@ CLI выгружает **саммари** записей Plaud в Markdown дл�
 
 1. В `.env` на Mac можно оставить тот же `PLAUD_EXPORT_ROOT`, что для проверки; для auth это не критично — важен только `session.json`.
 2. Сохраните сессию:
+
    ```bash
    npm run server:auth
    ```
+
 3. Проверьте SSH (тот же логин, что для `scp`):
+
    ```bash
    ssh YOUR_SSH_USER@YOUR_SERVER_HOST 'echo ok'
    ```
+
 4. Скопируйте сессию на сервер:
+
    ```bash
    scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
    ```
 
 **На сервере** (под своим SSH-пользователем):
 
-5. Положите сессию в каталог приложения и выставьте права (`install` атомарно проставит владельца `plaud` и режим `600`):
+1. Положите сессию в каталог приложения и выставьте права (`install` атомарно проставит владельца `plaud` и режим `600`):
+
    ```bash
    sudo install -d -o plaud -g plaud -m 700 /srv/plaud-exporter/server/.data
    sudo install -o plaud -g plaud -m 600 /tmp/session.json /srv/plaud-exporter/server/.data/session.json
    sudo rm -f /tmp/session.json
    ```
-6. Проверка от пользователя `plaud`:
+
+2. Проверка от пользователя `plaud`:
+
    ```bash
    sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
    ```
-7. Первый sync вручную (бот пока не поднимаем):
+
+3. Первый sync вручную (бот пока не поднимаем):
+
    ```bash
    sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:sync'
    ```
+
    Либо через обёртку: `sudo /srv/plaud-exporter/scripts/server-as-plaud.sh npm run server:sync`.
-8. Проверьте результат:
+
+4. Проверьте результат:
+
    ```bash
    sudo -u plaud ls -la /srv/plaud-exporter/exports/Plaud/
    ```
+
    Код выхода `0`, в каталоге — новые `.md`.
 
 **После успешного ручного sync** включите Telegram-бот как основной сервис — раздел [Сервер: автозапуск через Telegram-бот](#сервер-автозапуск-через-telegram-бот) ниже. Полный чеклист и сценарии обновления — в [server-deploy.md](./server-deploy.md). Альтернатива без Node на хосте — Docker + nginx: [deploy/README.md](../deploy/README.md). Для Obsidian на Mac настройте Syncthing — [obsidian-sync.md](obsidian-sync.md).
 
-| Код выхода | Значение |
-|------------|----------|
-| `0` | Успех |
-| `2` | Нет или битая сессия → снова `server:auth` на Mac и `scp` |
-| `4` | Уже идёт другой sync → подождать |
-| `1`, `3` | Ошибка sync / API → [troubleshooting.md](troubleshooting.md) |
+| Код выхода | Значение                                                     |
+| ---------- | ------------------------------------------------------------ |
+| `0`        | Успех                                                        |
+| `2`        | Нет или битая сессия → снова `server:auth` на Mac и `scp`    |
+| `4`        | Уже идёт другой sync → подождать                             |
+| `1`, `3`   | Ошибка sync / API → [troubleshooting.md](troubleshooting.md) |
 
 ---
 
@@ -242,15 +266,15 @@ systemctl --no-pager status plaud-exporter.service   # Active: active (running)
 
 ## Сбои
 
-| Симптом | Действие |
-|---------|----------|
-| exit `2`, нет сессии | `server:auth` на Mac → `scp session.json` |
-| exit `4` | Подождать; не запускать `server:sync` руками параллельно с ботом |
-| exit `3` | См. [troubleshooting.md](troubleshooting.md) |
-| `Missing script: "server:bot"` | На сервере устаревший клон — `sudo -u plaud git -C /srv/plaud-exporter pull --ff-only` (а с Mac предварительно `git push`) |
-| `scp … Permission denied` | Проверить пароль через `ssh YOUR_SSH_USER@YOUR_SERVER_HOST`, [troubleshooting.md](troubleshooting.md#scp-permission-denied) |
-| `npm: command not found` | Поставить Node 20 через NodeSource (блок «Сервер» выше) |
-| `dubious ownership` | Команды только `sudo -u plaud`, не от root в `/srv/plaud-exporter` |
-| `EACCES` … `sync.lock`, status ок, sync падает | [troubleshooting.md](troubleshooting.md#eacces-synclock-на-сервере) |
+| Симптом                                        | Действие                                                                                                                    |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| exit `2`, нет сессии                           | `server:auth` на Mac → `scp session.json`                                                                                   |
+| exit `4`                                       | Подождать; не запускать `server:sync` руками параллельно с ботом                                                            |
+| exit `3`                                       | См. [troubleshooting.md](troubleshooting.md)                                                                                |
+| `Missing script: "server:bot"`                 | На сервере устаревший клон — `sudo -u plaud git -C /srv/plaud-exporter pull --ff-only` (а с Mac предварительно `git push`)  |
+| `scp … Permission denied`                      | Проверить пароль через `ssh YOUR_SSH_USER@YOUR_SERVER_HOST`, [troubleshooting.md](troubleshooting.md#scp-permission-denied) |
+| `npm: command not found`                       | Поставить Node 20 через NodeSource (блок «Сервер» выше)                                                                     |
+| `dubious ownership`                            | Команды только `sudo -u plaud`, не от root в `/srv/plaud-exporter`                                                          |
+| `EACCES` … `sync.lock`, status ок, sync падает | [troubleshooting.md](troubleshooting.md#eacces-synclock-на-сервере)                                                         |
 
 Подробнее: [troubleshooting.md](troubleshooting.md), [security.md](security.md).
