@@ -31,7 +31,9 @@ if (window.__plaudExporterContentLoaded) {
         chrome.runtime.getURL("features/audioExport/audioExport.js")
       );
       const resolverModule = await import(
-        chrome.runtime.getURL("features/audioExport/currentRecordingResolver.js")
+        chrome.runtime.getURL(
+          "features/audioExport/currentRecordingResolver.js"
+        )
       );
       runExportAll = audioExportModule.runExportAll;
       runLibraryStats = audioExportModule.runLibraryStats;

@@ -88,8 +88,7 @@ flowchart LR
   runner --> diskIndex
 ```
 
-Запись индекса — только через `syncRunner` / `saveSyncIndex`. Бот читает через [
-`syncIndexRead.js`](../server/src/sync/syncIndexRead.js).
+Запись индекса — только через `syncRunner` / `saveSyncIndex`. Бот читает через [`syncIndexRead.js`](../server/src/sync/syncIndexRead.js).
 
 ## Точки входа
 
@@ -237,8 +236,7 @@ docker-smoke; опциональный SSH deploy через [`scripts/ci-deploy
 
 - [`docs/server-exporter-research.md`](./server-exporter-research.md) — обоснование портирования расширения в серверный
   CLI.
-- [`docs/stabilization-audit.md`](./stabilization-audit.md), [
-  `docs/stabilization-result.md`](./stabilization-result.md) — аудит и результат стабилизации (май 2026).
+- [`docs/stabilization-audit.md`](./stabilization-audit.md), [`docs/stabilization-result.md`](./stabilization-result.md) — аудит и результат стабилизации (май 2026).
 - [`docs/getting-started.md`](./getting-started.md) — установка и первый запуск.
 - [`docs/server-deploy.md`](./server-deploy.md) — продакшен на VPS (systemd или Docker).
 - [`deploy/README.md`](../deploy/README.md) — Docker, Ansible, rolling deploy из CI.

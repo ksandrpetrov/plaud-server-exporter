@@ -20,10 +20,7 @@ test("normalizeHumanTitle trims and collapses whitespace", () => {
 });
 
 test("pickRawTitleFromFile uses TITLE_KEYS order", () => {
-  assert.equal(
-    pickRawTitleFromFile({ title: "B", file_name: "A" }),
-    "A"
-  );
+  assert.equal(pickRawTitleFromFile({ title: "B", file_name: "A" }), "A");
   assert.equal(pickRawTitleFromFile({}), "");
 });
 

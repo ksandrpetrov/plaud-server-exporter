@@ -37,7 +37,8 @@ export const ACTION_GET_SYNC_SETTINGS = "getSyncSettings";
 /** popup -> background */
 export const ACTION_SET_SYNC_SUBDIRECTORY = "setSyncSubdirectory";
 /** popup -> background */
-export const ACTION_SHOW_DEFAULT_DOWNLOADS_FOLDER = "showDefaultDownloadsFolder";
+export const ACTION_SHOW_DEFAULT_DOWNLOADS_FOLDER =
+  "showDefaultDownloadsFolder";
 
 /** content (audioExport) -> background (download a Plaud file via chrome.downloads) */
 export const ACTION_DOWNLOAD_PLAUD_FILE = "downloadPlaudFile";

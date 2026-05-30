@@ -26,7 +26,9 @@ export const PLAUD_TITLE_KEYS = new Set(TITLE_KEYS);
  * @returns {string}
  */
 export function normalizeHumanTitle(value) {
-  let s = String(value ?? "").replace(/\s+/g, " ").trim();
+  let s = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!s) return "";
   if (/%[0-9A-Fa-f]{2}/.test(s)) {
     try {

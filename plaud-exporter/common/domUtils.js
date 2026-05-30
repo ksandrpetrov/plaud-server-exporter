@@ -45,9 +45,7 @@ export async function waitForElement(
         rect.width > 0 &&
         rect.height > 0
       ) {
-        console.log(
-          `Элемент «${selector}» найден через ${waited} мс.`
-        );
+        console.log(`Элемент «${selector}» найден через ${waited} мс.`);
         return element;
       }
     }
@@ -56,9 +54,7 @@ export async function waitForElement(
     waited += pollInterval;
   }
 
-  throw new Error(
-    `Таймаут ожидания элемента «${selector}» (${timeout} мс).`
-  );
+  throw new Error(`Таймаут ожидания элемента «${selector}» (${timeout} мс).`);
 }
 
 /**
@@ -78,9 +74,7 @@ export async function waitForCondition(
   const pollInterval = 250;
   let waited = 0;
 
-  console.log(
-    `Ожидание условия «${description}» (таймаут: ${timeout} мс)`
-  );
+  console.log(`Ожидание условия «${description}» (таймаут: ${timeout} мс)`);
 
   while (waited < timeout) {
     if (await conditionFn()) {
@@ -91,9 +85,7 @@ export async function waitForCondition(
     waited += pollInterval;
   }
 
-  throw new Error(
-    `Таймаут ожидания условия «${description}» (${timeout} мс).`
-  );
+  throw new Error(`Таймаут ожидания условия «${description}» (${timeout} мс).`);
 }
 
 /**
@@ -133,7 +125,7 @@ export async function findElementByXPath(xpath, timeout = 5000) {
  * Simulates a click on a given element with visual feedback.
  * Scrolls the element into view, waits for it to be potentially stable, clicks, and waits for potential consequences.
  *
- * @param {Element} element - The DOM element to click.
+ * @param {HTMLElement} element - The DOM element to click.
  * @param {number} [postClickWaitMs=500] - Optional short delay after click for UI to react.
  */
 export async function clickElement(element, postClickWaitMs = 500) {

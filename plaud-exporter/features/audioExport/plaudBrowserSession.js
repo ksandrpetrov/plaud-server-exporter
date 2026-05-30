@@ -141,7 +141,9 @@ export function getPlaudSession() {
   const authHeader = workspaceAuthHeader || userAuthHeader;
 
   if (!authHeader) {
-    throw new Error("Не удалось прочитать токен авторизации Plaud. Войдите в аккаунт.");
+    throw new Error(
+      "Не удалось прочитать токен авторизации Plaud. Войдите в аккаунт."
+    );
   }
 
   const sortBy =
@@ -158,8 +160,7 @@ export function getPlaudSession() {
       workspaceId != null && String(workspaceId).trim()
         ? String(workspaceId).trim()
         : "",
-    sortBy:
-      typeof sortBy === "string" && sortBy.trim() ? sortBy : "start_time",
+    sortBy: typeof sortBy === "string" && sortBy.trim() ? sortBy : "start_time",
   };
 }
 

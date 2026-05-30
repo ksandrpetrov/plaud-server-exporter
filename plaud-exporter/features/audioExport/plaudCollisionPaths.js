@@ -49,7 +49,11 @@ export function getExtensionFromUrl(url) {
  * @param {string} folderSegment
  * @param {string} leafFilename
  */
-export function exportPathWithFolder(baseSubdirectory, folderSegment, leafFilename) {
+export function exportPathWithFolder(
+  baseSubdirectory,
+  folderSegment,
+  leafFilename
+) {
   const folder = sanitizePathSegment(folderSegment || PLAUD_FOLDER_UNFILED, {
     fallback: PLAUD_FOLDER_UNFILED,
     maxLength: 80,

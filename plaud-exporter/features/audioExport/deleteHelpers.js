@@ -106,10 +106,7 @@ export async function resetDomState() {
     // Use a simple click first
     safeClickArea.click();
   } catch (error) {
-    console.warn(
-      "Простой клик не сработал, пробуем событие:",
-      error.message
-    );
+    console.warn("Простой клик не сработал, пробуем событие:", error.message);
     // Fallback to event dispatch
     try {
       const evt = new MouseEvent("click", {

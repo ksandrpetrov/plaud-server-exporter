@@ -21,7 +21,9 @@ export const EXPORT_MODES = new Set([
  * @returns {"both"|"audio"|"summary"}
  */
 export function normalizeExportMode(mode) {
-  return EXPORT_MODES.has(mode) ? mode : EXPORT_MODE_BOTH;
+  return EXPORT_MODES.has(mode)
+    ? /** @type {"both"|"audio"|"summary"} */ (mode)
+    : EXPORT_MODE_BOTH;
 }
 
 const RESERVED_WINDOWS_NAMES = new Set([
@@ -55,7 +57,9 @@ const RESERVED_WINDOWS_NAMES = new Set([
  * - We target ~5% below 255 for the full filename including extension.
  */
 export const MAX_PATH_COMPONENT_CHARS = 255;
-export const MAX_FILENAME_WITH_EXTENSION = Math.floor(MAX_PATH_COMPONENT_CHARS * 0.95);
+export const MAX_FILENAME_WITH_EXTENSION = Math.floor(
+  MAX_PATH_COMPONENT_CHARS * 0.95
+);
 export const MARKDOWN_EXTENSION = ".md";
 export const UTF8_BOM = "\uFEFF";
 
@@ -87,11 +91,13 @@ const BOILERPLATE_TITLES = new Set([
 ]);
 
 function toCleanString(value) {
-  return String(value ?? "")
-    .normalize("NFKC")
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u001f\u007f]/g, " ")
-    .replace(/\u00a0/g, " ");
+  return (
+    String(value ?? "")
+      .normalize("NFKC")
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u001f\u007f]/g, " ")
+      .replace(/\u00a0/g, " ")
+  );
 }
 
 /**
@@ -110,7 +116,7 @@ export function stripMarkdownTitleMarkup(value) {
     .replace(/<[^>]+>/g, " ")
     .replace(/[`*_~]+/g, "")
     .replace(/\s+/g, " ")
-    .trim()
+    .trim();
 }
 
 /** Headings that only brand the export — skip so the real topic title is used. */
@@ -150,7 +156,11 @@ export function isBoilerplateTitle(title) {
  */
 export function truncateToGraphemes(value, maxLength) {
   const text = String(value || "");
-  if (!Number.isFinite(maxLength) || maxLength <= 0 || text.length <= maxLength) {
+  if (
+    !Number.isFinite(maxLength) ||
+    maxLength <= 0 ||
+    text.length <= maxLength
+  ) {
     return text;
   }
   const segmenter =
@@ -182,9 +192,7 @@ export function truncateToGraphemes(value, maxLength) {
 export function extractTitleFromMarkdown(markdown) {
   const text = String(markdown || "").replace(/^\ufeff/, "");
   const lines = text.split(/\r?\n/);
-  const headingLines = lines.filter((line) =>
-    /^\s{0,3}#{1,6}\s+\S/.test(line)
-  );
+  const headingLines = lines.filter((line) => /^\s{0,3}#{1,6}\s+\S/.test(line));
   for (const heading of headingLines) {
     const stripped = stripMarkdownTitleMarkup(heading);
     if (stripped && !isBoilerplateMarkdownHeading(stripped)) {

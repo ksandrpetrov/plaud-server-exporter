@@ -47,7 +47,9 @@ export function extractRawRecordingId(raw) {
 export function mergeDomRecordingIdsIntoFiles(files, { unfiledLabel }) {
   const domIds = collectDomRecordingHexIds();
   const seenIds = new Set(
-    files.map((f) => normalizeHexRecordingId(f.id) || String(f.id || "").toLowerCase())
+    files.map(
+      (f) => normalizeHexRecordingId(f.id) || String(f.id || "").toLowerCase()
+    )
   );
   let domMerged = 0;
   for (const hid of domIds) {
@@ -161,7 +163,9 @@ export function mergeLocalStorageRecordingIdsIntoFiles(files) {
   const combined = [...new Set([...lsIds, ...ssIds])];
 
   const seenIds = new Set(
-    files.map((f) => normalizeHexRecordingId(f.id) || String(f.id || "").toLowerCase())
+    files.map(
+      (f) => normalizeHexRecordingId(f.id) || String(f.id || "").toLowerCase()
+    )
   );
   let lsMerged = 0;
   const MAX_EXTRA_FROM_CACHE = 192;

@@ -30,8 +30,5 @@ test("extractRawRecordingId and normalizePlaudRecordingId align with server", ()
     "rec-001"
   );
   const hex = "abcdef0123456789abcdef0123456789";
-  assert.equal(
-    normalizePlaudRecordingId({ file_id: hex }),
-    hex
-  );
+  assert.equal(normalizePlaudRecordingId({ file_id: hex }), hex);
 });

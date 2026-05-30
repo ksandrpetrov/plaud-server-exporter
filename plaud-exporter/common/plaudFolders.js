@@ -373,6 +373,10 @@ export function resolveFileFolderSegment({
   allFilesIds = new Set(),
 }) {
   if (isRecordingInTrash(raw)) return PLAUD_FOLDER_TRASH;
+  const ids = (folderIds || []).map((id) => String(id).trim()).filter(Boolean);
+  if (!extractFiletagIdsFromRaw(raw).length && ids.length !== 1) {
+    return PLAUD_FOLDER_UNFILED;
+  }
   return resolveFolderPathSegment(folderIds, tagById, unfiledIds, allFilesIds);
 }
 

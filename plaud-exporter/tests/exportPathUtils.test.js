@@ -28,7 +28,7 @@ test("normalizeExportMode keeps valid modes and defaults unknown to both", () =>
 });
 
 test("sanitizeDownloadSegment strips risky characters", () => {
-  assert.equal(sanitizeDownloadSegment('evil:name*'), "evil - name");
+  assert.equal(sanitizeDownloadSegment("evil:name*"), "evil - name");
   assert.equal(sanitizeDownloadSegment("  x  "), "x");
 });
 
@@ -67,10 +67,7 @@ test("normalizeFilename creates readable cross-platform markdown names", () => {
     }),
     "Моя длинная тема - итоги встречи - Q2.md"
   );
-  assert.equal(
-    sanitizePathSegment('CON: bad <name>|'),
-    "CON - bad - name"
-  );
+  assert.equal(sanitizePathSegment("CON: bad <name>|"), "CON - bad - name");
   assert.ok(
     normalizeFilename("x".repeat(220), {
       extension: ".md",

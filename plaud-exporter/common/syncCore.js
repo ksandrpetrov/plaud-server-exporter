@@ -35,7 +35,9 @@ const HIGH_CONFIDENCE_ID_KEYS = [
 const MAX_HASH_SAMPLE_CHARS = 4096;
 
 function cleanString(value) {
-  return String(value ?? "").replace(/\s+/g, " ").trim();
+  return String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function normalizePotentialId(value) {
@@ -176,8 +178,9 @@ export function buildFingerprint(fields = {}) {
   const audioUrl = canonicalUrl(fields.audioUrl);
   const createdAt = cleanString(fields.createdAt || fields.createdDate);
   const title = cleanString(fields.title || fields.originalTitle);
-  const summarySample = cleanString(fields.summaryMarkdown || fields.summary)
-    .slice(0, MAX_HASH_SAMPLE_CHARS);
+  const summarySample = cleanString(
+    fields.summaryMarkdown || fields.summary
+  ).slice(0, MAX_HASH_SAMPLE_CHARS);
   const payload = {
     sourceUrl,
     audioUrl,
@@ -205,7 +208,9 @@ export function buildStableId(input = {}) {
         identityKind: normalizedExplicitId.startsWith("plaud:")
           ? "plaud_id"
           : "fingerprint",
-        confidence: normalizedExplicitId.startsWith("plaud:") ? "high" : "medium",
+        confidence: normalizedExplicitId.startsWith("plaud:")
+          ? "high"
+          : "medium",
         fingerprint: normalizedExplicitId.startsWith("fingerprint:")
           ? normalizedExplicitId.slice("fingerprint:".length)
           : "",
@@ -474,7 +479,9 @@ export function normalizeSyncIndex(value) {
     ...base,
     ...value,
     records:
-      value.records && typeof value.records === "object" && !Array.isArray(value.records)
+      value.records &&
+      typeof value.records === "object" &&
+      !Array.isArray(value.records)
         ? value.records
         : {},
     settings: {

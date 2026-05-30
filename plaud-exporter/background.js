@@ -13,7 +13,10 @@ import {
   plaudT,
   syncPlaudLocale,
 } from "./background/bgLocale.js";
-import { sendTabMessage, sendTabMessageWithRecovery } from "./background/tabMessaging.js";
+import {
+  sendTabMessage,
+  sendTabMessageWithRecovery,
+} from "./background/tabMessaging.js";
 import { downloadPlaudFile } from "./background/chromeDownloadBridge.js";
 import { loadSyncIndex, patchSyncSettings } from "./common/storageUtils.js";
 import { sanitizeSyncSubdirectory } from "./common/syncCore.js";
@@ -168,7 +171,10 @@ function restoreSmartSyncStateFromSession(done) {
   }
   chrome.storage.session.get([SMART_SYNC_SESSION_KEY], (result) => {
     if (chrome.runtime.lastError) {
-      console.warn("restoreSmartSyncStateFromSession:", chrome.runtime.lastError);
+      console.warn(
+        "restoreSmartSyncStateFromSession:",
+        chrome.runtime.lastError
+      );
       if (done) done();
       return;
     }
@@ -197,7 +203,9 @@ function restoreSmartSyncStateFromSession(done) {
 
 async function verifyExportTabAlive(tabId) {
   try {
-    const pong = await sendTabMessage(tabId, { action: ACTION_PLAUD_EXPORT_PING });
+    const pong = await sendTabMessage(tabId, {
+      action: ACTION_PLAUD_EXPORT_PING,
+    });
     return !!(pong && pong.alive);
   } catch {
     return false;
@@ -228,8 +236,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         clearStallNotifyState(tabId);
 
         // Attempt to notify the content script to stop the export process
-        sendTabMessage(tabId, { action: ACTION_STOP_EXPORT_PROCESS }).catch((error) =>
-          console.warn("Failed to send stop message:", error)
+        sendTabMessage(tabId, { action: ACTION_STOP_EXPORT_PROCESS }).catch(
+          (error) => console.warn("Failed to send stop message:", error)
         );
 
         // Notify the user via Chrome notifications about the stopped export
@@ -268,7 +276,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .catch((error) => {
           console.warn("Failed to start background export:", error);
           sendResponse({ success: false, error: error.message });
-      });
+        });
       return true;
     }
 
@@ -335,7 +343,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         chrome.notifications.create({
           type: "basic",
           iconUrl: "assets/icons/icon128.png",
-          title: isError ? plaudT("sync.notifyErrorTitle") : plaudT("sync.notifyDoneTitle"),
+          title: isError
+            ? plaudT("sync.notifyErrorTitle")
+            : plaudT("sync.notifyDoneTitle"),
           message: isError
             ? data.error || plaudT("sync.notifyErrorMessage")
             : plaudT("sync.notifyDoneMessage", {
@@ -358,7 +368,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (
         Number.isInteger(tabId) &&
         data?.status === "running" &&
-        Date.now() - (Number(data.lastUpdateTime) || Number(data.startedAt) || 0) >
+        Date.now() -
+          (Number(data.lastUpdateTime) || Number(data.startedAt) || 0) >
           PING_STALE_AFTER_MS
       ) {
         activeSmartSyncTabIds.delete(tabId);
@@ -405,7 +416,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     if (message.action === ACTION_SET_SYNC_SUBDIRECTORY) {
-      const syncSubdirectory = sanitizeSyncSubdirectory(message.syncSubdirectory);
+      const syncSubdirectory = sanitizeSyncSubdirectory(
+        message.syncSubdirectory
+      );
       patchSyncSettings({
         storageMode: "downloads_subfolder",
         syncSubdirectory,
@@ -700,10 +713,7 @@ function summarizeSyncIndex(index) {
 
 async function startBackgroundExport(tabId, requestedExportMode) {
   await ensureSessionRestored();
-  if (
-    activeTabIds.has(tabId) &&
-    activeExports[tabId]?.status === "running"
-  ) {
+  if (activeTabIds.has(tabId) && activeExports[tabId]?.status === "running") {
     throw new Error(plaudT("bg.exportAlreadyRunning"));
   }
 
@@ -778,7 +788,9 @@ async function startSmartSync(tabId, requestedSubdirectory) {
   try {
     const tab = await chrome.tabs.get(tabId).catch(() => null);
     if (tab && chrome.tabs.update && typeof tab.autoDiscardable === "boolean") {
-      await chrome.tabs.update(tabId, { autoDiscardable: false }).catch(() => {});
+      await chrome.tabs
+        .update(tabId, { autoDiscardable: false })
+        .catch(() => {});
     }
     const response = await sendRunSmartSyncMessageWithRecovery(
       tabId,
@@ -905,16 +917,19 @@ chrome.runtime.onInstalled.addListener((details) => {
   plaudBgLog("Extension installed or updated:", details.reason);
   sessionRestorePromise = null;
   if (details.reason === "install" && chrome.storage?.session?.remove) {
-    chrome.storage.session.remove([EXPORT_SESSION_KEY, SMART_SYNC_SESSION_KEY], () => {
-      activeExports = {};
-      activeTabIds.clear();
-      stopFlags.clear();
-      activeSmartSyncs = {};
-      activeSmartSyncTabIds.clear();
-      for (const k of Object.keys(stallNotifySentForLastUpdate)) {
-        delete stallNotifySentForLastUpdate[k];
+    chrome.storage.session.remove(
+      [EXPORT_SESSION_KEY, SMART_SYNC_SESSION_KEY],
+      () => {
+        activeExports = {};
+        activeTabIds.clear();
+        stopFlags.clear();
+        activeSmartSyncs = {};
+        activeSmartSyncTabIds.clear();
+        for (const k of Object.keys(stallNotifySentForLastUpdate)) {
+          delete stallNotifySentForLastUpdate[k];
+        }
       }
-    });
+    );
     return;
   }
   ensureSessionRestored();

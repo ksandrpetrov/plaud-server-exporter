@@ -128,11 +128,7 @@ async function fetchWithTimeout(url, init, timeoutMs) {
 }
 
 async function fetchPlaudApiOnce(session, path, options = {}) {
-  const {
-    retryDomainSwitch = true,
-    headers = {},
-    method = "GET",
-  } = options;
+  const { retryDomainSwitch = true, headers = {}, method = "GET" } = options;
   const url = new URL(path, session.apiBase);
   let response;
   try {
@@ -243,11 +239,7 @@ async function fetchUrlTextWithRetries(url) {
       await sleepMs(Math.min(8000, 500 * 2 ** (attempt - 1)));
     }
     try {
-      const response = await fetchWithTimeout(
-        url,
-        {},
-        PLAUD_FETCH_TIMEOUT_MS
-      );
+      const response = await fetchWithTimeout(url, {}, PLAUD_FETCH_TIMEOUT_MS);
       if (!response.ok) {
         const err = new Error(
           `Не удалось загрузить саммари: HTTP ${response.status}`
@@ -406,7 +398,9 @@ async function fetchPlaudFiletagList(session) {
 }
 
 function normalizeHumanTitle(value) {
-  let s = String(value ?? "").replace(/\s+/g, " ").trim();
+  let s = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
   if (!s) return "";
   if (/%[0-9A-Fa-f]{2}/.test(s)) {
     try {
@@ -606,9 +600,7 @@ async function fetchPlaudFilesOneListVariant(session, fixedParams, opts = {}) {
       `/file/simple/web?${query.toString()}`
     );
     const arrays = collectQualifyingFileArrays(payload);
-    const rawLen = arrays.length
-      ? Math.max(...arrays.map((a) => a.length))
-      : 0;
+    const rawLen = arrays.length ? Math.max(...arrays.map((a) => a.length)) : 0;
     const mergedRaw = mergeRawFilesFromArrays(arrays);
 
     const serverTotal = extractServerListTotal(payload);
@@ -634,8 +626,7 @@ async function fetchPlaudFilesOneListVariant(session, fixedParams, opts = {}) {
     // хвосты списков (в т.ч. «невидимые» для глобального запроса записи).
     const done =
       serverTotal != null
-        ? rawLen === 0 ||
-          (skip + rawLen >= serverTotal && rawLen < pageLimit)
+        ? rawLen === 0 || (skip + rawLen >= serverTotal && rawLen < pageLimit)
         : rawLen === 0 || rawLen < pageLimit;
     if (done) {
       break;
@@ -709,7 +700,10 @@ async function fetchPlaudFilesFromApi(session) {
 
   /** Как неофициальный клиент Plaud: один запрос с большим limit + is_trash=0 (см. arbuzmell/plaud-api). */
   async function tryMegaPull(params) {
-    await tryIngest(params, { maxPages: 1, limitOverride: PLAUD_API_MAX_FILES });
+    await tryIngest(params, {
+      maxPages: 1,
+      limitOverride: PLAUD_API_MAX_FILES,
+    });
   }
   await tryMegaPull({ is_trash: "0" });
   await tryMegaPull({ is_trash: "2" });
@@ -793,10 +787,7 @@ function extractDownloadUrl(payload) {
 }
 
 async function fetchPlaudTempUrlPayload(session, fileId) {
-  return fetchPlaudApi(
-    session,
-    `/file/temp-url/${encodeURIComponent(fileId)}`
-  );
+  return fetchPlaudApi(session, `/file/temp-url/${encodeURIComponent(fileId)}`);
 }
 
 async function fetchPlaudAudioUrl(session, fileId) {
@@ -876,10 +867,7 @@ function parseSummaryContent(rawContent) {
   }
 
   if (Array.isArray(rawContent)) {
-    return rawContent
-      .map(parseSummaryContent)
-      .filter(Boolean)
-      .join("\n\n");
+    return rawContent.map(parseSummaryContent).filter(Boolean).join("\n\n");
   }
 
   if (typeof rawContent === "object") {
@@ -943,8 +931,7 @@ async function fetchPlaudSummaryExports(session, file) {
     const content = parseSummaryContent(rawContent);
     if (!content) continue;
 
-    const title =
-      normalizeHumanTitle(getSummaryNoteTitle(note)) || "Саммари";
+    const title = normalizeHumanTitle(getSummaryNoteTitle(note)) || "Саммари";
     summaries.push({
       title,
       markdown: `# ${file.title}\n\n${content}\n`,
@@ -1010,7 +997,9 @@ export async function runLibraryStats(options = {}) {
 
     onProgress?.({ phase: "list", current: 0, total: 1 });
     let files = await fetchPlaudFilesFromApi(session);
-    mergeDomRecordingIdsIntoFiles(files, { unfiledLabel: PLAUD_FOLDER_UNFILED });
+    mergeDomRecordingIdsIntoFiles(files, {
+      unfiledLabel: PLAUD_FOLDER_UNFILED,
+    });
     mergeLocalStorageRecordingIdsIntoFiles(files);
 
     const recordings = files.length;
@@ -1079,8 +1068,19 @@ export async function runLibraryStats(options = {}) {
   return compute();
 }
 
-function buildSummaryFilenameForFile(markdown, fallbackTitle, index = 0, file = null) {
-  return buildSummaryFilename(markdown, fallbackTitle, index, file, normalizeHumanTitle);
+function buildSummaryFilenameForFile(
+  markdown,
+  fallbackTitle,
+  index = 0,
+  file = null
+) {
+  return buildSummaryFilename(
+    markdown,
+    fallbackTitle,
+    index,
+    file,
+    normalizeHumanTitle
+  );
 }
 
 function downloadTextViaBackground(content, filename, options = {}) {
@@ -1578,8 +1578,11 @@ export async function runExportAll(backgroundMode = false, options = {}) {
           .trim()
           .toLowerCase();
       const title =
-        normalizeHumanTitle(String(sf.title || sf.id).replace(/\s+/g, " ").trim()) ||
-        id;
+        normalizeHumanTitle(
+          String(sf.title || sf.id)
+            .replace(/\s+/g, " ")
+            .trim()
+        ) || id;
       files = [
         {
           id,
@@ -1590,7 +1593,9 @@ export async function runExportAll(backgroundMode = false, options = {}) {
     } else {
       try {
         files = await fetchPlaudFilesFromApi(session);
-        mergeDomRecordingIdsIntoFiles(files, { unfiledLabel: PLAUD_FOLDER_UNFILED });
+        mergeDomRecordingIdsIntoFiles(files, {
+          unfiledLabel: PLAUD_FOLDER_UNFILED,
+        });
         mergeLocalStorageRecordingIdsIntoFiles(files);
       } catch (error) {
         console.warn("Could not read Plaud file list from API:", error.message);
@@ -1681,7 +1686,10 @@ export async function runExportAll(backgroundMode = false, options = {}) {
         try {
           const summaryExports = await fetchPlaudSummaryExports(session, file);
           if (summaryExports.length > 0) {
-            for (const [summaryIndex, summaryExport] of summaryExports.entries()) {
+            for (const [
+              summaryIndex,
+              summaryExport,
+            ] of summaryExports.entries()) {
               await downloadTextViaBackground(
                 summaryExport.markdown,
                 reservePlannedDownloadPath(

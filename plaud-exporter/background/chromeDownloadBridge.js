@@ -5,7 +5,10 @@
  * No state — every call resolves a single download.
  */
 
-import { AUDIO_SUBDIRECTORY, sanitizeDownloadFilename } from "../common/exportPathUtils.js";
+import {
+  AUDIO_SUBDIRECTORY,
+  sanitizeDownloadFilename,
+} from "../common/exportPathUtils.js";
 import { plaudT } from "./bgLocale.js";
 
 const VALID_CONFLICT_ACTIONS = ["uniquify", "overwrite", "prompt"];
@@ -48,11 +51,11 @@ function waitForChromeDownload(downloadId, timeoutMs = 600000) {
         resolve();
       } else if (delta.state.current === "interrupted") {
         cleanup();
-        const reason = delta.error?.current
-          ? ` (${delta.error.current})`
-          : "";
+        const reason = delta.error?.current ? ` (${delta.error.current})` : "";
         reject(
-          new Error(plaudT("bg.downloadInterrupted", { id: downloadId }) + reason)
+          new Error(
+            plaudT("bg.downloadInterrupted", { id: downloadId }) + reason
+          )
         );
       }
     }
@@ -69,7 +72,9 @@ function waitForChromeDownload(downloadId, timeoutMs = 600000) {
  */
 export async function downloadPlaudFile(message) {
   const requestedConflictAction = String(message.conflictAction || "uniquify");
-  const conflictAction = VALID_CONFLICT_ACTIONS.includes(requestedConflictAction)
+  const conflictAction = VALID_CONFLICT_ACTIONS.includes(
+    requestedConflictAction
+  )
     ? requestedConflictAction
     : "uniquify";
   const filename = sanitizeDownloadFilename(
@@ -98,7 +103,10 @@ export async function downloadPlaudFile(message) {
       saveAs: false,
     });
 
-    await waitForChromeDownload(downloadId, Number(message.timeoutMs) || 600000);
+    await waitForChromeDownload(
+      downloadId,
+      Number(message.timeoutMs) || 600000
+    );
     return { success: true, downloadId, filename, conflictAction };
   } finally {
     if (revokeObjectUrl) {

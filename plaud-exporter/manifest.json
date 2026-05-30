@@ -1,60 +1,47 @@
 {
-    "manifest_version": 3,
-    "name": "__MSG_extensionName__",
-    "description": "__MSG_extensionDescription__",
-    "default_locale": "ru",
-    "version": "1.0",
-    "permissions": [
-        "activeTab",
-        "tabs",
-        "scripting",
-        "clipboardWrite",
-        "notifications",
-        "downloads",
-        "storage"
-    ],
-    "host_permissions": [
-        "https://*.plaud.ai/*"
-    ],
-    "background": {
-        "service_worker": "background.js",
-        "type": "module"
-    },
-    "action": {
-        "default_popup": "popup/popup.html",
-        "default_icon": {
-            "16": "assets/icons/icon16.png",
-            "48": "assets/icons/icon48.png",
-            "128": "assets/icons/icon128.png"
-        }
-    },
-    "content_scripts": [
-        {
-            "matches": [
-                "https://app.plaud.ai/*",
-                "https://web.plaud.ai/*"
-            ],
-            "js": [
-                "content.js"
-            ],
-            "run_at": "document_idle"
-        }
-    ],
-    "icons": {
-        "16": "assets/icons/icon16.png",
-        "48": "assets/icons/icon48.png",
-        "128": "assets/icons/icon128.png"
-    },
-    "web_accessible_resources": [
-        {
-            "resources": [
-                "features/audioExport/*.js",
-                "common/*.js"
-            ],
-            "matches": [
-                "https://app.plaud.ai/*",
-                "https://web.plaud.ai/*"
-            ]
-        }
-    ]
+  "manifest_version": 3,
+  "name": "__MSG_extensionName__",
+  "description": "__MSG_extensionDescription__",
+  "default_locale": "ru",
+  "version": "1.0",
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "scripting",
+    "clipboardWrite",
+    "notifications",
+    "downloads",
+    "storage"
+  ],
+  "host_permissions": ["https://*.plaud.ai/*"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "assets/icons/icon16.png",
+      "48": "assets/icons/icon48.png",
+      "128": "assets/icons/icon128.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://app.plaud.ai/*", "https://web.plaud.ai/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "icons": {
+    "16": "assets/icons/icon16.png",
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["features/audioExport/*.js", "common/*.js"],
+      "matches": ["https://app.plaud.ai/*", "https://web.plaud.ai/*"]
+    }
+  ]
 }

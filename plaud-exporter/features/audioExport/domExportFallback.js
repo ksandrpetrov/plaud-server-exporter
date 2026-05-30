@@ -173,10 +173,7 @@ export async function runDomExportFallback(ctx) {
       const fileTitle = titleEl ? titleEl.textContent.trim() : `(без названия)`;
 
       fileCount++;
-      updateIndicator(
-        indicator,
-        `Экспорт файла №${fileCount}: ${fileTitle}…`
-      );
+      updateIndicator(indicator, `Экспорт файла №${fileCount}: ${fileTitle}…`);
       console.log(`Обработка: «${fileTitle}»…`);
 
       try {
@@ -209,9 +206,7 @@ export async function runDomExportFallback(ctx) {
           );
         }
         if (!exportAudioOption) {
-          throw new Error(
-            `В меню не найден пункт «${exportAudioOptionText}»`
-          );
+          throw new Error(`В меню не найден пункт «${exportAudioOptionText}»`);
         }
 
         await clickElement(exportAudioOption);

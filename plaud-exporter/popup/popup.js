@@ -1,7 +1,10 @@
 (function () {
   try {
-    document.documentElement.dataset.themeEffective =
-      window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    document.documentElement.dataset.themeEffective = window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    ).matches
+      ? "dark"
+      : "light";
   } catch {
     /* ignore */
   }
@@ -24,9 +27,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     return prefersDarkMq.matches;
   }
   function applyDocumentTheme() {
-    document.documentElement.dataset.themeEffective = resolveThemeEffectiveDark()
-      ? "dark"
-      : "light";
+    document.documentElement.dataset.themeEffective =
+      resolveThemeEffectiveDark() ? "dark" : "light";
   }
   function updateThemeToggleUi() {
     const themeSystemBtn = document.getElementById("themeSystemBtn");
@@ -78,8 +80,12 @@ document.addEventListener("DOMContentLoaded", async function () {
   const exportBgBtn = document.getElementById("exportBgBtn");
   const stopExportBtn = document.getElementById("stopExportBtn");
   const currentExportAllBtn = document.getElementById("currentExportAllBtn");
-  const currentExportAudioBtn = document.getElementById("currentExportAudioBtn");
-  const currentExportSummaryBtn = document.getElementById("currentExportSummaryBtn");
+  const currentExportAudioBtn = document.getElementById(
+    "currentExportAudioBtn"
+  );
+  const currentExportSummaryBtn = document.getElementById(
+    "currentExportSummaryBtn"
+  );
   const currentPanel = document.getElementById("currentPanel");
   const exportPanel = document.getElementById("exportPanel");
   const syncPanel = document.getElementById("syncPanel");
@@ -114,7 +120,9 @@ document.addEventListener("DOMContentLoaded", async function () {
   const statsRecordingsValue = document.getElementById("statsRecordingsValue");
   const statsSummariesValue = document.getElementById("statsSummariesValue");
   const statsMilestoneFill = document.getElementById("statsMilestoneFill");
-  const statsMilestoneCaption = document.getElementById("statsMilestoneCaption");
+  const statsMilestoneCaption = document.getElementById(
+    "statsMilestoneCaption"
+  );
   const statsFootnote = document.getElementById("statsFootnote");
   const statsRefreshBtn = document.getElementById("statsRefreshBtn");
   const langRuBtn = document.getElementById("langRuBtn");
@@ -151,9 +159,11 @@ document.addEventListener("DOMContentLoaded", async function () {
       if (key) el.setAttribute("title", tr(key));
     });
     var footerLangGroup = document.getElementById("footerLangGroup");
-    if (footerLangGroup) footerLangGroup.setAttribute("aria-label", tr("footer.language"));
+    if (footerLangGroup)
+      footerLangGroup.setAttribute("aria-label", tr("footer.language"));
     var footerThemeGroup = document.getElementById("footerThemeGroup");
-    if (footerThemeGroup) footerThemeGroup.setAttribute("aria-label", tr("footer.theme"));
+    if (footerThemeGroup)
+      footerThemeGroup.setAttribute("aria-label", tr("footer.theme"));
     copyStatusBtnDefault = tr("btn.copyError");
     summariesCountingLabel = tr("stats.countingSummaries");
     recordingsSearchingLabel = tr("stats.searchingRecordings");
@@ -162,11 +172,17 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
     if (langRuBtn) {
       langRuBtn.classList.toggle("lang-toggle-btn--active", uiLocale === "ru");
-      langRuBtn.setAttribute("aria-pressed", uiLocale === "ru" ? "true" : "false");
+      langRuBtn.setAttribute(
+        "aria-pressed",
+        uiLocale === "ru" ? "true" : "false"
+      );
     }
     if (langEnBtn) {
       langEnBtn.classList.toggle("lang-toggle-btn--active", uiLocale === "en");
-      langEnBtn.setAttribute("aria-pressed", uiLocale === "en" ? "true" : "false");
+      langEnBtn.setAttribute(
+        "aria-pressed",
+        uiLocale === "en" ? "true" : "false"
+      );
     }
     updateThemeToggleUi();
   }
@@ -218,22 +234,25 @@ document.addEventListener("DOMContentLoaded", async function () {
       return;
     }
 
-    chrome.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
-      if (chrome.runtime.lastError) {
-        callback(new Error(chrome.runtime.lastError.message), null);
-        return;
+    chrome.tabs.query(
+      { active: true, lastFocusedWindow: true },
+      function (tabs) {
+        if (chrome.runtime.lastError) {
+          callback(new Error(chrome.runtime.lastError.message), null);
+          return;
+        }
+        if (!tabs?.length) {
+          callback(new Error(tr("error.noActiveTab")), null);
+          return;
+        }
+        const tab = tabs[0];
+        if (!tab || tab.id == null) {
+          callback(new Error(tr("error.noActiveTab")), null);
+          return;
+        }
+        callback(null, tab);
       }
-      if (!tabs?.length) {
-        callback(new Error(tr("error.noActiveTab")), null);
-        return;
-      }
-      const tab = tabs[0];
-      if (!tab || tab.id == null) {
-        callback(new Error(tr("error.noActiveTab")), null);
-        return;
-      }
-      callback(null, tab);
-    });
+    );
   }
 
   /**
@@ -510,7 +529,9 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     const r = Number(recordings) || 0;
     const summariesUnknown =
-      summaries === null || summaries === undefined || Number.isNaN(Number(summaries));
+      summaries === null ||
+      summaries === undefined ||
+      Number.isNaN(Number(summaries));
     const s = summariesUnknown ? 0 : Number(summaries);
 
     const tier = getArchiveTier(r);
@@ -564,7 +585,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (statsMilestoneCaption) statsMilestoneCaption.textContent = "";
     if (statsSummariesValue)
       statsSummariesValue.textContent = summariesCountingLabel;
-    if (statsRecordingsValue) statsRecordingsValue.textContent = recordingsSearchingLabel;
+    if (statsRecordingsValue)
+      statsRecordingsValue.textContent = recordingsSearchingLabel;
     if (statsStartupBusyTimer !== null) {
       clearTimeout(statsStartupBusyTimer);
     }
@@ -619,7 +641,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         renderSmartSyncStatus({
           status: "idle",
           lastMessage:
-            response?.error || sendError?.message || tr("sync.settingsUnavailable"),
+            response?.error ||
+            sendError?.message ||
+            tr("sync.settingsUnavailable"),
         });
         return;
       }
@@ -675,7 +699,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (!syncStatusEl) return;
     lastSmartSyncData = data || lastSmartSyncData;
     const line = formatSyncLine(data || lastSmartSyncData);
-    const detail = data?.lastMessage && data.status !== "idle" ? data.lastMessage : "";
+    const detail =
+      data?.lastMessage && data.status !== "idle" ? data.lastMessage : "";
     syncStatusEl.innerHTML = "";
     if (!line) return;
     const strong = document.createElement("strong");
@@ -747,7 +772,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (!data || !statsFetchInFlight) return;
     const keepStaleCells = !!warmStatsDuringFetch;
     if (data.phase === "list") {
-      statsFootnote.textContent = statsPhaseLineWithWarmCache(tr("stats.phase.list"));
+      statsFootnote.textContent = statsPhaseLineWithWarmCache(
+        tr("stats.phase.list")
+      );
       if (!keepStaleCells) {
         if (statsRecordingsValue)
           statsRecordingsValue.textContent = recordingsSearchingLabel;
@@ -760,7 +787,8 @@ document.addEventListener("DOMContentLoaded", async function () {
       const current = Number(data.current);
       if (Number.isFinite(total) && total > 0 && Number.isFinite(current)) {
         setStatsMilestoneBusy(false);
-        if (statsRecordingsValue) statsRecordingsValue.textContent = String(total);
+        if (statsRecordingsValue)
+          statsRecordingsValue.textContent = String(total);
         statsFootnote.textContent = statsPhaseLineWithWarmCache(
           tr("stats.phase.summariesLine", {
             current: current,
@@ -784,10 +812,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   function refreshLibraryStatsFromTab(tab, includeSummaries, warmCache) {
     if (!tab || !isPlaudTab(tab)) {
-      updateStatus(
-        getPlaudTabHelpText(tr("actions.statsRefresh")),
-        "error"
-      );
+      updateStatus(getPlaudTabHelpText(tr("actions.statsRefresh")), "error");
       return;
     }
     if (exportActive || foregroundExportBusy) {
@@ -884,9 +909,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
         if (sendError || !response?.success) {
           const msg =
-            sendError?.message ||
-            response?.error ||
-            tr("stats.statsError");
+            sendError?.message || response?.error || tr("stats.statsError");
           if (hasWarm) {
             renderLibraryStatsPanel(
               Number(warmCache.recordings) || 0,
@@ -938,8 +961,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             (rawSummaries === null || rawSummaries === undefined) &&
             (renderSummaries === null || renderSummaries === undefined)
           ) {
-            statsFootnote.textContent =
-              `${statsFootnote.textContent}${tr("stats.fullCountHint")}`;
+            statsFootnote.textContent = `${statsFootnote.textContent}${tr("stats.fullCountHint")}`;
           }
 
           statsQuest?.classList.remove("stats-quest--offline");
@@ -1006,51 +1028,58 @@ document.addEventListener("DOMContentLoaded", async function () {
   function startForegroundExport(exportMode) {
     getFocusedTab((tabError, tab) => {
       if (tabError) {
-        updateStatus(tr("error.exportPrefix", { msg: tabError.message }), "error");
-        return;
-      }
-      ensureActiveTabHasUrl(tab, function (resolved) {
-      if (!isPlaudTab(resolved)) {
         updateStatus(
-          getPlaudTabHelpText(tr("actions.export", { mode: getExportModeLabel(exportMode) })),
+          tr("error.exportPrefix", { msg: tabError.message }),
           "error"
         );
         return;
       }
-
-      exportActionButtons.forEach((button) => {
-        button.disabled = true;
-      });
-      sendMessageToTabWithRecovery(
-        resolved,
-        { action: "runExportAll", background: false, exportMode },
-        (sendError, response) => {
-          if (sendError) {
-            updateStatus(
-              tr("error.startExportFailed", { url: PLAUD_URL_HINT }),
-              "error"
-            );
-            updateExportControls();
-            return;
-          }
-
-          if (response && response.success) {
-            foregroundExportBusy = true;
-            updateStatus(
-              tr("toast.exportStarted", { mode: getExportModeLabel(exportMode) }),
-              "info"
-            );
-          } else {
-            updateStatus(
-              tr("error.exportError", {
-                msg: response?.error || tr("error.unknown"),
-              }),
-              "error"
-            );
-          }
-          updateExportControls();
+      ensureActiveTabHasUrl(tab, function (resolved) {
+        if (!isPlaudTab(resolved)) {
+          updateStatus(
+            getPlaudTabHelpText(
+              tr("actions.export", { mode: getExportModeLabel(exportMode) })
+            ),
+            "error"
+          );
+          return;
         }
-      );
+
+        exportActionButtons.forEach((button) => {
+          button.disabled = true;
+        });
+        sendMessageToTabWithRecovery(
+          resolved,
+          { action: "runExportAll", background: false, exportMode },
+          (sendError, response) => {
+            if (sendError) {
+              updateStatus(
+                tr("error.startExportFailed", { url: PLAUD_URL_HINT }),
+                "error"
+              );
+              updateExportControls();
+              return;
+            }
+
+            if (response && response.success) {
+              foregroundExportBusy = true;
+              updateStatus(
+                tr("toast.exportStarted", {
+                  mode: getExportModeLabel(exportMode),
+                }),
+                "info"
+              );
+            } else {
+              updateStatus(
+                tr("error.exportError", {
+                  msg: response?.error || tr("error.unknown"),
+                }),
+                "error"
+              );
+            }
+            updateExportControls();
+          }
+        );
       });
     });
   }
@@ -1058,59 +1087,64 @@ document.addEventListener("DOMContentLoaded", async function () {
   function startCurrentPageExport(exportMode) {
     getFocusedTab((tabError, tab) => {
       if (tabError) {
-        updateStatus(tr("error.exportPrefix", { msg: tabError.message }), "error");
-        return;
-      }
-      ensureActiveTabHasUrl(tab, function (resolved) {
-      if (!isPlaudTab(resolved)) {
         updateStatus(
-          getPlaudTabHelpText(
-            tr("actions.exportCurrent", { mode: getExportModeLabel(exportMode) })
-          ),
+          tr("error.exportPrefix", { msg: tabError.message }),
           "error"
         );
         return;
       }
-
-      exportActionButtons.forEach((button) => {
-        button.disabled = true;
-      });
-      sendMessageToTabWithRecovery(
-        resolved,
-        { action: "runExportCurrentPage", exportMode },
-        (sendError, response) => {
-          if (sendError) {
-            const hint =
-              sendError.message &&
-              !sendError.message.includes("Receiving end does not exist") &&
-              !sendError.message.includes("Could not establish connection")
-                ? ` (${sendError.message})`
-                : "";
-            updateStatus(
-              tr("error.connectPage", { hint: hint, url: PLAUD_URL_HINT }),
-              "error"
-            );
-            updateExportControls();
-            return;
-          }
-
-          if (response && response.success) {
-            foregroundExportBusy = true;
-            updateStatus(
-              tr("toast.currentExportStarted", {
+      ensureActiveTabHasUrl(tab, function (resolved) {
+        if (!isPlaudTab(resolved)) {
+          updateStatus(
+            getPlaudTabHelpText(
+              tr("actions.exportCurrent", {
                 mode: getExportModeLabel(exportMode),
-              }),
-              "info"
-            );
-          } else {
-            updateStatus(
-              response?.error || tr("error.couldNotStartCurrent"),
-              "error"
-            );
-          }
-          updateExportControls();
+              })
+            ),
+            "error"
+          );
+          return;
         }
-      );
+
+        exportActionButtons.forEach((button) => {
+          button.disabled = true;
+        });
+        sendMessageToTabWithRecovery(
+          resolved,
+          { action: "runExportCurrentPage", exportMode },
+          (sendError, response) => {
+            if (sendError) {
+              const hint =
+                sendError.message &&
+                !sendError.message.includes("Receiving end does not exist") &&
+                !sendError.message.includes("Could not establish connection")
+                  ? ` (${sendError.message})`
+                  : "";
+              updateStatus(
+                tr("error.connectPage", { hint: hint, url: PLAUD_URL_HINT }),
+                "error"
+              );
+              updateExportControls();
+              return;
+            }
+
+            if (response && response.success) {
+              foregroundExportBusy = true;
+              updateStatus(
+                tr("toast.currentExportStarted", {
+                  mode: getExportModeLabel(exportMode),
+                }),
+                "info"
+              );
+            } else {
+              updateStatus(
+                response?.error || tr("error.couldNotStartCurrent"),
+                "error"
+              );
+            }
+            updateExportControls();
+          }
+        );
       });
     });
   }
@@ -1133,13 +1167,13 @@ document.addEventListener("DOMContentLoaded", async function () {
         return;
       }
       ensureActiveTabHasUrl(tab, function (resolved) {
-      setPlaudTabState(resolved);
-      refreshSmartSyncStatus(resolved);
-      tryScheduleLibraryStats(isPlaudTab(resolved) ? resolved : null);
-      if (lastExportStatusData) {
-        updateExportStatus(lastExportStatusData);
-      }
-      updateExportControls();
+        setPlaudTabState(resolved);
+        refreshSmartSyncStatus(resolved);
+        tryScheduleLibraryStats(isPlaudTab(resolved) ? resolved : null);
+        if (lastExportStatusData) {
+          updateExportStatus(lastExportStatusData);
+        }
+        updateExportControls();
       });
     });
   }
@@ -1192,7 +1226,8 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   if (tabStateBadge) {
     tabStateBadge.addEventListener("click", function () {
-      if (tabStateBadge.classList.contains("badge-tab--offline")) openPlaudWebSite();
+      if (tabStateBadge.classList.contains("badge-tab--offline"))
+        openPlaudWebSite();
     });
     tabStateBadge.addEventListener("keydown", function (ev) {
       if (!tabStateBadge.classList.contains("badge-tab--offline")) return;
@@ -1244,7 +1279,8 @@ document.addEventListener("DOMContentLoaded", async function () {
           if (sendError || !response?.success) {
             updateStatus(
               tr("sync.folderSaveError", {
-                msg: response?.error || sendError?.message || tr("error.unknown"),
+                msg:
+                  response?.error || sendError?.message || tr("error.unknown"),
               }),
               "error"
             );
@@ -1304,7 +1340,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     smartSyncBtn.addEventListener("click", function () {
       getFocusedTab((tabError, tab) => {
         if (tabError) {
-          updateStatus(tr("sync.startError", { msg: tabError.message }), "error");
+          updateStatus(
+            tr("sync.startError", { msg: tabError.message }),
+            "error"
+          );
           return;
         }
         ensureActiveTabHasUrl(tab, function (resolved) {
@@ -1342,7 +1381,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                 renderSmartSyncStatus({
                   status: "error",
                   error:
-                    response?.error || sendError?.message || tr("error.unknown"),
+                    response?.error ||
+                    sendError?.message ||
+                    tr("error.unknown"),
                 });
                 updateStatus(
                   tr("sync.startError", {
@@ -1394,48 +1435,48 @@ document.addEventListener("DOMContentLoaded", async function () {
   exportBgBtn.addEventListener("click", function () {
     getFocusedTab((tabError, tab) => {
       if (tabError) {
-        updateStatus(tr("error.bgExportFailed", { msg: tabError.message }), "error");
-        return;
-      }
-      ensureActiveTabHasUrl(tab, function (resolved) {
-      if (!isPlaudTab(resolved)) {
         updateStatus(
-          getPlaudTabHelpText(tr("actions.bgExport")),
+          tr("error.bgExportFailed", { msg: tabError.message }),
           "error"
         );
         return;
       }
-
-      exportBgBtn.disabled = true;
-      sendRuntimeMessage(
-        {
-          action: "startBackgroundExport",
-          tabId: resolved.id,
-          exportMode: EXPORT_MODE_BOTH,
-        },
-        (sendError, response) => {
-          if (sendError) {
-            updateStatus(
-              tr("error.bgStartFailed", { msg: sendError.message }),
-              "error"
-            );
-          } else if (response && response.success) {
-            updateStatus(tr("error.bgStarted"), "success");
-            exportActive = true;
-            currentExportTabId = resolved.id;
-            updateExportControls();
-            startStatusPolling();
-          } else {
-            updateStatus(
-              tr("error.bgStartFailed", {
-                msg: response?.error || tr("error.unknown"),
-              }),
-              "error"
-            );
-          }
-          updateExportControls();
+      ensureActiveTabHasUrl(tab, function (resolved) {
+        if (!isPlaudTab(resolved)) {
+          updateStatus(getPlaudTabHelpText(tr("actions.bgExport")), "error");
+          return;
         }
-      );
+
+        exportBgBtn.disabled = true;
+        sendRuntimeMessage(
+          {
+            action: "startBackgroundExport",
+            tabId: resolved.id,
+            exportMode: EXPORT_MODE_BOTH,
+          },
+          (sendError, response) => {
+            if (sendError) {
+              updateStatus(
+                tr("error.bgStartFailed", { msg: sendError.message }),
+                "error"
+              );
+            } else if (response && response.success) {
+              updateStatus(tr("error.bgStarted"), "success");
+              exportActive = true;
+              currentExportTabId = resolved.id;
+              updateExportControls();
+              startStatusPolling();
+            } else {
+              updateStatus(
+                tr("error.bgStartFailed", {
+                  msg: response?.error || tr("error.unknown"),
+                }),
+                "error"
+              );
+            }
+            updateExportControls();
+          }
+        );
       });
     });
   });
@@ -1445,7 +1486,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     getFocusedTab((tabError, tab) => {
       const tabId = stopTabId || tab?.id;
       if (tabError && !tabId) {
-        updateStatus(tr("error.stopFailed", { msg: tabError.message }), "error");
+        updateStatus(
+          tr("error.stopFailed", { msg: tabError.message }),
+          "error"
+        );
         return;
       }
       if (!tabId) {
@@ -1460,7 +1504,10 @@ document.addEventListener("DOMContentLoaded", async function () {
         },
         (sendError, response) => {
           if (sendError) {
-            updateStatus(tr("error.stopFailed", { msg: sendError.message }), "error");
+            updateStatus(
+              tr("error.stopFailed", { msg: sendError.message }),
+              "error"
+            );
             return;
           }
           if (response && response.success) {
@@ -1691,13 +1738,17 @@ document.addEventListener("DOMContentLoaded", async function () {
     exportStatusContainer.classList.add("active");
 
     const startedAt = Number(data.startTime) || Date.now();
-    const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAt) / 1000));
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - startedAt) / 1000)
+    );
     const minutes = Math.floor(elapsedSeconds / 60);
     const seconds = elapsedSeconds % 60;
     const timeString = tr("time.exportElapsed", { m: minutes, s: seconds });
 
     function finiteOr(value, fallback) {
-      if (value === undefined || value === null || value === "") return fallback;
+      if (value === undefined || value === null || value === "")
+        return fallback;
       const n = Number(value);
       return Number.isFinite(n) ? n : fallback;
     }
@@ -1708,8 +1759,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     const summaries = finiteOr(data.summariesExported, 0);
     const summaryErrors = finiteOr(data.summaryErrors, 0);
     const total = finiteOr(data.filesTotal, 0);
-    const progress = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
-    const processedLabel = total > 0 ? `${processed}/${total}` : String(processed);
+    const progress =
+      total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+    const processedLabel =
+      total > 0 ? `${processed}/${total}` : String(processed);
 
     if (!exportStatusContainer.dataset.exportUiBuilt) {
       exportStatusContainer.innerHTML = `
@@ -1739,24 +1792,34 @@ document.addEventListener("DOMContentLoaded", async function () {
       exportStatusContainer.dataset.exportUiBuilt = "1";
     }
 
-    const heading = exportStatusContainer.querySelector(".export-status-heading");
+    const heading = exportStatusContainer.querySelector(
+      ".export-status-heading"
+    );
     if (heading) heading.textContent = tr("status.exportRunning");
     const bar = exportStatusContainer.querySelector(".progress-bar");
     if (bar) bar.style.width = `${progress}%`;
 
     const lblAudio = exportStatusContainer.querySelector(".export-lbl-audio");
-    const lblSummary = exportStatusContainer.querySelector(".export-lbl-summary");
+    const lblSummary = exportStatusContainer.querySelector(
+      ".export-lbl-summary"
+    );
     const lblErrors = exportStatusContainer.querySelector(".export-lbl-errors");
-    const lblElapsed = exportStatusContainer.querySelector(".export-lbl-elapsed");
+    const lblElapsed = exportStatusContainer.querySelector(
+      ".export-lbl-elapsed"
+    );
     if (lblAudio) lblAudio.textContent = tr("status.audio");
     if (lblSummary) lblSummary.textContent = tr("status.summary");
     if (lblErrors) lblErrors.textContent = tr("status.errors");
     if (lblElapsed) lblElapsed.textContent = tr("status.elapsed");
 
     const valAudio = exportStatusContainer.querySelector(".export-val-audio");
-    const valSummary = exportStatusContainer.querySelector(".export-val-summary");
+    const valSummary = exportStatusContainer.querySelector(
+      ".export-val-summary"
+    );
     const valErrors = exportStatusContainer.querySelector(".export-val-errors");
-    const valElapsed = exportStatusContainer.querySelector(".export-val-elapsed");
+    const valElapsed = exportStatusContainer.querySelector(
+      ".export-val-elapsed"
+    );
     if (valAudio) valAudio.textContent = String(audio);
     if (valSummary) valSummary.textContent = String(summaries);
     if (valErrors) valErrors.textContent = String(errored + summaryErrors);
@@ -1764,12 +1827,15 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     const note = exportStatusContainer.querySelector(".export-records-note");
     if (note) {
-      note.textContent = tr("status.recordsProcessed", { label: processedLabel });
+      note.textContent = tr("status.recordsProcessed", {
+        label: processedLabel,
+      });
     }
   }
 
   function updateExportControls() {
-    const blockExportActions = exportActive || foregroundExportBusy || smartSyncActive;
+    const blockExportActions =
+      exportActive || foregroundExportBusy || smartSyncActive;
     if (blockExportActions) {
       exportActionButtons.forEach((button) => {
         if (button) button.disabled = true;
@@ -1815,8 +1881,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     statusPollingInterval = setInterval(() => {
       getFocusedTab((tabError, tab) => {
-        const tabId =
-          currentExportTabId != null ? currentExportTabId : tab?.id;
+        const tabId = currentExportTabId != null ? currentExportTabId : tab?.id;
         if (tabError && !tabId) {
           return;
         }

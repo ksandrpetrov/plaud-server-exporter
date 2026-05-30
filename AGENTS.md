@@ -7,9 +7,7 @@
 
 Монорепозиторий с двумя средами выполнения и одним общим контрактом:
 
-- `server/` — Node 20+ ESM CLI + Telegram-бот (long-polling). Точка входа: [
-  `server/src/cli/index.js`](server/src/cli/index.js); бот: [
-  `server/src/telegram/index.js`](server/src/telegram/index.js).
+- `server/` — Node 20+ ESM CLI + Telegram-бот (long-polling). Точка входа: [`server/src/cli/index.js`](server/src/cli/index.js); бот: [`server/src/telegram/index.js`](server/src/telegram/index.js).
 - `plaud-exporter/` — Chrome MV3 расширение. **Не** git-submodule, вендорный код в монорепо. Точки входа:
   `background.js`, `content.js`, `popup/`.
 - `docs/`, `deploy/`, `scripts/` — документация, systemd/Docker/Ansible, верификация, `ci-deploy-remote.sh`.
@@ -53,13 +51,7 @@ npm run test:extension   # extension tests (alias: test:submodule)
 npm run test:coverage    # lcov + thresholds (требует Node 22+)
 ```
 
-Extension отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`. CI ([
-`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — матрица Node 20 + 22, переиспользует reusable [
-`.github/workflows/checks.yml`](.github/workflows/checks.yml) и параллельный [
-`.github/workflows/infra-lint.yml`](.github/workflows/infra-lint.yml) (actionlint/shellcheck/hadolint/markdownlint); [
-`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) + [
-`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — security gate; [
-`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — образ GHCR + опциональный Docker deploy (
+Extension отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`. CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — матрица Node 20 + 22, переиспользует reusable [`.github/workflows/checks.yml`](.github/workflows/checks.yml) и параллельный [`.github/workflows/infra-lint.yml`](.github/workflows/infra-lint.yml) (actionlint/shellcheck/hadolint/markdownlint); [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) + [`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — security gate; [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — образ GHCR + опциональный Docker deploy (
 `PRODUCTION_DOCKER_DEPLOY`). Подробности и список required checks — в [docs/quality-gate.md](docs/quality-gate.md).
 
 ## Файлы, которые нельзя трогать целиком без плана
@@ -73,16 +65,9 @@ Extension отдельно: `cd plaud-exporter && npm run lint && npm test && np
 | [`plaud-exporter/background.js`](plaud-exporter/background.js)                                             | ~1k   | MV3 service worker: оркестрация export/sync (downloads — `background/chromeDownloadBridge.js`) |
 
 Средние (500–600 LOC) тоже лучше править прицельно: [`server/src/telegram/messages/`](server/src/telegram/messages/) (
-barrel: `messages.js`), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [
-`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [
-`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js), [
-`server/src/telegram/syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js).
+barrel: `messages.js`), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js), [`server/src/telegram/syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js).
 
-Streaming Telegram (draft/progress/typewriter): barrel [
-`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [
-`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js), [
-`streaming/typewriter.js`](server/src/telegram/streaming/typewriter.js), [
-`streaming/loadingPulse.js`](server/src/telegram/streaming/loadingPulse.js).
+Streaming Telegram (draft/progress/typewriter): barrel [`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js), [`streaming/typewriter.js`](server/src/telegram/streaming/typewriter.js), [`streaming/loadingPulse.js`](server/src/telegram/streaming/loadingPulse.js).
 
 ## Telegram module map (server)
 

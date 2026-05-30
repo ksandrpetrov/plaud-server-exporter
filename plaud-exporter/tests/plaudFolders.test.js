@@ -12,7 +12,10 @@ import {
   resolveFileFolderSegment,
   resolveFolderPathSegment,
 } from "../common/plaudFolders.js";
-import { buildTagByIdMap, collectUnfiledFiletagIds } from "../common/plaudFolders.js";
+import {
+  buildTagByIdMap,
+  collectUnfiledFiletagIds,
+} from "../common/plaudFolders.js";
 
 test("extractFiletagIdsFromRaw merges every known key alias and dedupes", () => {
   const ids = extractFiletagIdsFromRaw({
@@ -31,10 +34,11 @@ test("extractFiletagIdsFromRaw returns [] for non-object input", () => {
 });
 
 test("mergeFiletagIds deduplicates across lists and trims junk", () => {
-  assert.deepEqual(
-    mergeFiletagIds(["a", " a ", ""], ["b", null], ["a", "c"]),
-    ["a", "b", "c"]
-  );
+  assert.deepEqual(mergeFiletagIds(["a", " a ", ""], ["b", null], ["a", "c"]), [
+    "a",
+    "b",
+    "c",
+  ]);
 });
 
 test("parseFiletagListPayload digs filetag arrays out of nested envelopes", () => {
@@ -49,10 +53,7 @@ test("parseFiletagListPayload digs filetag arrays out of nested envelopes", () =
   };
   const tags = parseFiletagListPayload(payload);
   assert.equal(tags.length, 2);
-  assert.deepEqual(
-    tags.map((t) => t.id).sort(),
-    ["t-1", "t-2"]
-  );
+  assert.deepEqual(tags.map((t) => t.id).sort(), ["t-1", "t-2"]);
 });
 
 test("parseFiletagListPayload walks deep payloads and dedupes by id", () => {
@@ -61,28 +62,33 @@ test("parseFiletagListPayload walks deep payloads and dedupes by id", () => {
       result: {
         groups: [
           { folders: [{ id: "t-1", name: "Work" }] },
-          { folders: [{ id: "t-1", name: "Duplicate" }, { id: "t-2", name: "Misc" }] },
+          {
+            folders: [
+              { id: "t-1", name: "Duplicate" },
+              { id: "t-2", name: "Misc" },
+            ],
+          },
         ],
       },
     },
   };
   const tags = parseFiletagListPayload(payload);
-  assert.deepEqual(
-    tags.map((t) => t.id).sort(),
-    ["t-1", "t-2"]
-  );
+  assert.deepEqual(tags.map((t) => t.id).sort(), ["t-1", "t-2"]);
 });
 
 test("mergeFiletagsById keeps the first occurrence per id and ignores junk arrays", () => {
   const tags = mergeFiletagsById([
     [{ id: "t-1", name: "First" }],
     null,
-    [{ id: "t-1", name: "Second" }, { id: "t-2", name: "Other" }],
+    [
+      { id: "t-1", name: "Second" },
+      { id: "t-2", name: "Other" },
+    ],
   ]);
-  assert.deepEqual(
-    tags.map((t) => `${t.id}:${t.name}`).sort(),
-    ["t-1:First", "t-2:Other"]
-  );
+  assert.deepEqual(tags.map((t) => `${t.id}:${t.name}`).sort(), [
+    "t-1:First",
+    "t-2:Other",
+  ]);
 });
 
 test("attachFolderSegmentsToFiles annotates each file using tag metadata", () => {
@@ -138,7 +144,12 @@ test("resolveFolderPathSegment maps All files virtual tag to Unfiled", () => {
     PLAUD_FOLDER_UNFILED
   );
   assert.equal(
-    resolveFolderPathSegment(["t-all", "t-work"], tagById, unfiledIds, allFilesIds),
+    resolveFolderPathSegment(
+      ["t-all", "t-work"],
+      tagById,
+      unfiledIds,
+      allFilesIds
+    ),
     "Work"
   );
 });

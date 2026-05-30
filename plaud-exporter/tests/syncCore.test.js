@@ -187,8 +187,14 @@ test("buildRelativeArtifactPath nests Unfiled under sync Audio and Summaries", (
 test("resolveSyncNotificationsEnabled defaults to on unless explicitly false", () => {
   assert.equal(resolveSyncNotificationsEnabled(undefined), true);
   assert.equal(resolveSyncNotificationsEnabled({}), true);
-  assert.equal(resolveSyncNotificationsEnabled({ syncNotificationsEnabled: true }), true);
-  assert.equal(resolveSyncNotificationsEnabled({ syncNotificationsEnabled: false }), false);
+  assert.equal(
+    resolveSyncNotificationsEnabled({ syncNotificationsEnabled: true }),
+    true
+  );
+  assert.equal(
+    resolveSyncNotificationsEnabled({ syncNotificationsEnabled: false }),
+    false
+  );
 });
 
 test("sanitizeSyncSubdirectory keeps sync inside Downloads-relative folders", () => {

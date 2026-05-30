@@ -2,8 +2,7 @@
 
 Репозиторий: [github.com/ksandrpetrov/plaud-server-exporter](https://github.com/ksandrpetrov/plaud-server-exporter)
 
-Серверный CLI выгружает **саммари** записей Plaud в Markdown для Obsidian. На VPS расписание и уведомления ведёт \*
-\*Telegram-бот** (long-polling под systemd). В том же репозитории лежит Chrome-расширение **`plaud-exporter/`\*\*, а его
+Серверный CLI выгружает **саммари** записей Plaud в Markdown для Obsidian. На VPS расписание и уведомления ведёт **Telegram-бот** (long-polling под systemd). В том же репозитории лежит Chrome-расширение **`plaud-exporter/`**, а его
 модули `common/syncCore.js`, `common/exportPathUtils.js` и `common/plaudFolders.js` импортируются сервером напрямую —
 это единственный формальный контракт между двумя средами выполнения (см. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)).
 
@@ -102,13 +101,11 @@ prettier/eslint/verify-manifest на изменённые файлы. Снять
 
 CI:
 
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) → переиспользует reusable [
-  `checks.yml`](.github/workflows/checks.yml) на матрице Node 20.x + 22.x при push/PR в `main`: lint, typecheck, format,
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) → переиспользует reusable [`checks.yml`](.github/workflows/checks.yml) на матрице Node 20.x + 22.x при push/PR в `main`: lint, typecheck, format,
   verify, tests, coverage (на 22.x), npm audit, Docker PR build, smoke.
 - [`.github/workflows/infra-lint.yml`](.github/workflows/infra-lint.yml) — actionlint, shellcheck, hadolint,
   markdownlint в параллельных job-ах.
-- [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) и [
-  `.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — security/secret сканы (PR + weekly cron).
+- [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) и [`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — security/secret сканы (PR + weekly cron).
 - [`.github/dependabot.yml`](.github/dependabot.yml) — еженедельные апдейты npm/actions/docker, сгруппированные
   dev/prod/security.
 - Required checks и список политик — в [docs/quality-gate.md](docs/quality-gate.md).
