@@ -360,6 +360,49 @@ export function determineSyncAction(existingRecord, candidate) {
   };
 }
 
+/**
+ * Adjusts an `already_synced` action when the vault file is missing or the
+ * planned path differs from the index. Caller supplies disk facts (no I/O here).
+ * Extension smart sync passes `summaryMissingOnDisk: false` (no vault access).
+ *
+ * @param {ReturnType<typeof determineSyncAction>} action
+ * @param {object | null | undefined} existingRecord
+ * @param {{ plannedSummaryPath?: string, summaryMissingOnDisk?: boolean }} [options]
+ * @returns {ReturnType<typeof determineSyncAction>}
+ */
+export function refineSyncActionForDisk(action, existingRecord, options = {}) {
+  const plannedSummaryPath = String(options.plannedSummaryPath || "");
+  const summaryMissingOnDisk = !!options.summaryMissingOnDisk;
+
+  if (action.action !== SYNC_ACTION_ALREADY_SYNCED || !existingRecord) {
+    return action;
+  }
+
+  if (summaryMissingOnDisk) {
+    return {
+      action: SYNC_ACTION_UPDATED,
+      status: SYNC_STATUS_UPDATED,
+      downloadRequired: true,
+      metadataOnly: false,
+      reason: "summary_file_missing",
+    };
+  }
+
+  const existingPath = String(existingRecord.summaryPath || "");
+  const planned = String(plannedSummaryPath || "");
+  if (existingPath && planned && existingPath !== planned) {
+    return {
+      action: SYNC_ACTION_UPDATED,
+      status: SYNC_STATUS_UPDATED,
+      downloadRequired: false,
+      metadataOnly: true,
+      reason: "path_changed",
+    };
+  }
+
+  return action;
+}
+
 export function detectDuplicate(syncIndex, candidate) {
   if (!syncIndex?.records || !candidate?.stableId) return null;
   const direct = syncIndex.records[candidate.stableId];
@@ -418,6 +461,7 @@ export function createEmptySyncIndex() {
     settings: {
       storageMode: "downloads_subfolder",
       syncSubdirectory: DEFAULT_SYNC_SUBDIRECTORY,
+      syncNotificationsEnabled: true,
     },
     updatedAt: new Date().toISOString(),
   };
@@ -440,6 +484,11 @@ export function normalizeSyncIndex(value) {
         : {}),
     },
   };
+}
+
+/** @param {{ syncNotificationsEnabled?: boolean } | null | undefined} settings */
+export function resolveSyncNotificationsEnabled(settings) {
+  return settings?.syncNotificationsEnabled !== false;
 }
 
 export function sanitizeSyncSubdirectory(value) {

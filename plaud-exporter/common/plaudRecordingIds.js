@@ -1,6 +1,42 @@
 /** 32 hex chars — Plaud file/recording id in API, URL, and data-* attributes. */
 export const RAW_FILE_ID_RE = /^[a-f0-9]{32}$/i;
 
+/** Object keys Plaud uses for recording ids (API payloads, cache blobs). */
+export const RECORDING_ID_KEYS = [
+  "file_id",
+  "fileId",
+  "id",
+  "recording_id",
+  "recordingId",
+  "audio_id",
+  "audioId",
+  "resource_id",
+  "resourceId",
+  "uuid",
+];
+
+/** Best-effort id pull from any Plaud payload object. */
+export function extractRawRecordingId(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "";
+  for (const key of RECORDING_ID_KEYS) {
+    const value = raw[key];
+    if (value == null) continue;
+    const s = String(value).trim();
+    if (s) return s;
+  }
+  return "";
+}
+
+/**
+ * Canonical id for sync/index: lowercase 32-hex when possible, else trimmed raw id.
+ */
+export function normalizePlaudRecordingId(raw) {
+  const extracted = extractRawRecordingId(raw);
+  if (!extracted) return "";
+  const hex = normalizeHexRecordingId(extracted);
+  return hex || extracted;
+}
+
 /** 32 hex without dashes — aligns UUID from API/cache with DOM. */
 export function normalizeHexRecordingId(rawId) {
   const s = String(rawId ?? "").trim();

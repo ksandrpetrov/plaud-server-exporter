@@ -5,13 +5,16 @@ import {
   buildRelativeArtifactPath,
   buildStableId,
   determineSyncAction,
+  refineSyncActionForDisk,
   getRawField,
   hashSummary,
+  resolveSyncNotificationsEnabled,
   sanitizeSyncSubdirectory,
   SYNC_ACTION_ALREADY_SYNCED,
   SYNC_ACTION_NEW,
   SYNC_ACTION_SKIPPED,
   SYNC_ACTION_UPDATED,
+  SYNC_STATUS_UPDATED,
 } from "../common/syncCore.js";
 
 test("buildStableId prefers Plaud ids over filename-like fields", () => {
@@ -99,6 +102,61 @@ test("determineSyncAction relocates when folderSegment changes", () => {
   assert.equal(action.metadataOnly, true);
 });
 
+test("refineSyncActionForDisk restores missing summary file", () => {
+  const existing = {
+    stableId: "plaud:1",
+    identityConfidence: "high",
+    summaryHash: "sha256:1",
+    summaryPath: "/old.md",
+    title: "T",
+    normalizedFilename: "T.md",
+  };
+  const base = determineSyncAction(existing, { ...existing });
+  assert.equal(base.action, SYNC_ACTION_ALREADY_SYNCED);
+  const refined = refineSyncActionForDisk(base, existing, {
+    plannedSummaryPath: "/vault/T.md",
+    summaryMissingOnDisk: true,
+  });
+  assert.equal(refined.action, SYNC_ACTION_UPDATED);
+  assert.equal(refined.reason, "summary_file_missing");
+  assert.equal(refined.downloadRequired, true);
+  assert.equal(refined.status, SYNC_STATUS_UPDATED);
+});
+
+test("refineSyncActionForDisk metadata-only when planned path differs", () => {
+  const existing = {
+    stableId: "plaud:1",
+    identityConfidence: "high",
+    summaryHash: "sha256:1",
+    summaryPath: "/vault/old/T.md",
+    title: "T",
+    normalizedFilename: "T.md",
+  };
+  const candidate = { ...existing, summaryPath: "" };
+  const base = determineSyncAction(existing, candidate);
+  assert.equal(base.action, SYNC_ACTION_ALREADY_SYNCED);
+  const refined = refineSyncActionForDisk(base, existing, {
+    plannedSummaryPath: "/vault/new/T.md",
+    summaryMissingOnDisk: false,
+  });
+  assert.equal(refined.action, SYNC_ACTION_UPDATED);
+  assert.equal(refined.reason, "path_changed");
+  assert.equal(refined.metadataOnly, true);
+  assert.equal(refined.downloadRequired, false);
+});
+
+test("refineSyncActionForDisk is no-op when not already_synced", () => {
+  const fresh = determineSyncAction(null, {
+    stableId: "plaud:1",
+    identityConfidence: "high",
+    summaryHash: "sha256:1",
+  });
+  assert.equal(
+    refineSyncActionForDisk(fresh, null, { summaryMissingOnDisk: true }),
+    fresh
+  );
+});
+
 test("determineSyncAction skips unreliable identity", () => {
   assert.equal(
     determineSyncAction(null, {
@@ -124,6 +182,13 @@ test("buildRelativeArtifactPath nests Unfiled under sync Audio and Summaries", (
   );
   assert.match(audio, /PlaudExports\/Sync\/Unfiled\/Audio\//);
   assert.match(summary, /PlaudExports\/Sync\/Unfiled\/Summaries\//);
+});
+
+test("resolveSyncNotificationsEnabled defaults to on unless explicitly false", () => {
+  assert.equal(resolveSyncNotificationsEnabled(undefined), true);
+  assert.equal(resolveSyncNotificationsEnabled({}), true);
+  assert.equal(resolveSyncNotificationsEnabled({ syncNotificationsEnabled: true }), true);
+  assert.equal(resolveSyncNotificationsEnabled({ syncNotificationsEnabled: false }), false);
 });
 
 test("sanitizeSyncSubdirectory keeps sync inside Downloads-relative folders", () => {
