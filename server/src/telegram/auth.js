@@ -104,3 +104,21 @@ export function isAllowedUsername(actualUsername, allowedUsername) {
   if (!actual) return false;
   return actual === normalizeUsername(allowedUsername);
 }
+
+/**
+ * Combined private-chat + allowed-sender gate used by message and callback dispatch.
+ *
+ * @param {{
+ *   allowedUserId: number | null | undefined;
+ *   allowedUsername: string | null | undefined;
+ * }} ctx
+ * @param {{ chat: object | null | undefined; from: object | null | undefined }} payload
+ */
+export function isAuthorizedPrivateUpdate(ctx, { chat, from }) {
+  if (!isPrivateChat(chat)) return false;
+  return isAllowedSender({
+    from,
+    allowedUserId: ctx.allowedUserId,
+    allowedUsername: ctx.allowedUsername,
+  });
+}

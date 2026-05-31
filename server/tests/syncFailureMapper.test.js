@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import {
   classifySyncFailure,
+  mapSyncFailureToBotOutcome,
+  recordAuthFailureIfNeeded,
   SYNC_FAILURE_AUTH,
   SYNC_FAILURE_LOCK,
   SYNC_FAILURE_OTHER,
@@ -40,6 +46,13 @@ test("classifySyncFailure recognizes PlaudChangedError as exit code 3", () => {
   assert.equal(f.stats, stats);
 });
 
+test("classifySyncFailure treats shape-change messages as plaud_changed", () => {
+  const err = new Error("unexpected response shape from /file/simple/web");
+  const f = classifySyncFailure(err);
+  assert.equal(f.kind, SYNC_FAILURE_PLAUD_CHANGED);
+  assert.equal(f.exitCode, 3);
+});
+
 test("classifySyncFailure falls back to classifier exit code for generic errors", () => {
   const err = new Error("fetch failed");
   const f = classifySyncFailure(err);
@@ -55,4 +68,50 @@ test("classifySyncFailure honors an explicit exitCode on the error", () => {
   const f = classifySyncFailure(err);
   assert.equal(f.kind, SYNC_FAILURE_OTHER);
   assert.equal(f.exitCode, 3);
+});
+
+test("mapSyncFailureToBotOutcome maps silent vs interactive plaud_changed", () => {
+  const failure = { kind: SYNC_FAILURE_PLAUD_CHANGED };
+  assert.equal(mapSyncFailureToBotOutcome(failure).status, "plaud_changed");
+  assert.equal(
+    mapSyncFailureToBotOutcome(failure, { interactive: true }).status,
+    "failed"
+  );
+});
+
+test("mapSyncFailureToBotOutcome maps lock and auth", () => {
+  assert.equal(
+    mapSyncFailureToBotOutcome({ kind: SYNC_FAILURE_LOCK }).status,
+    "lock_busy"
+  );
+  assert.equal(
+    mapSyncFailureToBotOutcome({ kind: SYNC_FAILURE_AUTH }).status,
+    "auth_rejected"
+  );
+});
+
+test("recordAuthFailureIfNeeded writes auth error to status.json", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "plaud-auth-failure-"));
+  const statusPath = join(dir, "status.json");
+  const prev = process.env.PLAUD_STATUS_PATH;
+  process.env.PLAUD_STATUS_PATH = statusPath;
+  try {
+    await recordAuthFailureIfNeeded(
+      { kind: SYNC_FAILURE_LOCK, exitCode: 4 },
+      new Error("ignored")
+    );
+    assert.equal(await readFile(statusPath, "utf8").catch(() => null), null);
+
+    await recordAuthFailureIfNeeded(
+      { kind: SYNC_FAILURE_AUTH, exitCode: 2 },
+      new PlaudAuthError("session expired", 401)
+    );
+    const parsed = JSON.parse(await readFile(statusPath, "utf8"));
+    assert.equal(parsed.lastAuthError.message, "session expired");
+    assert.ok(parsed.lastAuthError.at);
+  } finally {
+    if (prev === undefined) delete process.env.PLAUD_STATUS_PATH;
+    else process.env.PLAUD_STATUS_PATH = prev;
+    await rm(dir, { recursive: true, force: true });
+  }
 });

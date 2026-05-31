@@ -105,11 +105,6 @@ export function clipTelegramText(text) {
   return s.slice(0, TELEGRAM_HTML_MAX_LEN);
 }
 
-/** @deprecated Use clipTelegramText */
-export function truncateTelegramHtml(html) {
-  return clipTelegramText(html);
-}
-
 export function formatBytes(bytes) {
   const n = Number(bytes);
   if (!Number.isFinite(n) || n < 0) return "0 B";

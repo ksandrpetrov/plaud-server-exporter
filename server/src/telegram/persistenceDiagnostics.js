@@ -5,20 +5,12 @@
 import { createHash } from "node:crypto";
 import { readdir, stat } from "node:fs/promises";
 import { join } from "node:path";
-import { config } from "../config/config.js";
+import { config, DATA_STATE_FILE_NAMES } from "../config/config.js";
 import { logger } from "../logger.js";
+import { loadPlaudSessionFromSnapshotDetailed } from "../auth/loadPlaudSession.js";
 import { loadOwnerChat } from "./ownerChat.js";
-import { loadSessionSnapshot } from "../auth/sessionStore.js";
 
-const STATE_FILES = [
-  "session.json",
-  "sync-index.json",
-  "status.json",
-  "owner-chat.json",
-  "bot-settings.json",
-  "telegram-offset.json",
-  "tree-browse.json",
-];
+const STATE_FILES = DATA_STATE_FILE_NAMES;
 
 /**
  * @param {string} dir
@@ -72,18 +64,23 @@ export async function logPersistenceDiagnostics() {
   const dataDir = config.botDataDir;
   const { files, fingerprint } = await dataDirFingerprint(dataDir);
   const owner = await loadOwnerChat();
-  const session = await loadSessionSnapshot();
+  const { status: sessionStatus } = await loadPlaudSessionFromSnapshotDetailed({
+    logContext: "persistenceDiagnostics",
+  });
   const backups = await countBackupSnapshots(dataDir);
 
   const present = STATE_FILES.filter((f) => files.includes(f));
   const empty = present.length === 0;
+  const sessionSnapshot = sessionStatus !== "missing" ? "yes" : "no";
+  const sessionApiReady = sessionStatus === "ok" ? "yes" : "no";
 
   logger.info("Persistence loaded", {
     dataDir,
     jsonFiles: files.length,
     stateFiles: present.length,
     ownerChat: owner ? "yes" : "no",
-    session: session ? "yes" : "no",
+    sessionSnapshot,
+    sessionApiReady,
     stateFingerprint: fingerprint,
   });
 
@@ -95,9 +92,13 @@ export async function logPersistenceDiagnostics() {
     );
   }
 
-  if (owner && !session) {
+  if (owner && sessionStatus === "missing") {
     logger.warn(
       "Owner chat is configured but Plaud session.json is missing — sync will fail until session is copied from Mac."
+    );
+  } else if (owner && sessionStatus === "invalid") {
+    logger.warn(
+      "Owner chat is configured but Plaud session.json is unusable — re-run `npm run server:auth` on Mac and copy the snapshot."
     );
   }
 }

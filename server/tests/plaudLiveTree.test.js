@@ -16,6 +16,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { buildStableId } from "../../plaud-exporter/common/syncCore.js";
+import { getRecordingCreatedAtRaw } from "../src/plaud/recordingTimestamps.js";
 import {
   PLAUD_FOLDER_TRASH,
   PLAUD_FOLDER_UNFILED,
@@ -24,7 +25,7 @@ import {
   _resetPlaudLiveTreeCache,
   isAllFilesMetaTag,
   loadPlaudLiveSyncTree,
-} from "../src/telegram/plaudLiveTree.js";
+} from "../src/plaud/liveTreeReadModel.js";
 import {
   buildSyncIndexFolderPage,
   buildSyncIndexTreeRoot,
@@ -212,12 +213,11 @@ test("loadPlaudLiveSyncTree merges fingerprint stableIds from sync-index", async
     folderIds: ["dev"],
     folderSegment: "",
   };
-  const createdAtIso = "2026-05-10T10:00:00.000Z";
   const { stableId } = buildStableId({
     ...fingerprintInput,
     raw: fingerprintInput.raw,
     title: String(fingerprintInput.title || "").trim(),
-    createdAt: createdAtIso,
+    createdAt: getRecordingCreatedAtRaw(fingerprintInput.raw),
   });
   assert.match(stableId, /^fingerprint:/);
 
@@ -246,6 +246,49 @@ test("loadPlaudLiveSyncTree merges fingerprint stableIds from sync-index", async
     live.records[stableId].summaryPath,
     "/vault/Plaud/SocServ Dev/2026-05-10 - Fingerprint meeting.md"
   );
+});
+
+test("loadPlaudLiveSyncTree matches sync-runner stableId for unix createdAt", async () => {
+  _resetPlaudLiveTreeCache();
+  const tags = [{ id: "dev", name: "SocServ Dev" }];
+  const unixSeconds = 1700000000;
+  const fingerprintInput = {
+    sourceUrl: "https://web.plaud.ai/file/current?x=2",
+    audioUrl: "https://api.plaud.ai/audio/object.mp3?signature=temp2",
+    title: "Unix timestamp meeting",
+    summaryMarkdown: "# Unix timestamp meeting\nNotes",
+    raw: {
+      filetag_id_list: ["dev"],
+      create_time: unixSeconds,
+    },
+    folderIds: ["dev"],
+    folderSegment: "",
+  };
+  const { stableId } = buildStableId({
+    ...fingerprintInput,
+    raw: fingerprintInput.raw,
+    title: String(fingerprintInput.title || "").trim(),
+    createdAt: getRecordingCreatedAtRaw(fingerprintInput.raw),
+  });
+  assert.match(stableId, /^fingerprint:/);
+
+  const live = await loadPlaudLiveSyncTree({
+    ...makeStubs({ tags, files: [fingerprintInput] }),
+    syncIndex: {
+      records: {
+        [stableId]: {
+          title: "Unix timestamp meeting",
+          status: "success",
+          summaryPath: "/vault/Plaud/SocServ Dev/unix.md",
+          lastSyncedAt: "2026-05-10T10:30:00.000Z",
+          folderSegment: "",
+        },
+      },
+    },
+    forceRefresh: true,
+  });
+  assert.ok(live?.records[stableId]);
+  assert.equal(live.records[stableId].status, "success");
 });
 
 test("loadPlaudLiveSyncTree returns null when no session is available", async () => {

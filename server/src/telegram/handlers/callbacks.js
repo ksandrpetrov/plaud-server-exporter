@@ -15,21 +15,16 @@ import {
   CB_SETTINGS_TOGGLE_SUMMARY,
   CB_STATUS,
 } from "../callbackData.js";
-import {
-  buildBackToMenuKeyboard,
-  buildSettingsKeyboard,
-} from "../keyboards.js";
+import { buildBackToMenuKeyboard } from "../keyboards.js";
 import {
   BOT_HELP_HTML,
   MENU_CLOSED_TEXT,
-  settingsScreenHtml,
   statusScreenHtml,
   syncBusyText,
 } from "../messages.js";
 import {
   loadBotSettings,
   loadEffectiveIntervalMin,
-  loadEffectiveScheduledSummaryVisible,
   saveBotSettings,
 } from "../botSettings.js";
 import {
@@ -37,7 +32,7 @@ import {
   editToMenuScreen,
   safeSend,
 } from "../botMessageUtils.js";
-import { readStatus } from "../statusReader.js";
+import { readStatus } from "../../sync/statusReader.js";
 import { SYNC_ACTION_MANUAL, syncRunGuard } from "../syncGuards.js";
 import {
   handleFilesCallback,
@@ -45,7 +40,11 @@ import {
   handleFilesTreeCallback,
   routeFilesTreeCallback,
 } from "./filesTree.js";
-import { handleSetInterval, openMenuAtMessage } from "./menu.js";
+import {
+  handleSetInterval,
+  openMenuAtMessage,
+  renderSettingsScreen,
+} from "./menu.js";
 
 const CB_INTERVAL_VALUES = {
   [CB_SETTINGS_INTERVAL_60]: 60,
@@ -77,19 +76,7 @@ async function handleStatusCallback({ ctx, chatId, messageId }) {
 }
 
 async function handleSettingsCallback({ ctx, chatId, messageId }) {
-  const intervalMin = await loadEffectiveIntervalMin();
-  const scheduledSummaryVisible = await loadEffectiveScheduledSummaryVisible();
-  const status = await readStatus();
-  await editToMenuScreen(ctx, {
-    chatId,
-    messageId,
-    text: settingsScreenHtml({
-      intervalMin,
-      lastSyncAt: status?.lastSyncAt || null,
-      scheduledSummaryVisible,
-    }),
-    keyboard: buildSettingsKeyboard(intervalMin, scheduledSummaryVisible),
-  });
+  await renderSettingsScreen(ctx, { chatId, messageId });
   return false;
 }
 
@@ -117,16 +104,11 @@ async function handleToggleSummaryCallback({ ctx, chatId, messageId }) {
   }
   const intervalMin =
     existing?.intervalMin ?? (await loadEffectiveIntervalMin());
-  const status = await readStatus();
-  await editToMenuScreen(ctx, {
+  await renderSettingsScreen(ctx, {
     chatId,
     messageId,
-    text: settingsScreenHtml({
-      intervalMin,
-      lastSyncAt: status?.lastSyncAt || null,
-      scheduledSummaryVisible: next,
-    }),
-    keyboard: buildSettingsKeyboard(intervalMin, next),
+    intervalMin,
+    scheduledSummaryVisible: next,
   });
   return false;
 }

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   isAllowedSender,
   isAllowedUsername,
+  isAuthorizedPrivateUpdate,
   isPrivateChat,
   normalizeUserId,
   normalizeUsername,
@@ -157,5 +158,30 @@ test("isAllowedSender treats missing from / fields as foreign", () => {
     }),
     false,
     "id matches but username is missing while username is required => reject"
+  );
+});
+
+test("isAuthorizedPrivateUpdate combines private chat and sender checks", () => {
+  const ctx = { allowedUserId: 100, allowedUsername: "alice" };
+  assert.equal(
+    isAuthorizedPrivateUpdate(ctx, {
+      chat: { type: "private" },
+      from: { id: 100, username: "Alice" },
+    }),
+    true
+  );
+  assert.equal(
+    isAuthorizedPrivateUpdate(ctx, {
+      chat: { type: "group" },
+      from: { id: 100, username: "Alice" },
+    }),
+    false
+  );
+  assert.equal(
+    isAuthorizedPrivateUpdate(ctx, {
+      chat: { type: "private" },
+      from: { id: 999, username: "Alice" },
+    }),
+    false
   );
 });

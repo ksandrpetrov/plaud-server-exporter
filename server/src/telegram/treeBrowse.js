@@ -4,7 +4,7 @@
  * Owns the orchestration that ties the three tree-related pieces together:
  *
  *  - `vaultTree.js`        — pure tree builders + vault scan
- *  - `plaudLiveTree.js`    — synthetic sync-index built from live Plaud data
+ *  - `liveTreeReadModel.js` — synthetic sync-index built from live Plaud data
  *  - `treeBrowseState.js`  — persistent per-chat pick context with TTL
  *
  * Exposes four entry points the dispatcher calls:
@@ -40,7 +40,7 @@ import {
 } from "./messages.js";
 import { TypingIndicator } from "./telegramVisual.js";
 import { editToMenuScreen, safeSend } from "./botMessageUtils.js";
-import { loadPlaudLiveSyncTree } from "./plaudLiveTree.js";
+import { loadPlaudLiveSyncTree } from "../plaud/liveTreeReadModel.js";
 import {
   clearTreeBrowseState,
   getTreeBrowseState,

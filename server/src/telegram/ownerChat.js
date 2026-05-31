@@ -18,10 +18,8 @@
  * is mode `0o600`, and is git-ignored via the existing `server/.data/` entry.
  */
 
-import { readFile } from "node:fs/promises";
 import { config } from "../config/config.js";
-import { logger } from "../logger.js";
-import { writeJsonAtomic } from "../util/atomicJson.js";
+import { readJsonSafe, writeJsonAtomic } from "../util/atomicJson.js";
 
 /**
  * @typedef {{
@@ -37,33 +35,24 @@ import { writeJsonAtomic } from "../util/atomicJson.js";
  * @returns {Promise<OwnerChatRecord | null>}
  */
 export async function loadOwnerChat(path = config.ownerChatPath) {
-  try {
-    const text = await readFile(path, "utf8");
-    const parsed = JSON.parse(text);
-    if (
-      !parsed ||
-      typeof parsed.chatId !== "number" ||
-      typeof parsed.username !== "string"
-    ) {
-      return null;
-    }
-    const userId =
-      typeof parsed.userId === "number" && Number.isInteger(parsed.userId)
-        ? parsed.userId
-        : null;
-    return {
-      chatId: parsed.chatId,
-      username: parsed.username,
-      userId,
-      capturedAt: String(parsed.capturedAt || ""),
-    };
-  } catch (err) {
-    if (err && err.code === "ENOENT") return null;
-    logger.warn("Failed to read owner-chat.json", {
-      error: String(err?.message || err),
-    });
+  const parsed = await readJsonSafe(path, { label: "owner-chat.json" });
+  if (
+    !parsed ||
+    typeof parsed.chatId !== "number" ||
+    typeof parsed.username !== "string"
+  ) {
     return null;
   }
+  const userId =
+    typeof parsed.userId === "number" && Number.isInteger(parsed.userId)
+      ? parsed.userId
+      : null;
+  return {
+    chatId: parsed.chatId,
+    username: parsed.username,
+    userId,
+    capturedAt: String(parsed.capturedAt || ""),
+  };
 }
 
 /**

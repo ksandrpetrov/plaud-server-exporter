@@ -16,7 +16,7 @@
 import { logger } from "../logger.js";
 import { loadEffectiveIntervalMin } from "./botSettings.js";
 import { loadOwnerChat } from "./ownerChat.js";
-import { readStatus } from "./statusReader.js";
+import { readStatus } from "../sync/statusReader.js";
 
 const DEFAULT_TICK_MS = 30_000;
 const DEFAULT_STARTUP_DELAY_MS = 60_000;

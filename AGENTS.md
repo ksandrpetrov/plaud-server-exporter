@@ -71,43 +71,49 @@ Streaming Telegram (draft/progress/typewriter): barrel [`streamingDelivery.js`](
 
 ## Telegram module map (server)
 
-| Модуль                                                               | Назначение                                                              |
-| -------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| [`handlers.js`](server/src/telegram/handlers.js)                     | Barrel: `dispatchUpdate`, `ownerChatId`, re-export command parsers      |
-| [`handlers/dispatch.js`](server/src/telegram/handlers/dispatch.js)   | `dispatchUpdate`, callback auth gate                                    |
-| [`handlers/messages.js`](server/src/telegram/handlers/messages.js)   | `/start`, `/menu`, tree pick by number                                  |
-| [`handlers/callbacks.js`](server/src/telegram/handlers/callbacks.js) | Inline button routing (`routeCallback`)                                 |
-| [`handlers/menu.js`](server/src/telegram/handlers/menu.js)           | Main menu screens, interval settings                                    |
-| [`handlers/filesTree.js`](server/src/telegram/handlers/filesTree.js) | Files menu, tree folder callbacks                                       |
-| [`messages/menu.js`](server/src/telegram/messages/menu.js)           | Welcome, help, menu header copy                                         |
-| [`messages/sync.js`](server/src/telegram/messages/sync.js)           | Sync progress, status, busy toasts                                      |
-| [`messages/files.js`](server/src/telegram/messages/files.js)         | Tree/stats HTML, tree line formatting                                   |
-| [`messages/settings.js`](server/src/telegram/messages/settings.js)   | Settings screen copy                                                    |
-| [`messages/errors.js`](server/src/telegram/messages/errors.js)       | Tree/auto-sync error strings                                            |
-| [`messages/format.js`](server/src/telegram/messages/format.js)       | `clipTelegramText`, `safeSliceHtml`, `TELEGRAM_HTML_MAX_LEN`            |
-| [`plaudLiveTree.js`](server/src/telegram/plaudLiveTree.js)           | Live tree; **must** use `syncCore.buildStableId`                        |
-| [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js)     | Manual/scheduled sync UX bridge                                         |
-| [`sync/syncIndexRead.js`](server/src/sync/syncIndexRead.js)          | Read-only sync-index API для tree browse (не писать индекс из telegram) |
+| Модуль                                                                               | Назначение                                                              |
+| ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| [`handlers.js`](server/src/telegram/handlers.js)                                     | Barrel: `dispatchUpdate`, `ownerChatId`, re-export command parsers      |
+| [`handlers/dispatch.js`](server/src/telegram/handlers/dispatch.js)                   | `dispatchUpdate`, callback auth gate                                    |
+| [`handlers/privateUpdateGate.js`](server/src/telegram/handlers/privateUpdateGate.js) | `guardAuthorizedPrivateUpdate` — private chat + allowed sender          |
+| [`handlers/inboundMessages.js`](server/src/telegram/handlers/inboundMessages.js)     | `/start`, `/menu`, tree pick by number (inbound text)                   |
+| [`handlers/callbacks.js`](server/src/telegram/handlers/callbacks.js)                 | Inline button routing (`routeCallback`)                                 |
+| [`handlers/menu.js`](server/src/telegram/handlers/menu.js)                           | Main menu screens, interval settings                                    |
+| [`handlers/filesTree.js`](server/src/telegram/handlers/filesTree.js)                 | Files menu, tree folder callbacks                                       |
+| [`messages/menu.js`](server/src/telegram/messages/menu.js)                           | Welcome, help, menu header copy                                         |
+| [`messages/sync.js`](server/src/telegram/messages/sync.js)                           | Sync progress, status, busy toasts                                      |
+| [`messages/files.js`](server/src/telegram/messages/files.js)                         | Tree/stats HTML, tree line formatting                                   |
+| [`messages/settings.js`](server/src/telegram/messages/settings.js)                   | Settings screen copy                                                    |
+| [`messages/errors.js`](server/src/telegram/messages/errors.js)                       | Tree/auto-sync error strings                                            |
+| [`messages/format.js`](server/src/telegram/messages/format.js)                       | `clipTelegramText`, `safeSliceHtml`, `TELEGRAM_HTML_MAX_LEN`            |
+| [`liveTreeReadModel.js`](server/src/plaud/liveTreeReadModel.js)                      | Live tree read model; **must** use `syncCore.buildStableId`             |
+| [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js)                     | Manual/scheduled sync UX bridge                                         |
+| [`sync/syncIndexRead.js`](server/src/sync/syncIndexRead.js)                          | Read-only sync-index API для tree browse (не писать индекс из telegram) |
 
 ## Где живёт что
 
-| Хочешь поменять                                                             | Иди сюда                                                                                                                                    |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Решение sync (new / unchanged / metadata-only / re-download / disk restore) | [`syncCore.js`](plaud-exporter/common/syncCore.js) (`determineSyncAction`, `refineSyncActionForDisk`) + `serverSyncIndex.js`                |
-| Имя файла, длина пути, санитизация                                          | [`exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) + `filenamePlanner.js`                                                     |
-| Папки Plaud / Unfiled / Trash                                               | [`plaudFolders.js`](plaud-exporter/common/plaudFolders.js)                                                                                  |
-| `action` popup ↔ SW ↔ content                                               | [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js) + `tests/runtimeMessages.test.js`; литералы в `popup.js` / `content.js`    |
-| Live tree stableId / merge с sync-index                                     | [`liveTreeReadModel.js`](server/src/plaud/liveTreeReadModel.js) (Telegram re-export: `plaudLiveTree.js`) + `syncCore.buildStableId`         |
-| Plaud list parsing / mirror fan-out                                         | [`recordingsApi.js`](server/src/plaud/recordingsApi.js) + `recordingsApi.test.js`                                                           |
-| ID записи Plaud (extract/normalize hex)                                     | [`plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js)                                                                        |
-| Telegram HTML clip                                                          | [`messages/format.js`](server/src/telegram/messages/format.js) — `clipTelegramText`                                                         |
-| Tree browse / read sync-index                                               | [`syncIndexRead.js`](server/src/sync/syncIndexRead.js) + [`treeBrowse.js`](server/src/telegram/treeBrowse.js) (тесты: `treeBrowse.test.js`) |
-| Sync UX в боте                                                              | [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js) → `telegram/sync/syncRunBridge.js`, `syncProgressPresenter.js`             |
-| Telegram callback + copy                                                    | [`handlers/callbacks.js`](server/src/telegram/handlers/callbacks.js) + [`messages/`](server/src/telegram/messages/) + `keyboards.js`        |
-| Новая CLI команда                                                           | [`server/src/cli/index.js`](server/src/cli/index.js)                                                                                        |
-| Новая env переменная                                                        | [`server/src/config/config.js`](server/src/config/config.js) + `.env.example` + `server/README.md`                                          |
-| Классификация ошибки sync                                                   | [`errors/errorClassifier.js`](server/src/errors/errorClassifier.js) + `errorReporter.js` + exit codes в README                              |
-| Один источник для CLI и бота при ошибках sync                               | [`sync/syncFailureMapper.js`](server/src/sync/syncFailureMapper.js) — паттерн «не дрейфуем»                                                 |
+| Хочешь поменять                                                             | Иди сюда                                                                                                                                               |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Решение sync (new / unchanged / metadata-only / re-download / disk restore) | [`syncCore.js`](plaud-exporter/common/syncCore.js) (`determineSyncAction`, `refineSyncActionForDisk`) + `serverSyncIndex.js`                           |
+| Имя файла, длина пути, санитизация                                          | [`exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) + `filenamePlanner.js`                                                                |
+| Папки Plaud / Unfiled / Trash                                               | [`plaudFolders.js`](plaud-exporter/common/plaudFolders.js)                                                                                             |
+| `action` popup ↔ SW ↔ content                                               | [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js) + `tests/runtimeMessages.test.js`; литералы в `popup.js` / `content.js`               |
+| Live tree stableId / merge с sync-index                                     | [`liveTreeReadModel.js`](server/src/plaud/liveTreeReadModel.js) + `syncCore.buildStableId`                                                             |
+| Plaud list parsing / mirror fan-out                                         | [`recordingsApi.js`](server/src/plaud/recordingsApi.js) + `recordingsApi.test.js`                                                                      |
+| ID записи Plaud (extract/normalize hex)                                     | [`plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js)                                                                                   |
+| Telegram HTML clip                                                          | [`messages/format.js`](server/src/telegram/messages/format.js) — `clipTelegramText`                                                                    |
+| Tree browse / read sync-index                                               | [`syncIndexRead.js`](server/src/sync/syncIndexRead.js) + [`treeBrowse.js`](server/src/telegram/treeBrowse.js) (тесты: `treeBrowse.test.js`)            |
+| Sync UX в боте                                                              | [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js) → `telegram/sync/syncRunBridge.js`, `syncProgressPresenter.js`                        |
+| Telegram callback + copy                                                    | [`handlers/callbacks.js`](server/src/telegram/handlers/callbacks.js) + [`messages/`](server/src/telegram/messages/) + `keyboards.js`                   |
+| Новая CLI команда                                                           | [`server/src/cli/index.js`](server/src/cli/index.js)                                                                                                   |
+| Новая env переменная                                                        | [`server/src/config/config.js`](server/src/config/config.js) + `.env.example` + `server/README.md`                                                     |
+| Классификация ошибки sync                                                   | [`errors/errorClassifier.js`](server/src/errors/errorClassifier.js) + `errorReporter.js` + exit codes в README                                         |
+| Один источник для CLI и бота при ошибках sync                               | [`sync/syncFailureMapper.js`](server/src/sync/syncFailureMapper.js) — `classifySyncFailure`, `mapSyncFailureToBotOutcome`, `recordAuthFailureIfNeeded` |
+| Загрузка Plaud session из snapshot                                          | [`auth/loadPlaudSession.js`](server/src/auth/loadPlaudSession.js) — CLI, bot, live tree                                                                |
+| Запись `status.json`                                                        | [`sync/syncStatusWriter.js`](server/src/sync/syncStatusWriter.js) — `lastAuthError` всегда `{ message, at }`                                           |
+| Чтение `status.json`                                                        | [`sync/statusReader.js`](server/src/sync/statusReader.js) — CLI, бот, scheduler; schema — [`sync/statusSchema.js`](server/src/sync/statusSchema.js)    |
+| Timestamp полей записи Plaud                                                | [`plaud/recordingTimestamps.js`](server/src/plaud/recordingTimestamps.js) — sync runner + live tree                                                    |
+| Список `.data/` JSON-файлов                                                 | [`config/config.js`](server/src/config/config.js) — `DATA_STATE_FILE_NAMES`; diagnostics — `persistenceDiagnostics.js`                                 |
 
 ## Состояние на диске
 

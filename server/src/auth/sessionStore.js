@@ -1,7 +1,7 @@
-import { chmod, mkdir, readFile, stat, unlink } from "node:fs/promises";
+import { chmod, mkdir, stat, unlink } from "node:fs/promises";
 import { dirname } from "node:path";
 import { config } from "../config/config.js";
-import { writeJsonAtomic } from "../util/atomicJson.js";
+import { readJsonSafe, writeJsonAtomic } from "../util/atomicJson.js";
 
 const SNAPSHOT_VERSION = 1;
 
@@ -49,15 +49,12 @@ export async function saveSessionSnapshot(snapshot) {
  * @returns {Promise<SessionSnapshot | null>}
  */
 export async function loadSessionSnapshot() {
-  try {
-    const text = await readFile(config.sessionPath, "utf8");
-    const data = JSON.parse(text);
-    if (!data || typeof data !== "object" || !data.localStorage) return null;
-    return data;
-  } catch (err) {
-    if (err && err.code === "ENOENT") return null;
-    throw err;
-  }
+  const data = await readJsonSafe(config.sessionPath, {
+    fallback: null,
+    label: "session.json",
+  });
+  if (!data || typeof data !== "object" || !data.localStorage) return null;
+  return data;
 }
 
 export async function sessionFileInfo() {

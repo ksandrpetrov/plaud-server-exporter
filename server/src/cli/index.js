@@ -1,26 +1,24 @@
 #!/usr/bin/env node
-import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { realpathSync } from "node:fs";
 import { config, effectiveVaultRoot } from "../config/config.js";
 import { logger } from "../logger.js";
 import { redactError } from "../security/redact.js";
+import { loadPlaudSessionFromSnapshotDetailed } from "../auth/loadPlaudSession.js";
 import {
   loadSessionSnapshot,
   removeSessionSnapshot,
   sessionFileInfo,
 } from "../auth/sessionStore.js";
-import {
-  assertSnapshotReadyForApi,
-  createSessionFromSnapshot,
-  describeSnapshot,
-} from "../auth/plaudSessionExtractor.js";
+import { describeSnapshot } from "../auth/plaudSessionExtractor.js";
 import { validateSession } from "../plaud/plaudApiClient.js";
-import { recordAuthError, runSync } from "../sync/syncRunner.js";
+import { runSync } from "../sync/syncRunner.js";
+import { readStatus } from "../sync/statusReader.js";
 import { syncIndexInfo } from "../sync/serverSyncIndex.js";
 import { errorsDirectoryInfo, reportError } from "../errors/errorReporter.js";
 import {
   classifySyncFailure,
+  recordAuthFailureIfNeeded,
   SYNC_FAILURE_AUTH,
   SYNC_FAILURE_LOCK,
   SYNC_FAILURE_PLAUD_CHANGED,
@@ -79,9 +77,18 @@ async function commandAuth() {
   const { runInteractiveLogin } = await import("../auth/playwrightAuth.js");
   await runInteractiveLogin({ headless: false });
 
-  const snapshot = await loadSessionSnapshot();
-  assertSnapshotReadyForApi(snapshot);
-  const session = createSessionFromSnapshot(snapshot);
+  const { session, status } = await loadPlaudSessionFromSnapshotDetailed({
+    logContext: "cli:auth",
+  });
+  if (!session) {
+    if (status === "missing") {
+      logger.error("Login finished but no session snapshot was saved.");
+    } else {
+      logger.error("Login finished but session snapshot is unusable.");
+    }
+    process.exitCode = 2;
+    return;
+  }
   const count = await validateSession(session);
   logger.info("Session validated against Plaud API.", {
     recordsVisible: count,
@@ -89,17 +96,17 @@ async function commandAuth() {
 }
 
 async function commandSync(flags) {
-  const snapshot = await loadSessionSnapshot();
-  if (!snapshot) {
-    logger.error("No session snapshot found. Run `npm run server:auth` first.");
-    process.exitCode = 2;
-    return;
-  }
-  let session;
-  try {
-    session = createSessionFromSnapshot(snapshot);
-  } catch (error) {
-    logger.errorFrom("Failed to read Plaud session from snapshot.", error);
+  const { session, status } = await loadPlaudSessionFromSnapshotDetailed({
+    logContext: "cli:sync",
+  });
+  if (!session) {
+    if (status === "missing") {
+      logger.error(
+        "No session snapshot found. Run `npm run server:auth` first."
+      );
+    } else {
+      logger.error("Failed to read Plaud session from snapshot.");
+    }
     process.exitCode = 2;
     return;
   }
@@ -120,7 +127,7 @@ async function commandSync(flags) {
       return;
     }
     if (failure.kind === SYNC_FAILURE_AUTH) {
-      await recordAuthError(error.message);
+      await recordAuthFailureIfNeeded(failure, error);
       await reportError(error, { stage: "auth", dryRun });
       logger.error(
         "Plaud session is no longer accepted by the API. Re-run `npm run server:auth`."
@@ -147,15 +154,12 @@ async function commandBot() {
 
 async function commandStatus() {
   const session = await sessionFileInfo();
+  const { status: sessionLoadStatus } =
+    await loadPlaudSessionFromSnapshotDetailed({ logContext: "cli:status" });
   const snapshot = session.exists ? await loadSessionSnapshot() : null;
   const sessionDescription = describeSnapshot(snapshot);
   const index = await syncIndexInfo();
-  let status;
-  try {
-    status = JSON.parse(await readFile(config.statusPath, "utf8"));
-  } catch {
-    status = null;
-  }
+  const status = await readStatus();
 
   const errorsDir = await errorsDirectoryInfo();
 
@@ -171,7 +175,12 @@ async function commandStatus() {
       timezone: config.timezone,
       mode: "summary-only",
     },
-    session: { fileInfo: session, snapshot: sessionDescription },
+    session: {
+      fileInfo: session,
+      snapshot: sessionDescription,
+      loadStatus: sessionLoadStatus,
+      apiReady: sessionLoadStatus === "ok",
+    },
     syncIndex: index,
     errors: errorsDir,
     lastStatus: status,

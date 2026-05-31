@@ -3,7 +3,6 @@ export {
   formatDateTimeLocal,
   clipTelegramText,
   safeSliceHtml,
-  truncateTelegramHtml,
   TELEGRAM_HTML_MAX_LEN,
   formatBytes,
   describeRecordStatus,
@@ -12,7 +11,6 @@ export {
 export {
   BOT_WELCOME_HTML,
   BOT_HELP_HTML,
-  BOT_PRIVATE_HINT,
   BOT_UNKNOWN_COMMAND,
   MENU_HEADER,
   MENU_CLOSED_TEXT,
@@ -24,7 +22,6 @@ export {
   SYNC_LOADING_SCHEDULED_HTML,
   syncFetchStatusHtml,
   syncBusyText,
-  SYNC_BUSY_TOAST,
   syncLoadingPulseFrames,
   SYNC_LOCK_BUSY_HTML,
   SYNC_NO_SESSION_HTML,

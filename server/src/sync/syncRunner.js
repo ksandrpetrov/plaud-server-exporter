@@ -4,18 +4,13 @@ import { config } from "../config/config.js";
 import { logger } from "../logger.js";
 import { redactError } from "../security/redact.js";
 import { reportError } from "../errors/errorReporter.js";
-import {
-  ERROR_KIND_AUTH,
-  ERROR_KIND_PLAUD_CHANGED,
-} from "../errors/errorClassifier.js";
+import { ERROR_KIND_PLAUD_CHANGED } from "../errors/errorClassifier.js";
 import { PlaudChangedError } from "../plaud/errors.js";
-import { writeJsonAtomic } from "../util/atomicJson.js";
 import {
   buildAudioSignature,
   buildStableId,
   detectDuplicate,
   determineSyncAction,
-  getRawField,
   hashSummary,
   refineSyncActionForDisk,
   SYNC_ACTION_ALREADY_SYNCED,
@@ -29,17 +24,29 @@ import {
   updateExistingRecord,
 } from "../../../plaud-exporter/common/syncCore.js";
 import { PLAUD_FOLDER_UNFILED } from "../plaud/plaudFolders.js";
+import {
+  getRecordingCreatedAtRaw,
+  getRecordingUpdatedAtRaw,
+} from "../plaud/recordingTimestamps.js";
 import { fetchSummaries, listAllRecordings } from "../plaud/plaudApiClient.js";
 import { loadSyncIndex, saveSyncIndex } from "./serverSyncIndex.js";
-import { buildMarkdownDocument } from "./obsidianWriter.js";
+import { buildMarkdownDocument, writeMarkdownFile } from "./obsidianWriter.js";
 import {
   collectOccupiedFilenames,
   planSummaryPath,
   resolveMeetingTitle,
 } from "./filenamePlanner.js";
 import { acquireSyncLock, SyncLockError } from "./runLock.js";
+import { writeStatusFile } from "./syncStatusWriter.js";
 
 export { SyncLockError };
+
+function markPlaudChangedIfNeeded(stats, reported) {
+  if (reported.classified.kind === ERROR_KIND_PLAUD_CHANGED) {
+    stats.plaudChanged = true;
+    stats.needsManualReview = true;
+  }
+}
 
 async function summaryFileExists(absolutePath) {
   if (!absolutePath) return false;
@@ -87,14 +94,7 @@ async function buildCandidate(file, summaries) {
   const meetingTitle = resolveMeetingTitle({
     plaudTitle: file.title,
     summaries,
-    createdAt: getRawField(file.raw, [
-      "created_at",
-      "createdAt",
-      "create_time",
-      "createTime",
-      "start_time",
-      "startTime",
-    ]),
+    createdAt: getRecordingCreatedAtRaw(file.raw),
   });
 
   const identity = buildStableId({
@@ -102,14 +102,7 @@ async function buildCandidate(file, summaries) {
     raw: file.raw,
     title: meetingTitle,
     summaryMarkdown: summaryBundle,
-    createdAt: getRawField(file.raw, [
-      "created_at",
-      "createdAt",
-      "create_time",
-      "createTime",
-      "start_time",
-      "startTime",
-    ]),
+    createdAt: getRecordingCreatedAtRaw(file.raw),
   });
 
   return {
@@ -121,22 +114,8 @@ async function buildCandidate(file, summaries) {
     sourceUrl: "",
     summaryHash: await hashSummary(summaryBundle),
     audioSignature: buildAudioSignature(file),
-    createdAt: getRawField(file.raw, [
-      "created_at",
-      "createdAt",
-      "create_time",
-      "createTime",
-      "start_time",
-      "startTime",
-    ]),
-    updatedAt: getRawField(file.raw, [
-      "updated_at",
-      "updatedAt",
-      "update_time",
-      "updateTime",
-      "modified_at",
-      "modifiedAt",
-    ]),
+    createdAt: getRecordingCreatedAtRaw(file.raw),
+    updatedAt: getRecordingUpdatedAtRaw(file.raw),
     normalizedFilename: "",
     folderSegment: resolveSyncFolderSegment(file),
   };
@@ -210,15 +189,8 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
       endpoint: "/file/simple/web",
       dryRun,
     });
-    if (reported.classified.kind === ERROR_KIND_PLAUD_CHANGED) {
-      stats.plaudChanged = true;
-      stats.needsManualReview = true;
-    }
-    await writeStatusFile({
-      stats,
-      lastAuthError:
-        reported.classified.kind === ERROR_KIND_AUTH ? error.message : null,
-    });
+    markPlaudChangedIfNeeded(stats, reported);
+    await writeStatusFile({ stats });
     const err = /** @type {Error & { exitCode?: number }} */ (
       error instanceof Error ? error : new Error(String(error))
     );
@@ -246,10 +218,7 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
           endpoint: "/ai/query_note",
           dryRun,
         });
-        if (reported.classified.kind === ERROR_KIND_PLAUD_CHANGED) {
-          stats.plaudChanged = true;
-          stats.needsManualReview = true;
-        }
+        markPlaudChangedIfNeeded(stats, reported);
         stats.processed++;
         continue;
       }
@@ -390,10 +359,7 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
         runId,
         dryRun,
       });
-      if (reported.classified.kind === ERROR_KIND_PLAUD_CHANGED) {
-        stats.plaudChanged = true;
-        stats.needsManualReview = true;
-      }
+      markPlaudChangedIfNeeded(stats, reported);
       if (!dryRun) {
         const identity = buildStableId(file);
         if (identity.stableId) {
@@ -438,42 +404,4 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
   }
 
   return stats;
-}
-
-async function writeMarkdownFile(args) {
-  const { writeMarkdownFile: writeMd } = await import("./obsidianWriter.js");
-  return writeMd(args);
-}
-
-/**
- * @param {{ stats?: object | null, lastAuthError?: string | null }} [params]
- */
-async function writeStatusFile({ stats, lastAuthError } = {}) {
-  const payload = {
-    lastSyncAt:
-      /** @type {{finishedAt?: string}} */ (stats || {}).finishedAt || null,
-    lastSyncStats: stats || null,
-    lastAuthError: lastAuthError || null,
-    updatedAt: new Date().toISOString(),
-  };
-  await writeJsonAtomic(config.statusPath, payload);
-}
-
-export async function recordAuthError(message) {
-  let existing;
-  try {
-    const { readFile } = await import("node:fs/promises");
-    existing = JSON.parse(await readFile(config.statusPath, "utf8"));
-  } catch {
-    existing = {};
-  }
-  const payload = {
-    ...existing,
-    lastAuthError: {
-      message: String(message || "").slice(0, 500),
-      at: new Date().toISOString(),
-    },
-    updatedAt: new Date().toISOString(),
-  };
-  await writeJsonAtomic(config.statusPath, payload);
 }

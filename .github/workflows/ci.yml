@@ -1,10 +1,14 @@
 name: CI
 
+# Runs the full Node 20.x + 22.x matrix on pull requests (the right place for
+# thorough cross-version validation) and on manual dispatch. Push to main is
+# intentionally NOT a trigger: the Deploy workflow re-runs the same reusable
+# checks (22.x) as its deploy gate, so triggering CI on push too would run the
+# identical suite a second/third time and waste Actions minutes.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read

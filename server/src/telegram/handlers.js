@@ -3,9 +3,8 @@
  *
  * Stays close to satellite's `handlers.py` design:
  *
- * - `/start` and `/help` answer everyone with a polite "this is private" hint
- *   so accidental tappers don't see silence.
- * - Every other message/callback from a non-owner is silently ignored
+ * - Every message/callback from a non-owner (or non-private chat) is silently
+ *   ignored — including `/start` and `/help` (no hint leak to foreign senders).
  *   (only logged) — same pattern as `USER_CALENDAR_MAP` gate in satellite.
  * - The first authorized `/start` writes `owner-chat.json` so the scheduler
  *   knows where to post unsolicited "scheduled sync" updates.

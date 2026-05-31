@@ -11,9 +11,13 @@
  * plain text and the bot sends HTML, so each caller still owns its own
  * messages and keyboards.
  */
-import { classifyError } from "../errors/errorClassifier.js";
+import {
+  classifyError,
+  ERROR_KIND_PLAUD_CHANGED,
+} from "../errors/errorClassifier.js";
 import { PlaudAuthError, PlaudChangedError } from "../plaud/errors.js";
 import { SyncLockError } from "./runLock.js";
+import { recordAuthError } from "./syncStatusWriter.js";
 
 export const SYNC_FAILURE_LOCK = "lock_busy";
 export const SYNC_FAILURE_AUTH = "auth_rejected";
@@ -54,6 +58,13 @@ export function classifySyncFailure(error) {
     };
   }
   const classified = classifyError(error);
+  if (classified.kind === ERROR_KIND_PLAUD_CHANGED) {
+    return {
+      kind: SYNC_FAILURE_PLAUD_CHANGED,
+      exitCode: 3,
+      stats: /** @type {any} */ (error)?.stats || null,
+    };
+  }
   const explicit = Number(/** @type {any} */ (error)?.exitCode);
   const exitCode =
     Number.isInteger(explicit) && explicit > 0
@@ -64,4 +75,65 @@ export function classifySyncFailure(error) {
     exitCode,
     classified,
   };
+}
+
+/**
+ * Persist auth failure to status.json when the classified failure is auth.
+ *
+ * @param {SyncFailure} failure
+ * @param {unknown} error
+ */
+export async function recordAuthFailureIfNeeded(failure, error) {
+  if (failure.kind !== SYNC_FAILURE_AUTH) return;
+  const message =
+    error instanceof Error ? error.message : String(error ?? "auth rejected");
+  await recordAuthError(message);
+}
+
+/**
+ * @typedef {"lock_busy" | "auth_rejected" | "plaud_changed" | "failed"} SyncBotOutcomeStatus
+ */
+
+/**
+ * Map a classified sync failure to bot orchestration metadata.
+ * Does not format user-facing HTML — callers still own copy and keyboards.
+ *
+ * @param {SyncFailure} failure
+ * @param {{ interactive?: boolean }} [options]
+ * @returns {{
+ *   status: SyncBotOutcomeStatus;
+ *   logLevel: "info" | "error";
+ *   logMessage: string;
+ * }}
+ */
+export function mapSyncFailureToBotOutcome(
+  failure,
+  { interactive = false } = {}
+) {
+  switch (failure.kind) {
+    case SYNC_FAILURE_LOCK:
+      return {
+        status: "lock_busy",
+        logLevel: "info",
+        logMessage: "Sync skipped: lock held by another process",
+      };
+    case SYNC_FAILURE_AUTH:
+      return {
+        status: "auth_rejected",
+        logLevel: "error",
+        logMessage: "Sync failed: Plaud rejected the session",
+      };
+    case SYNC_FAILURE_PLAUD_CHANGED:
+      return {
+        status: interactive ? "failed" : "plaud_changed",
+        logLevel: "error",
+        logMessage: "Sync detected Plaud API changes",
+      };
+    default:
+      return {
+        status: "failed",
+        logLevel: "error",
+        logMessage: "Sync failed",
+      };
+  }
 }

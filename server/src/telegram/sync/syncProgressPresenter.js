@@ -5,7 +5,8 @@
 import { logger } from "../../logger.js";
 import {
   classifySyncFailure,
-  SYNC_FAILURE_AUTH,
+  mapSyncFailureToBotOutcome,
+  recordAuthFailureIfNeeded,
   SYNC_FAILURE_LOCK,
   SYNC_FAILURE_PLAUD_CHANGED,
 } from "../../sync/syncFailureMapper.js";
@@ -226,7 +227,7 @@ async function replaceWithFinalMessage({
 
 /**
  * @returns {Promise<{
- *   status: "lock_busy" | "auth_rejected" | "failed",
+ *   status: "lock_busy" | "auth_rejected" | "plaud_changed" | "failed";
  *   summaryMessageId?: number
  * }>}
  */
@@ -244,6 +245,7 @@ export async function handleSyncError({
   editInPlace = false,
 }) {
   const failure = classifySyncFailure(err);
+  const outcome = mapSyncFailureToBotOutcome(failure, { interactive: true });
   const backToMenu = buildBackToMenuKeyboard();
 
   const reveal = (text) =>
@@ -262,17 +264,8 @@ export async function handleSyncError({
 
   if (failure.kind === SYNC_FAILURE_LOCK) {
     await reveal(SYNC_LOCK_BUSY_HTML);
-    logger.info("Sync skipped: lock held by another process", { source });
-    return { status: "lock_busy", summaryMessageId: messageId ?? undefined };
-  }
-
-  if (failure.kind === SYNC_FAILURE_AUTH) {
-    await reveal(SYNC_AUTH_REJECTED_HTML);
-    logger.error("Sync failed: Plaud rejected the session", redactError(err));
-    return {
-      status: "auth_rejected",
-      summaryMessageId: messageId ?? undefined,
-    };
+    logger.info(outcome.logMessage, { source });
+    return { status: outcome.status, summaryMessageId: messageId ?? undefined };
   }
 
   if (failure.kind === SYNC_FAILURE_PLAUD_CHANGED) {
@@ -285,11 +278,21 @@ export async function handleSyncError({
       plaudChanged: true,
     };
     await reveal(syncSummaryHtml(stats, { source, durationSec }));
-    logger.error("Sync detected Plaud API changes", redactError(err));
-    return { status: "failed", summaryMessageId: messageId ?? undefined };
+    logger.error(outcome.logMessage, redactError(err));
+    return { status: outcome.status, summaryMessageId: messageId ?? undefined };
+  }
+
+  if (outcome.status === "auth_rejected") {
+    await recordAuthFailureIfNeeded(failure, err);
+    await reveal(SYNC_AUTH_REJECTED_HTML);
+    logger.error(outcome.logMessage, redactError(err));
+    return {
+      status: outcome.status,
+      summaryMessageId: messageId ?? undefined,
+    };
   }
 
   await reveal(SYNC_GENERIC_ERROR_HTML);
-  logger.error("Sync failed in bot orchestrator", redactError(err));
-  return { status: "failed", summaryMessageId: messageId ?? undefined };
+  logger.error(outcome.logMessage, redactError(err));
+  return { status: outcome.status, summaryMessageId: messageId ?? undefined };
 }

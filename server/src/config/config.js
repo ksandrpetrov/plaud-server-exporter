@@ -35,6 +35,17 @@ function dataDir() {
   return absPath(process.env.PLAUD_DATA_DIR, resolve(SERVER_ROOT, ".data"));
 }
 
+/** Basenames of JSON state files under `server/.data/` (or PLAUD_DATA_DIR). */
+export const DATA_STATE_FILE_NAMES = [
+  "session.json",
+  "sync-index.json",
+  "status.json",
+  "owner-chat.json",
+  "bot-settings.json",
+  "telegram-offset.json",
+  "tree-browse.json",
+];
+
 const staticConfig = {
   repoRoot: REPO_ROOT,
   serverRoot: SERVER_ROOT,

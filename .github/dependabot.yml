@@ -8,7 +8,7 @@ updates:
       day: monday
       time: "06:00"
       timezone: UTC
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
     labels:
       - dependencies
       - npm
@@ -39,7 +39,7 @@ updates:
       day: monday
       time: "06:00"
       timezone: UTC
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 2
     labels:
       - dependencies
       - npm
@@ -52,40 +52,47 @@ updates:
           - minor
           - patch
 
-  # GitHub Actions used in workflows + composite action.
+  # GitHub Actions used in workflows + composite action. Low churn, so monthly
+  # cadence and a single grouped PR keep each refresh to one CI run instead of
+  # one-PR-per-action (which previously fanned out into a minute-burning burst).
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: "06:00"
       timezone: UTC
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     labels:
       - dependencies
       - github-actions
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: github-actions
     directory: /.github/actions/setup-monorepo
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: "06:00"
       timezone: UTC
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 1
     labels:
       - dependencies
       - github-actions
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   # Production runtime image (Node base + apt packages tracked via Docker layer).
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
       time: "06:00"
       timezone: UTC
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 2
     labels:
       - dependencies
       - docker

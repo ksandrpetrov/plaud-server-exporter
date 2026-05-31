@@ -13,12 +13,13 @@ import {
 } from "../messages.js";
 import {
   isAllowedInterval,
+  loadEffectiveIntervalMin,
   loadEffectiveScheduledSummaryVisible,
   saveBotSettings,
 } from "../botSettings.js";
 import { editToMenuScreen, safeSend } from "../botMessageUtils.js";
 import { saveOwnerChat } from "../ownerChat.js";
-import { readStatus } from "../statusReader.js";
+import { readStatus } from "../../sync/statusReader.js";
 import { userIdFromPayload, usernameFromPayload } from "../auth.js";
 
 export async function handleStart(ctx, { chatId, from }) {
@@ -49,19 +50,23 @@ export async function handleStart(ctx, { chatId, from }) {
   });
 }
 
+export function buildMainMenuText(status) {
+  return `${MENU_HEADER}\n\n${lastSyncSummaryLine(status)}\n\nВыбери действие:`;
+}
+
 export async function openMenu(ctx, chatId) {
   const status = await readStatus();
-  const text = `${MENU_HEADER}\n\n${lastSyncSummaryLine(status)}\n\nВыбери действие:`;
-  await safeSend(ctx, chatId, text, { replyMarkup: buildMainMenuKeyboard() });
+  await safeSend(ctx, chatId, buildMainMenuText(status), {
+    replyMarkup: buildMainMenuKeyboard(),
+  });
 }
 
 export async function openMenuAtMessage(ctx, { chatId, messageId }) {
   const status = await readStatus();
-  const text = `${MENU_HEADER}\n\n${lastSyncSummaryLine(status)}\n\nВыбери действие:`;
   await editToMenuScreen(ctx, {
     chatId,
     messageId,
-    text,
+    text: buildMainMenuText(status),
     keyboard: buildMainMenuKeyboard(),
   });
 }
@@ -70,6 +75,26 @@ export async function sendStatusMessage(ctx, chatId) {
   const status = await readStatus();
   await safeSend(ctx, chatId, statusScreenHtml(status), {
     replyMarkup: buildBackToMenuKeyboard(),
+  });
+}
+
+export async function renderSettingsScreen(
+  ctx,
+  { chatId, messageId, intervalMin, scheduledSummaryVisible }
+) {
+  const resolvedInterval = intervalMin ?? (await loadEffectiveIntervalMin());
+  const resolvedVisible =
+    scheduledSummaryVisible ?? (await loadEffectiveScheduledSummaryVisible());
+  const status = await readStatus();
+  await editToMenuScreen(ctx, {
+    chatId,
+    messageId,
+    text: settingsScreenHtml({
+      intervalMin: resolvedInterval,
+      lastSyncAt: status?.lastSyncAt || null,
+      scheduledSummaryVisible: resolvedVisible,
+    }),
+    keyboard: buildSettingsKeyboard(resolvedInterval, resolvedVisible),
   });
 }
 
@@ -91,15 +116,10 @@ export async function handleSetInterval(
     return;
   }
   const scheduledSummaryVisible = await loadEffectiveScheduledSummaryVisible();
-  const status = await readStatus();
-  await editToMenuScreen(ctx, {
+  await renderSettingsScreen(ctx, {
     chatId,
     messageId,
-    text: settingsScreenHtml({
-      intervalMin,
-      lastSyncAt: status?.lastSyncAt || null,
-      scheduledSummaryVisible,
-    }),
-    keyboard: buildSettingsKeyboard(intervalMin, scheduledSummaryVisible),
+    intervalMin,
+    scheduledSummaryVisible,
   });
 }

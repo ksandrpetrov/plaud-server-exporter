@@ -3,34 +3,17 @@
  */
 
 import { logger } from "../../logger.js";
-import {
-  assertSnapshotReadyForApi,
-  createSessionFromSnapshot,
-} from "../../auth/plaudSessionExtractor.js";
-import { loadSessionSnapshot } from "../../auth/sessionStore.js";
+import { createPlaudSessionLoader } from "../../auth/loadPlaudSession.js";
 import { redactError } from "../../security/redact.js";
 import { runSync } from "../../sync/syncRunner.js";
 import {
   classifySyncFailure,
-  SYNC_FAILURE_AUTH,
-  SYNC_FAILURE_LOCK,
-  SYNC_FAILURE_PLAUD_CHANGED,
+  mapSyncFailureToBotOutcome,
+  recordAuthFailureIfNeeded,
 } from "../../sync/syncFailureMapper.js";
 import { SYNC_ACTION_MANUAL, syncRunGuard } from "../syncGuards.js";
 
-export async function defaultSessionLoader() {
-  const snapshot = await loadSessionSnapshot();
-  if (!snapshot) return null;
-  try {
-    assertSnapshotReadyForApi(snapshot);
-    return createSessionFromSnapshot(snapshot);
-  } catch (err) {
-    logger.warn("Session snapshot present but unusable", {
-      error: String(err?.message || err),
-    });
-    return null;
-  }
-}
+export const defaultSessionLoader = createPlaudSessionLoader("syncRunBridge");
 
 /**
  * @param {{
@@ -72,23 +55,14 @@ export async function runSyncSilent({
       return { status: "ok", stats };
     } catch (err) {
       const failure = classifySyncFailure(err);
-      if (failure.kind === SYNC_FAILURE_LOCK) {
-        logger.info("Silent sync skipped: lock held by another process");
-        return { status: "lock_busy" };
+      const outcome = mapSyncFailureToBotOutcome(failure);
+      await recordAuthFailureIfNeeded(failure, err);
+      if (outcome.logLevel === "info") {
+        logger.info(outcome.logMessage);
+      } else {
+        logger.error(outcome.logMessage, redactError(err));
       }
-      if (failure.kind === SYNC_FAILURE_AUTH) {
-        logger.error("Silent sync rejected by Plaud", redactError(err));
-        return { status: "auth_rejected" };
-      }
-      if (failure.kind === SYNC_FAILURE_PLAUD_CHANGED) {
-        logger.error(
-          "Silent sync detected Plaud API changes",
-          redactError(err)
-        );
-        return { status: "plaud_changed" };
-      }
-      logger.error("Silent sync failed", redactError(err));
-      return { status: "failed" };
+      return { status: outcome.status };
     }
   } finally {
     if (guardChatId != null) {

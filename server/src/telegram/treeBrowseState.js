@@ -12,10 +12,9 @@
  * and self-contained — callers `await` set/get/clear.
  */
 
-import { readFile } from "node:fs/promises";
 import { config } from "../config/config.js";
 import { logger } from "../logger.js";
-import { writeJsonAtomic } from "../util/atomicJson.js";
+import { readJsonSafe, writeJsonAtomic } from "../util/atomicJson.js";
 
 /** @typedef {import("./vaultTree.js").TreeItem} TreeItem */
 
@@ -62,26 +61,17 @@ function isFresh(stored, now = nowMs()) {
 async function ensureLoaded() {
   if (loadedFromDisk) return;
   loadedFromDisk = true;
-  try {
-    const text = await readFile(statePath(), "utf8");
-    const parsed = JSON.parse(text);
-    const records = parsed?.byChatId;
-    if (records && typeof records === "object") {
-      const now = nowMs();
-      for (const [key, value] of Object.entries(records)) {
-        const chatId = Number(key);
-        if (!Number.isInteger(chatId)) continue;
-        if (!isFresh(value, now)) continue;
-        byChatId.set(chatId, {
-          ...normalizeState(value),
-          updatedAtMs: Number(value.updatedAtMs) || now,
-        });
-      }
-    }
-  } catch (err) {
-    if (err && err.code !== "ENOENT") {
-      logger.warn("Failed to load tree-browse.json", {
-        error: String(err?.message || err),
+  const parsed = await readJsonSafe(statePath(), { label: "tree-browse.json" });
+  const records = parsed?.byChatId;
+  if (records && typeof records === "object") {
+    const now = nowMs();
+    for (const [key, value] of Object.entries(records)) {
+      const chatId = Number(key);
+      if (!Number.isInteger(chatId)) continue;
+      if (!isFresh(value, now)) continue;
+      byChatId.set(chatId, {
+        ...normalizeState(value),
+        updatedAtMs: Number(value.updatedAtMs) || now,
       });
     }
   }

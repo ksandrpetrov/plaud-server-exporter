@@ -8,25 +8,14 @@
  * Atomic write (tmp + rename, mode `0o600`).
  */
 
-import { readFile } from "node:fs/promises";
 import { config } from "../config/config.js";
-import { logger } from "../logger.js";
-import { writeJsonAtomic } from "../util/atomicJson.js";
+import { readJsonSafe, writeJsonAtomic } from "../util/atomicJson.js";
 
 export async function loadOffset(path = config.telegramOffsetPath) {
-  try {
-    const text = await readFile(path, "utf8");
-    const parsed = JSON.parse(text);
-    const value = Number(parsed?.offset);
-    if (!Number.isFinite(value) || value < 0) return 0;
-    return Math.floor(value);
-  } catch (err) {
-    if (err && err.code === "ENOENT") return 0;
-    logger.warn("Failed to read telegram-offset.json", {
-      error: String(err?.message || err),
-    });
-    return 0;
-  }
+  const parsed = await readJsonSafe(path, { label: "telegram-offset.json" });
+  const value = Number(parsed?.offset);
+  if (!Number.isFinite(value) || value < 0) return 0;
+  return Math.floor(value);
 }
 
 /**

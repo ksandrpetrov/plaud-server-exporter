@@ -24,8 +24,6 @@ export function syncBusyText(source = "manual") {
   return `${prefix} Уже готовлю сводку или недавно прислала — подожди немного и попробуй снова.`;
 }
 
-export const SYNC_BUSY_TOAST = syncBusyText("manual");
-
 export function syncLoadingPulseFrames(source) {
   const header =
     source === "scheduled"

@@ -66,7 +66,7 @@ const LOADING_PULSE_FRAME_MS = 900;
 
 /**
  * @param {OrchestratorParams} params
- * @returns {Promise<{ status: "ok" | "lock_busy" | "no_session" | "auth_rejected" | "failed"; summaryMessageId?: number }>}
+ * @returns {Promise<{ status: "ok" | "lock_busy" | "no_session" | "auth_rejected" | "plaud_changed" | "failed"; summaryMessageId?: number }>}
  */
 export async function runSyncWithReporting(params) {
   const {

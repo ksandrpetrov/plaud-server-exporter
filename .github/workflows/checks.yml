@@ -83,15 +83,17 @@ jobs:
           npm audit --omit=dev --audit-level=high
           (cd plaud-exporter && npm audit --omit=dev --audit-level=high)
 
-      # Docker PR build: guards against Dockerfile drift before merge. Only runs
-      # on the primary Node version to avoid duplicating buildx setup across the
-      # 20.x/22.x matrix.
+      # Docker PR build: guards against Dockerfile drift before merge. Scoped to
+      # pull_request events only — on push to main/tags the Deploy workflow builds
+      # and pushes the real image, so rebuilding here would just burn Actions
+      # minutes. Restricted to the primary Node version to avoid duplicating
+      # buildx setup across the 20.x/22.x matrix.
       - name: Set up Docker Buildx
-        if: inputs.node-version == '22.x'
+        if: inputs.node-version == '22.x' && github.event_name == 'pull_request'
         uses: docker/setup-buildx-action@v3
 
       - name: Docker build (load locally) + smoke
-        if: inputs.node-version == '22.x'
+        if: inputs.node-version == '22.x' && github.event_name == 'pull_request'
         env:
           IMAGE: plaud-exporter:pr-${{ github.sha }}
         run: |

@@ -13,15 +13,13 @@ import {
   normalizePlaudRecordingId,
 } from "../../../plaud-exporter/common/plaudRecordingIds.js";
 import {
-  buildTagByIdMap,
-  collectAllFilesFiletagIds,
-  collectUnfiledFiletagIds,
   extractFiletagIdsFromRaw,
   mergeFiletagIds,
   mergeFiletagsById,
   parseFiletagListPayload,
   resolveFileFolderSegment,
 } from "./plaudFolders.js";
+import { buildFolderResolutionContext } from "./folderResolution.js";
 import {
   normalizeHumanTitle,
   pickRawTitleFromFile,
@@ -46,16 +44,8 @@ function isFileLikeObject(value) {
   return extractRawRecordingId(value).length > 0;
 }
 
-function collectQualifyingFileArrays(payload) {
-  const collected = [];
-
-  function pushIfQualifies(candidate) {
-    if (!Array.isArray(candidate) || candidate.length === 0) return;
-    if (!candidate.some(isFileLikeObject)) return;
-    collected.push(candidate);
-  }
-
-  const directCandidates = [
+function listRecordingsArrayCandidates(payload) {
+  return [
     payload?.data?.data_file_list,
     payload?.data_file_list,
     payload?.data?.file_list,
@@ -68,9 +58,20 @@ function collectQualifyingFileArrays(payload) {
     payload?.list,
     payload?.items,
     payload?.data,
+    payload?.data?.data,
   ];
+}
 
-  for (const candidate of directCandidates) {
+function collectQualifyingFileArrays(payload) {
+  const collected = [];
+
+  function pushIfQualifies(candidate) {
+    if (!Array.isArray(candidate) || candidate.length === 0) return;
+    if (!candidate.some(isFileLikeObject)) return;
+    collected.push(candidate);
+  }
+
+  for (const candidate of listRecordingsArrayCandidates(payload)) {
     pushIfQualifies(candidate);
   }
 
@@ -252,9 +253,8 @@ async function enrichFilesWithFolderSegments(session, files) {
     );
     tags = [];
   }
-  const tagById = buildTagByIdMap(tags);
-  const unfiledIds = new Set(collectUnfiledFiletagIds(tags));
-  const allFilesIds = new Set(collectAllFilesFiletagIds(tags));
+  const { tagById, unfiledIds, allFilesIds } =
+    buildFolderResolutionContext(tags);
   return attachFolderSegments(files, tagById, unfiledIds, allFilesIds);
 }
 
@@ -318,9 +318,8 @@ export async function listAllRecordings(session, options = {}) {
     );
     tags = [];
   }
-  const tagById = buildTagByIdMap(tags);
-  const unfiledIds = new Set(collectUnfiledFiletagIds(tags));
-  const allFilesIds = new Set(collectAllFilesFiletagIds(tags));
+  const { tagById, unfiledIds, allFilesIds } =
+    buildFolderResolutionContext(tags);
   const byId = new Map();
 
   function ingest(list, contextFolderId = "") {
@@ -422,22 +421,7 @@ export async function listAllRecordings(session, options = {}) {
 }
 
 function findFileArray(payload, { requireArray = false } = {}) {
-  const candidates = [
-    payload?.data?.data_file_list,
-    payload?.data_file_list,
-    payload?.data?.file_list,
-    payload?.data?.files,
-    payload?.data,
-    payload?.data?.data,
-    payload?.data?.list,
-    payload?.data?.items,
-    payload?.data?.records,
-    payload?.file_list,
-    payload?.files,
-    payload?.list,
-    payload?.items,
-  ];
-  const found = candidates.find(Array.isArray);
+  const found = listRecordingsArrayCandidates(payload).find(Array.isArray);
   if (found) return found;
   if (requireArray && payload && typeof payload === "object") {
     throw new PlaudChangedError(

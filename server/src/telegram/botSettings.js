@@ -12,10 +12,8 @@
  * whatever the file already holds — callers never have to read-modify-write.
  */
 
-import { readFile } from "node:fs/promises";
 import { config } from "../config/config.js";
-import { logger } from "../logger.js";
-import { writeJsonAtomic } from "../util/atomicJson.js";
+import { readJsonSafe, writeJsonAtomic } from "../util/atomicJson.js";
 
 /**
  * Allowed values for the scheduler interval (minutes). The bot's settings
@@ -46,26 +44,17 @@ export const DEFAULT_SCHEDULED_SUMMARY_VISIBLE = false;
  * @returns {Promise<BotSettings | null>}
  */
 export async function loadBotSettings(path = config.botSettingsPath) {
-  try {
-    const text = await readFile(path, "utf8");
-    const parsed = JSON.parse(text);
-    const interval = Number(parsed?.intervalMin);
-    if (!Number.isFinite(interval) || interval <= 0) return null;
-    return {
-      intervalMin: Math.floor(interval),
-      scheduledSummaryVisible: parseBoolField(
-        parsed?.scheduledSummaryVisible,
-        DEFAULT_SCHEDULED_SUMMARY_VISIBLE
-      ),
-      updatedAt: String(parsed?.updatedAt || ""),
-    };
-  } catch (err) {
-    if (err && err.code === "ENOENT") return null;
-    logger.warn("Failed to read bot-settings.json", {
-      error: String(err?.message || err),
-    });
-    return null;
-  }
+  const parsed = await readJsonSafe(path, { label: "bot-settings.json" });
+  const interval = Number(parsed?.intervalMin);
+  if (!Number.isFinite(interval) || interval <= 0) return null;
+  return {
+    intervalMin: Math.floor(interval),
+    scheduledSummaryVisible: parseBoolField(
+      parsed?.scheduledSummaryVisible,
+      DEFAULT_SCHEDULED_SUMMARY_VISIBLE
+    ),
+    updatedAt: String(parsed?.updatedAt || ""),
+  };
 }
 
 /**

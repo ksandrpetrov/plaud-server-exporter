@@ -3,75 +3,25 @@
  * Used by Telegram tree browse; presentation stays in telegram/.
  */
 
-import {
-  assertSnapshotReadyForApi,
-  createSessionFromSnapshot,
-} from "../auth/plaudSessionExtractor.js";
-import { loadSessionSnapshot } from "../auth/sessionStore.js";
+import { createPlaudSessionLoader } from "../auth/loadPlaudSession.js";
 import { logger } from "../logger.js";
 import { buildStableId } from "../../../plaud-exporter/common/syncCore.js";
-import {
-  buildTagByIdMap,
-  collectAllFilesFiletagIds,
-  collectUnfiledFiletagIds,
-  isAllFilesMetaTag,
-  resolveFileFolderSegment,
-} from "./plaudFolders.js";
+import { isAllFilesMetaTag, resolveFileFolderSegment } from "./plaudFolders.js";
+import { buildFolderResolutionContext } from "./folderResolution.js";
 import {
   fetchPlaudFiletagList,
   listRecordingsForBotTree,
 } from "./plaudApiClient.js";
+import {
+  getRecordingCreatedAtIso,
+  getRecordingCreatedAtRaw,
+} from "./recordingTimestamps.js";
 
 export const LIVE_TREE_CACHE_TTL_MS = 15_000;
 
 const STATUS_NOT_SYNCED = "not_synced";
 
-function toIsoFromAny(value) {
-  if (value == null || value === "") return "";
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
-    return value;
-  }
-  const numeric = Number(value);
-  if (Number.isFinite(numeric)) {
-    const ms = numeric > 1e12 ? numeric : numeric * 1000;
-    const date = new Date(ms);
-    if (!Number.isNaN(date.getTime())) return date.toISOString();
-  }
-  const direct = new Date(String(value));
-  if (!Number.isNaN(direct.getTime())) return direct.toISOString();
-  return "";
-}
-
-function extractCreatedAtIso(raw) {
-  if (!raw || typeof raw !== "object") return "";
-  const candidates = [
-    raw.created_at,
-    raw.createdAt,
-    raw.create_time,
-    raw.createTime,
-    raw.start_time,
-    raw.startTime,
-  ];
-  for (const v of candidates) {
-    const iso = toIsoFromAny(v);
-    if (iso) return iso;
-  }
-  return "";
-}
-
-async function defaultSessionLoader() {
-  const snap = await loadSessionSnapshot();
-  if (!snap) return null;
-  try {
-    assertSnapshotReadyForApi(snap);
-    return createSessionFromSnapshot(snap);
-  } catch (err) {
-    logger.warn("liveTreeReadModel: session snapshot present but unusable", {
-      error: String(err?.message || err),
-    });
-    return null;
-  }
-}
+const defaultSessionLoader = createPlaudSessionLoader("liveTreeReadModel");
 
 let cache = null;
 let cachedAtMs = 0;
@@ -134,21 +84,23 @@ export async function loadPlaudLiveSyncTree({
     return null;
   }
 
-  const allFilesIds = new Set(collectAllFilesFiletagIds(tags || []));
-  const filteredTags = (tags || []).filter((t) => !isAllFilesMetaTag(t));
-  const tagById = buildTagByIdMap(filteredTags);
-  const unfiledIds = new Set(collectUnfiledFiletagIds(filteredTags));
+  const { tagById, unfiledIds, allFilesIds } = buildFolderResolutionContext(
+    tags,
+    { excludeAllFilesMetaTags: true }
+  );
 
   /** @type {Record<string, LiveTreeRecord>} */
   const records = {};
   for (const file of files || []) {
     if (!file || typeof file !== "object") continue;
-    const createdAtIso = extractCreatedAtIso(file.raw);
+    const createdAtRaw = getRecordingCreatedAtRaw(file.raw);
+    const createdAtIso = getRecordingCreatedAtIso(file.raw);
     const identity = buildStableId({
       ...file,
       raw: file.raw,
       title: String(file.title || "").trim(),
-      createdAt: createdAtIso,
+      // Match syncRunner: raw Plaud timestamp for fingerprint parity.
+      createdAt: createdAtRaw,
     });
     if (identity.identityKind === "missing" || !identity.stableId) continue;
     const stableId = identity.stableId;

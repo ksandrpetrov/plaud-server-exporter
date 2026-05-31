@@ -1,13 +1,8 @@
 import { logger } from "../../logger.js";
-import {
-  isAllowedSender,
-  isPrivateChat,
-  userIdFromPayload,
-  usernameFromPayload,
-} from "../auth.js";
 import { answerBestEffort } from "../botMessageUtils.js";
 import { routeCallback } from "./callbacks.js";
-import { handleMessage } from "./messages.js";
+import { handleMessage } from "./inboundMessages.js";
+import { guardAuthorizedPrivateUpdate } from "./privateUpdateGate.js";
 
 /**
  * Each callback handler returns `true` when it has already replied to the
@@ -56,27 +51,13 @@ async function handleCallbackQuery(ctx, callback) {
     await answerBestEffort(ctx, callback);
     return;
   }
-  if (!isPrivateChat(callback?.message?.chat)) {
-    logger.info("Silently ignored non-private callback", {
-      chatType: String(callback?.message?.chat?.type || ""),
-      chatId,
-      data,
-    });
-    await answerBestEffort(ctx, callback);
-    return;
-  }
-  const allowed = isAllowedSender({
-    from: callback.from,
-    allowedUserId: ctx.allowedUserId,
-    allowedUsername: ctx.allowedUsername,
-  });
-  if (!allowed) {
-    logger.info("Silently ignored callback from foreign sender", {
-      userId: userIdFromPayload(callback.from),
-      username: usernameFromPayload(callback.from),
-      chatId,
-      data,
-    });
+  if (
+    !guardAuthorizedPrivateUpdate(
+      ctx,
+      { chat: callback?.message?.chat, from: callback.from },
+      { kind: "callback", chatId, extra: { data } }
+    )
+  ) {
     await answerBestEffort(ctx, callback);
     return;
   }
