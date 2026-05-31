@@ -11,31 +11,11 @@
 
 import {
   collectDomRecordingHexIds,
+  extractRawRecordingId,
   normalizeHexRecordingId,
 } from "../../common/plaudRecordingIds.js";
 
-const RECORDING_ID_KEYS = [
-  "file_id",
-  "fileId",
-  "id",
-  "recording_id",
-  "recordingId",
-  "audio_id",
-  "audioId",
-  "resource_id",
-  "resourceId",
-  "uuid",
-];
-
-/** Best-effort id pull from any Plaud payload object. */
-export function extractRawRecordingId(raw) {
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "";
-  for (const k of RECORDING_ID_KEYS) {
-    const v = raw[k];
-    if (v != null && String(v).trim()) return String(v).trim();
-  }
-  return "";
-}
+export { extractRawRecordingId } from "../../common/plaudRecordingIds.js";
 
 /**
  * Adds entries for ids that we see in the DOM but not in the API response.

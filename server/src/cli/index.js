@@ -83,7 +83,7 @@ async function commandAuth() {
     logContext: "cli:auth",
   });
   if (!session) {
-    logCliSessionLoadFailure(status, {
+    logCliSessionLoadFailure(status === "missing" ? "missing" : "invalid", {
       missing: "Login finished but no session snapshot was saved.",
       invalid: "Login finished but session snapshot is unusable.",
     });
@@ -101,7 +101,7 @@ async function commandSync(flags) {
     logContext: "cli:sync",
   });
   if (!session) {
-    logCliSessionLoadFailure(status, {
+    logCliSessionLoadFailure(status === "missing" ? "missing" : "invalid", {
       missing: "No session snapshot found. Run `npm run server:auth` first.",
       invalid: "Failed to read Plaud session from snapshot.",
     });

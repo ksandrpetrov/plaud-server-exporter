@@ -9,8 +9,7 @@
 неизменённых записей.
 
 Входит в монорепозиторий [plaud-server-exporter](https://github.com/ksandrpetrov/plaud-server-exporter):
-модули `common/syncCore.js`, `common/exportPathUtils.js` и `common/plaudFolders.js`
-используются серверным CLI как единственный формальный контракт между расширением и сервером.
+шесть модулей `common/*` (sync, пути, папки, id, title, summary markdown) — формальный контракт server ↔ extension (см. [AGENTS.md](../AGENTS.md)).
 Серверная выгрузка саммари на VPS — [docs/getting-started.md](../docs/getting-started.md).
 
 ## Обзор
@@ -107,10 +106,12 @@ plaud-exporter/                 # эта папка — «Load unpacked» в Chr
 │   ├── exportPathUtils.js     # Пути, режимы, санитизация имён (shared)
 │   ├── syncCore.js            # Индекс sync, hash, folderSegment, skip/updated (shared)
 │   ├── plaudFolders.js        # Filetags Plaud, Unfiled/Trash (shared)
+│   ├── plaudRecordingIds.js   # Нормализация id записей (shared)
+│   ├── plaudTitles.js         # normalizeHumanTitle, TITLE_KEYS (shared)
+│   ├── plaudSummaries.js      # stripPlaudInlineAssets для markdown (shared)
 │   ├── runtimeMessages.js     # Константы action для popup ↔ SW ↔ content
 │   ├── storageUtils.js        # chrome.storage + индекс sync
 │   ├── domUtils.js            # DOM-хелперы для fallback
-│   ├── plaudRecordingIds.js   # Нормализация id записей
 │   ├── plaud-i18n-messages.js # Каталоги сообщений popup / background
 │   └── uiComponents.js        # Статусный UI на странице
 ├── features/

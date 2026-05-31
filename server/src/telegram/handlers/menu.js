@@ -78,6 +78,10 @@ export async function sendStatusMessage(ctx, chatId) {
   });
 }
 
+/**
+ * @param {any} ctx
+ * @param {{ chatId: number; messageId: number; intervalMin?: number; scheduledSummaryVisible?: boolean }} params
+ */
 export async function renderSettingsScreen(
   ctx,
   { chatId, messageId, intervalMin, scheduledSummaryVisible }

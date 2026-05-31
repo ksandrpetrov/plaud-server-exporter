@@ -8,20 +8,40 @@ import {
 import {
   RAW_FILE_ID_RE,
   normalizeHexRecordingId,
+  normalizePlaudRecordingId,
 } from "../../common/plaudRecordingIds.js";
 import {
   DEFAULT_SYNC_SUBDIRECTORY,
+  EXPORT_MODE_AUDIO,
+  EXPORT_MODE_BOTH,
+  EXPORT_MODE_SUMMARY,
   extractTitleFromMarkdown,
+  normalizeExportMode,
   normalizeFilename,
   withUtf8Bom,
 } from "../../common/exportPathUtils.js";
 import {
+  normalizeHumanTitle,
+  pickRawTitleFromFile,
+  PLAUD_TITLE_KEYS,
+} from "../../common/plaudTitles.js";
+import {
+  findSummaryNotes,
+  getNoteDataLink,
+  getNoteInlineContent,
+  getSummaryNoteTitle,
+  parseSummaryContent,
+  stripPlaudInlineAssets,
+} from "../../common/plaudSummaries.js";
+import {
   buildAudioSignature,
   buildStableId,
+  buildSummaryBundle,
   detectDuplicate,
   determineSyncAction,
   getRawField,
   hashSummary,
+  refineSyncActionForDisk,
   sanitizeSyncSubdirectory,
   SYNC_ACTION_ALREADY_SYNCED,
   SYNC_ACTION_NEW,
@@ -70,39 +90,6 @@ import {
 import { runDomExportFallback } from "./domExportFallback.js";
 const PLAUD_API_PAGE_LIMIT = 100;
 const PLAUD_API_MAX_FILES = 5000;
-const EXPORT_MODE_BOTH = "both";
-const EXPORT_MODE_AUDIO = "audio";
-const EXPORT_MODE_SUMMARY = "summary";
-const EXPORT_MODES = new Set([
-  EXPORT_MODE_BOTH,
-  EXPORT_MODE_AUDIO,
-  EXPORT_MODE_SUMMARY,
-]);
-const SUMMARY_NOTE_TYPES = new Set([
-  "summary",
-  "auto_sum_note",
-  "sum_multi_note",
-]);
-/** Поля в JSON Plaud, откуда берётся человекочитаемое имя записи */
-const PLAUD_TITLE_KEYS = new Set([
-  "file_name",
-  "filename",
-  "fileName",
-  "file_title",
-  "fileTitle",
-  "name",
-  "title",
-  "display_name",
-  "displayName",
-  "audio_name",
-  "recording_name",
-  "topic",
-  "recordingTitle",
-]);
-
-function normalizeExportMode(mode) {
-  return EXPORT_MODES.has(mode) ? mode : EXPORT_MODE_BOTH;
-}
 
 function getExportModeLabel(mode) {
   if (mode === EXPORT_MODE_AUDIO) return "аудио";
@@ -397,22 +384,6 @@ async function fetchPlaudFiletagList(session) {
   return merged;
 }
 
-function normalizeHumanTitle(value) {
-  let s = String(value ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!s) return "";
-  if (/%[0-9A-Fa-f]{2}/.test(s)) {
-    try {
-      const decoded = decodeURIComponent(s).replace(/\s+/g, " ").trim();
-      if (decoded) s = decoded;
-    } catch {
-      // ignore
-    }
-  }
-  return s;
-}
-
 function isPlausibleRecordingTitle(text) {
   const s = String(text || "").trim();
   if (!s || s.length > 400) return false;
@@ -490,26 +461,10 @@ function preferApiTitle(file, titleHint) {
 }
 
 function normalizePlaudFile(rawFile) {
-  const extracted = extractRawRecordingId(rawFile);
-  let id = normalizeHexRecordingId(extracted);
-  if (!id && extracted) id = String(extracted).trim();
-  const rawTitle =
-    rawFile.file_name ||
-    rawFile.filename ||
-    rawFile.fileName ||
-    rawFile.file_title ||
-    rawFile.fileTitle ||
-    rawFile.display_name ||
-    rawFile.displayName ||
-    rawFile.audio_name ||
-    rawFile.recording_name ||
-    rawFile.recordingTitle ||
-    rawFile.topic ||
-    rawFile.name ||
-    rawFile.title;
-  const title = normalizeHumanTitle(rawTitle) || String(id);
-
+  const id = normalizePlaudRecordingId(rawFile);
   if (!id) return null;
+  const title =
+    normalizeHumanTitle(pickRawTitleFromFile(rawFile)) || String(id);
 
   return {
     id,
@@ -809,116 +764,6 @@ async function tryFetchRecordingTitleHint(session, fileId) {
   }
 }
 
-function getArrayCandidates(payload) {
-  const candidates = [
-    payload?.data,
-    payload?.data?.data,
-    payload?.data?.list,
-    payload?.data?.items,
-    payload?.data?.note_list,
-    payload?.data_note_result,
-    payload?.note_list,
-    payload?.list,
-    payload?.items,
-  ];
-  return candidates.filter(Array.isArray);
-}
-
-function isSummaryLikeNote(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  const noteType = value.data_type || value.note_type || value.type;
-  return SUMMARY_NOTE_TYPES.has(noteType);
-}
-
-function findSummaryNotes(payload) {
-  const directNotes = getArrayCandidates(payload)
-    .flat()
-    .filter(isSummaryLikeNote);
-  if (directNotes.length > 0) return directNotes;
-
-  const notes = [];
-  const seen = new Set();
-  function walk(value) {
-    if (!value || typeof value !== "object" || seen.has(value)) return;
-    seen.add(value);
-    if (Array.isArray(value)) {
-      value.forEach(walk);
-      return;
-    }
-    if (isSummaryLikeNote(value)) notes.push(value);
-    Object.values(value).forEach(walk);
-  }
-  walk(payload);
-  return notes;
-}
-
-function parseSummaryContent(rawContent) {
-  if (rawContent == null) return "";
-
-  if (typeof rawContent === "string") {
-    const trimmed = rawContent.trim();
-    if (!trimmed) return "";
-
-    try {
-      return parseSummaryContent(JSON.parse(trimmed));
-    } catch {
-      return trimmed;
-    }
-  }
-
-  if (Array.isArray(rawContent)) {
-    return rawContent.map(parseSummaryContent).filter(Boolean).join("\n\n");
-  }
-
-  if (typeof rawContent === "object") {
-    const directContent =
-      rawContent.ai_content ||
-      rawContent.content ||
-      rawContent.summary ||
-      rawContent.text ||
-      rawContent.note_content;
-
-    if (directContent != null) {
-      return parseSummaryContent(directContent);
-    }
-
-    const sectionParts = Object.entries(rawContent)
-      .filter(([key, value]) => {
-        if (value == null || key === "summary_id") return false;
-        return typeof value === "string" || Array.isArray(value);
-      })
-      .map(([key, value]) => {
-        const parsed = parseSummaryContent(value);
-        return parsed ? `## ${key}\n${parsed}` : "";
-      })
-      .filter(Boolean);
-
-    return sectionParts.join("\n\n");
-  }
-
-  return String(rawContent).trim();
-}
-
-async function getNoteRawContent(note) {
-  if (note.data_content) return note.data_content;
-  if (note.note_content) return note.note_content;
-  if (!note.data_link) return "";
-
-  return fetchUrlTextWithRetries(note.data_link);
-}
-
-function getSummaryNoteTitle(note) {
-  return (
-    note.data_title ||
-    note.data_tab_name ||
-    note.note_title ||
-    note.tab_name ||
-    note.note_type ||
-    note.data_type ||
-    "Саммари"
-  );
-}
-
 async function fetchPlaudSummaryExports(session, file) {
   const payload = await fetchPlaudApi(session, "/ai/query_note", {
     headers: { "file-id": file.id },
@@ -927,11 +772,15 @@ async function fetchPlaudSummaryExports(session, file) {
   const summaries = [];
 
   for (const note of notes) {
-    const rawContent = await getNoteRawContent(note);
-    const content = parseSummaryContent(rawContent);
+    const inline = getNoteInlineContent(note);
+    const dataLink = getNoteDataLink(note);
+    const rawContent =
+      inline || (dataLink ? await fetchUrlTextWithRetries(dataLink) : "");
+    const content = stripPlaudInlineAssets(parseSummaryContent(rawContent));
     if (!content) continue;
 
-    const title = normalizeHumanTitle(getSummaryNoteTitle(note)) || "Саммари";
+    const title =
+      normalizeHumanTitle(getSummaryNoteTitle(note, "Саммари")) || "Саммари";
     summaries.push({
       title,
       markdown: `# ${file.title}\n\n${content}\n`,
@@ -1143,14 +992,6 @@ function getCurrentPlaudSourceUrl() {
   }
 }
 
-function buildSummaryBundle(summaryExports) {
-  if (!Array.isArray(summaryExports) || summaryExports.length === 0) return "";
-  return summaryExports
-    .map((summaryExport) => String(summaryExport?.markdown || "").trim())
-    .filter(Boolean)
-    .join("\n\n---\n\n");
-}
-
 async function buildSyncCandidate(file, summaryExports, sourceUrl) {
   const summaryBundle = buildSummaryBundle(summaryExports);
   const identity = buildStableId({
@@ -1298,7 +1139,32 @@ export async function runSmartSync(options = {}) {
       );
       const duplicate = detectDuplicate(syncIndex, candidate);
       const existingRecord = duplicate?.record || null;
-      const action = determineSyncAction(existingRecord, candidate);
+
+      let plannedSummaryPath = "";
+      if (summaryExports.length > 0) {
+        const firstSummary = summaryExports[0];
+        const baseSummaryPath = buildSummaryFilenameForFile(
+          firstSummary.markdown,
+          firstSummary.title || workingFile.title,
+          0,
+          workingFile
+        );
+        const summaryFilename = basenameFromDownloadPath(baseSummaryPath);
+        plannedSummaryPath = buildCollisionSafePath(
+          syncIndex,
+          requestedSubdir,
+          "summary",
+          summaryFilename,
+          candidate.stableId,
+          candidate.folderSegment
+        );
+      }
+
+      let action = determineSyncAction(existingRecord, candidate);
+      action = refineSyncActionForDisk(action, existingRecord, {
+        plannedSummaryPath,
+        summaryMissingOnDisk: false,
+      });
 
       if (action.action === SYNC_ACTION_SKIPPED) {
         stats.skipped++;

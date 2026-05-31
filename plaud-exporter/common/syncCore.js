@@ -254,6 +254,20 @@ function canonicalSummaryText(markdown) {
     .trim();
 }
 
+/**
+ * Join multiple summary exports into one bundle for stable-id / hash input.
+ *
+ * @param {Array<{ markdown?: string }> | null | undefined} summaries
+ * @returns {string}
+ */
+export function buildSummaryBundle(summaries) {
+  if (!Array.isArray(summaries) || summaries.length === 0) return "";
+  return summaries
+    .map((summary) => String(summary?.markdown || "").trim())
+    .filter(Boolean)
+    .join("\n\n---\n\n");
+}
+
 export async function hashSummary(markdown) {
   const text = canonicalSummaryText(markdown);
   if (!text) return "";
