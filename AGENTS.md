@@ -1,9 +1,26 @@
-# AGENTS.md — карта репо для AI-агентов
+# AGENTS.md — рабочий контракт репо для AI-агентов
 
-Цель: за 60 секунд понять, **что трогать** и **что не трогать** при изменениях. Подробности —
-в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+## Цель файла
 
-## Что это
+Это не документация ради документации, а **рабочий контракт** для AI-агентов и разработчиков. За 60 секунд он
+должен дать ответ на вопросы: что в проекте можно трогать, что — только по отдельному решению, какие проверки
+запускать и какие инварианты нельзя ломать.
+
+Глубина и обоснования — в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), CI и required checks —
+в [docs/quality-gate.md](docs/quality-gate.md), быстрый старт — в [README.md](README.md). AGENTS.md дублирует их
+только в части инвариантов и маршрутизации; за деталями идём по ссылкам, а не копируем их сюда.
+
+## Главные принципы
+
+- Маленькое точечное изменение лучше широкого переписывания. Решает задачу — значит, достаточно.
+- Сначала понять существующий код и найти готовое решение, потом менять. Не плодить параллельные реализации.
+- Не ломать критичные бизнес-сценарии (раздел ниже) и публичное поведение без явного запроса.
+- Не оставлять мёртвый код: удалил реализацию — удали её следы.
+- UI/UX (Telegram-копия и popup расширения) меняем только по необходимости и консистентно.
+- Любое изменение должно быть проверяемым: к нему есть команда проверки или ручной smoke.
+- Стабильность продукта важнее «красивого» рефакторинга.
+
+## Что это за проект
 
 Монорепозиторий с двумя средами выполнения и одним общим контрактом:
 
@@ -14,7 +31,21 @@
 
 Сервер **не** качает аудио (только саммари). Расширение — качает и то и другое.
 
-## Shared контракт (5 файлов)
+## Структура проекта: зоны, что можно и что осторожно
+
+| Зона                                         | Назначение                                   | Можно менять                | Осторожно (нужен план)               | После изменений                                                    |
+| -------------------------------------------- | -------------------------------------------- | --------------------------- | ------------------------------------ | ------------------------------------------------------------------ |
+| `server/src/sync/`                           | runSync, lock, filename planner, index write | точечно по задаче           | `syncRunner.js` (~500 LOC)           | `npm test`; при правке shared — `npm run verify` + extension tests |
+| `server/src/plaud/`                          | Plaud HTTP, folders, live tree               | точечно                     | `recordingsApi.js` (~500 LOC)        | `npm test` (`recordingsApi.test.js`, `plaudLiveTree.test.js`)      |
+| `server/src/telegram/`                       | бот: handlers/messages/scheduler             | `handlers/*` и `messages/*` | `syncOrchestrator.js`, `streaming/*` | `telegram*.test.js`, `syncOrchestrator.test.js`                    |
+| `server/src/{auth,errors,config,security}/`  | сессия, классификация ошибок, env            | по задаче                   | контракт session/status.json         | `npm test`                                                         |
+| `plaud-exporter/common/` (6 shared)          | контракт server ↔ extension                  | только с двойными тестами   | любой из 6 файлов                    | `npm run verify` + оба набора тестов                               |
+| `plaud-exporter/{popup,background,features}` | UI попапа и service worker                   | точечно                     | god modules (см. ниже)               | `npm run test:extension`, `npm run verify:extension`               |
+| `deploy/`, `scripts/`, `.github/`            | инфраструктура и CI                          | по задаче                   | CI/deploy, ordering-тесты            | `infra-lint` + ручной smoke по PR-шаблону                          |
+
+### Shared контракт (6 файлов)
+
+Формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и **оба** набора тестов.
 
 | Файл                                                                                       | Меняешь — обновляй                                                                                                                                       |
 | ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -23,6 +54,7 @@
 | [`plaud-exporter/common/plaudFolders.js`](plaud-exporter/common/plaudFolders.js)           | `plaud-exporter/tests/plaudFolders.test.js` + `server/tests/plaudFolders.test.js`                                                                        |
 | [`plaud-exporter/common/plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js) | `plaud-exporter/tests/plaudRecordingIds.test.js` + `server/tests/plaudRecordingIds.test.js`; consumers: `recordingsApi.js`, `plaudRecordingIdScraper.js` |
 | [`plaud-exporter/common/plaudTitles.js`](plaud-exporter/common/plaudTitles.js)             | `plaud-exporter/tests/plaudTitles.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js`, `summariesApi.js`    |
+| [`plaud-exporter/common/plaudSummaries.js`](plaud-exporter/common/plaudSummaries.js)       | `plaud-exporter/tests/plaudSummaries.test.js` + `server/tests/plaudApiClient.test.js`; consumers: `summariesApi.js`, `audioExport.js`                    |
 
 Список захардкожен в [`scripts/verify-submodule.js`](scripts/verify-submodule.js). `npm run verify` проверяет
 существование файлов и что все относительные импорты `server/src/...` резолвятся.
@@ -31,30 +63,7 @@
 `plaud-i18n-messages.js`) — **только** для расширения, server их не трогает. Модули `plaud-exporter/background/*` — тоже
 только SW.
 
-## Команды (из корня)
-
-```bash
-npm install              # ставит deps + pre-commit хук (simple-git-hooks)
-npm run check            # единый umbrella: lint + typecheck + format:check
-                         #   + lint:markdown + verify + verify:extension
-                         #   + test + test:extension + smoke_container
-npm run lint             # server eslint, --max-warnings 0
-npm run lint:extension   # plaud-exporter eslint
-npm run lint:markdown    # markdownlint-cli2 (docs/, README, AGENTS)
-npm run typecheck        # JSDoc + tsc --checkJs (server + extension)
-npm run format           # prettier --write
-npm run format:check     # prettier --check (CI)
-npm run verify           # shared common imports OK (server side)
-npm run verify:extension # MV3 dynamic imports + manifest.json invariants
-npm test                 # server tests (node:test)
-npm run test:extension   # extension tests (alias: test:submodule)
-npm run test:coverage    # lcov + thresholds (требует Node 22+)
-```
-
-Extension отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`. CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — матрица Node 20 + 22, переиспользует reusable [`.github/workflows/checks.yml`](.github/workflows/checks.yml) и параллельный [`.github/workflows/infra-lint.yml`](.github/workflows/infra-lint.yml) (actionlint/shellcheck/hadolint/markdownlint); [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) + [`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — security gate; [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — образ GHCR + опциональный Docker deploy (
-`PRODUCTION_DOCKER_DEPLOY`). Подробности и список required checks — в [docs/quality-gate.md](docs/quality-gate.md).
-
-## Файлы, которые нельзя трогать целиком без плана
+### Файлы, которые нельзя трогать целиком без плана
 
 > Размер > 1k LOC. Любые правки — точечно, маленькими PR, чтобы не съесть весь контекст агента.
 
@@ -69,7 +78,7 @@ barrel: `messages.js`), [`server/src/telegram/vaultTree.js`](server/src/telegram
 
 Streaming Telegram (draft/progress/typewriter): barrel [`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js), [`streaming/typewriter.js`](server/src/telegram/streaming/typewriter.js), [`streaming/loadingPulse.js`](server/src/telegram/streaming/loadingPulse.js).
 
-## Telegram module map (server)
+### Telegram module map (server)
 
 | Модуль                                                                               | Назначение                                                              |
 | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
@@ -90,13 +99,14 @@ Streaming Telegram (draft/progress/typewriter): barrel [`streamingDelivery.js`](
 | [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js)                     | Manual/scheduled sync UX bridge                                         |
 | [`sync/syncIndexRead.js`](server/src/sync/syncIndexRead.js)                          | Read-only sync-index API для tree browse (не писать индекс из telegram) |
 
-## Где живёт что
+### Где живёт что
 
 | Хочешь поменять                                                             | Иди сюда                                                                                                                                               |
 | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Решение sync (new / unchanged / metadata-only / re-download / disk restore) | [`syncCore.js`](plaud-exporter/common/syncCore.js) (`determineSyncAction`, `refineSyncActionForDisk`) + `serverSyncIndex.js`                           |
 | Имя файла, длина пути, санитизация                                          | [`exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) + `filenamePlanner.js`                                                                |
 | Папки Plaud / Unfiled / Trash                                               | [`plaudFolders.js`](plaud-exporter/common/plaudFolders.js)                                                                                             |
+| Context резолва папок для API/live tree                                     | [`plaud/folderResolution.js`](server/src/plaud/folderResolution.js) — `buildFolderResolutionContext` (не инлайнить три вызова заново)                  |
 | `action` popup ↔ SW ↔ content                                               | [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js) + `tests/runtimeMessages.test.js`; литералы в `popup.js` / `content.js`               |
 | Live tree stableId / merge с sync-index                                     | [`liveTreeReadModel.js`](server/src/plaud/liveTreeReadModel.js) + `syncCore.buildStableId`                                                             |
 | Plaud list parsing / mirror fan-out                                         | [`recordingsApi.js`](server/src/plaud/recordingsApi.js) + `recordingsApi.test.js`                                                                      |
@@ -115,35 +125,205 @@ Streaming Telegram (draft/progress/typewriter): barrel [`streamingDelivery.js`](
 | Timestamp полей записи Plaud                                                | [`plaud/recordingTimestamps.js`](server/src/plaud/recordingTimestamps.js) — sync runner + live tree                                                    |
 | Список `.data/` JSON-файлов                                                 | [`config/config.js`](server/src/config/config.js) — `DATA_STATE_FILE_NAMES`; diagnostics — `persistenceDiagnostics.js`                                 |
 
-## Состояние на диске
+### Состояние на диске
 
-| Путь                             | Назначение                                                                |
-| -------------------------------- | ------------------------------------------------------------------------- |
-| `server/.data/session.json`      | Plaud session (`chmod 600`)                                               |
-| `server/.data/sync-index.json`   | sync index (atomic + `.bak`)                                              |
-| `server/.data/status.json`       | Последний run для `server:status` и бота                                  |
-| `server/.data/sync.lock`         | Файловый лок                                                              |
-| `server/.data/owner-chat.json`   | Chat ID владельца бота                                                    |
-| `server/.data/bot-settings.json` | Интервал автосинка                                                        |
-| `{vault}/Plaud/...md`            | Саммари (поведение определено `PLAUD_MIRROR_FOLDERS` и `plaudFolders.js`) |
-| `{vault}/_errors/*.md`           | Отчёты об ошибках                                                         |
+| Путь                                | Назначение                                                                                |
+| ----------------------------------- | ----------------------------------------------------------------------------------------- |
+| `server/.data/session.json`         | Plaud session (`chmod 600`)                                                               |
+| `server/.data/sync-index.json`      | sync index (atomic + `.bak`)                                                              |
+| `server/.data/status.json`          | Последний run для `server:status` и бота                                                  |
+| `server/.data/sync.lock`            | Файловый лок                                                                              |
+| `server/.data/owner-chat.json`      | Chat ID владельца бота                                                                    |
+| `server/.data/bot-settings.json`    | Интервал автосинка + `scheduledSummaryVisible` (default `false` — автосинк молчит в чате) |
+| `server/.data/telegram-offset.json` | Offset long-poll                                                                          |
+| `server/.data/tree-browse.json`     | Per-chat browse state для pick-by-number (TTL 30 мин)                                     |
+| `{vault}/Plaud/...md`               | Саммари (поведение определено `PLAUD_MIRROR_FOLDERS` и `plaudFolders.js`)                 |
+| `{vault}/_errors/*.md`              | Отчёты об ошибках                                                                         |
 
 Все JSON в `.data/` — `chmod 600`, директория `chmod 700`.
 
-## Коды выхода CLI
+### Коды выхода CLI
 
 `0` ок, `1` ошибки sync, `2` нет/битая сессия (или нет `TELEGRAM_BOT_TOKEN` для `bot`), `3` API Plaud изменился (
-`PlaudChangedError`), `4` другой sync держит lock.
+`PlaudChangedError`), `4` другой sync держит lock. Telegram-бот свой exit code не использует — `syncOrchestrator`
+маппит ошибки в HTML и не пробрасывает throw наружу.
 
-## Чего точно не делать
+## Архитектурные правила
 
-- Не качать аудио на сервере — `runSync` summary-only по дизайну (тест `syncAudioDefault.test.js`).
-- Не запускать Playwright на VPS — auth только на Mac.
-- Не дублировать решения sync в `audioExport.js` или `syncRunner.js` — они должны звать `determineSyncAction` из
-  `syncCore.js`.
-- Не вводить параллельные реализации логики папок — всё через `plaudFolders.js`.
-- Не менять протокол `action` точечно: константа в [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js),
-  wiring в sender/handler, `npm test` в `plaud-exporter` (в т.ч. `runtimeMessages.test.js`).
+Где живёт бизнес-логика и какие границы нельзя нарушать:
+
+- **Решение sync** (new / unchanged / metadata-only / re-download / disk restore) — только в
+  `syncCore.determineSyncAction` / `refineSyncActionForDisk`. **Нельзя** дублировать эту логику в `audioExport.js`
+  или `syncRunner.js`; они её вызывают, а не повторяют.
+- **Логика папок Plaud / Unfiled / Trash** — только через `plaudFolders.js`; общий context для трёх call sites — через
+  `folderResolution.js`. Не вводить параллельные реализации и не инлайнить резолв заново.
+- **Запись `sync-index.json`** — только `syncRunner` / `serverSyncIndex` (`saveSyncIndex`). Telegram и tree browse
+  читают через `syncIndexRead.js` (read-only) — из бота индекс не писать.
+- **`status.json`**: запись — `syncStatusWriter`, чтение — `statusReader`, нормализация полей — `statusSchema`.
+  `lastAuthError` всегда имеет форму `{ message, at }`.
+- **Plaud session**: грузится через `loadPlaudSession` (CLI, бот, live tree). Snapshot сессии (Playwright) создаётся
+  **только на Mac** — на VPS Playwright не запускаем.
+- **Server summary-only**: `runSync` не качает аудио и не зовёт `/file/temp-url` (тест `syncAudioDefault.test.js`).
+  Аудио — только Chrome-расширение.
+- **Ошибки sync**: per-file/per-stage — `errorClassifier` → `errorReporter`; top-level (lock/auth/plaud_changed/exit
+  code) — `syncFailureMapper`. Не глотать throws в `syncOrchestrator` молча и не подменять понятную ошибку на generic.
+- **Протокол `action`** между popup ↔ SW ↔ content — константа в `runtimeMessages.js`, wiring в sender/handler в том же
+  PR, литералы сверяет `runtimeMessages.test.js`.
+- **Чего в репо нет и не вводим**: БД, очередей, публичного HTTP API (всё на файлах); Playwright на VPS; параллельный
+  sync на одном vault с разных машин (`runLock` локальный для хоста).
+
+## Правила изменений для AI-агентов
+
+- Не делать масштабный рефакторинг без прямого запроса. Решает задачу минимальный diff — этого достаточно.
+- Не менять публичное поведение (CLI exit codes, формат `.md`, копию бота, протокол `action`) без явного запроса.
+- Не добавлять зависимости без необходимости. Сначала искать готовое в репо.
+- Не создавать новый паттерн, если уже есть существующий (sync-решения, папки, ошибки, session, status — см. выше).
+- Не дублировать код: расширяй существующие функции вместо копий.
+- Не оставлять временный/закомментированный код и compatibility-слои без причины.
+- Не маскировать ошибки пустыми `catch` и не заменять конкретную ошибку на generic.
+- Не удалять код без проверки usages (`grep`/поиск ссылок + тесты).
+- Не переформатировать весь проект ради одного изменения: prettier/eslint только на затронутое.
+
+## Мёртвый код
+
+- Заменил реализацию — удали старую в том же PR.
+- Перед удалением проверь usages по всему репо (оба пакета: `server/` и `plaud-exporter/`) и прогони тесты.
+- Удаляй неиспользуемые импорты, функции, классы, компоненты, CSS-классы и конфиги.
+- Не оставляй закомментированный код — это git history.
+- `TODO` допустим только с причиной и понятным следующим действием; без владельца/причины — не добавлять.
+- Если код выглядит мёртвым, но есть сомнение — **не удалять молча**, а отметить в финальном отчёте.
+- Известное исключение: `writeAudioFile` / `planAudioPath` / `fetchAudioUrl` в server намеренно **не подключены** к
+  `runSync` (см. [docs/stabilization-audit.md](docs/stabilization-audit.md)). Это сознательное упрощение, не мёртвый
+  код — не удалять без отдельного решения.
+
+## Критичные бизнес-сценарии
+
+Короткие business invariants (из тестов и README). Что не должно ломаться и минимальная проверка после правок в зоне.
+
+| Сценарий                          | Что не должно ломаться                                                | Какие зоны участвуют                                                              | Минимальная проверка                                                                       |
+| --------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Auth на Mac → session на VPS      | re-auth UX, `session.json` `chmod 600`, exit `2` без сессии           | `auth/playwrightAuth.js`, `loadPlaudSession.js`, `sessionStore.js`                | `loadPlaudSession.test.js`, `sessionParser.test.js`; ручной `server:auth` при правках auth |
+| CLI sync саммари → vault          | new / skip unchanged / content update / rename-only, atomic index     | `syncRunner.js`, `syncCore.js`, `obsidianWriter.js`, `serverSyncIndex.js`         | `syncRunner.integration.test.js`; при правке shared — `syncCore.test.js`                   |
+| Server summary-only               | `runSync` не качает аудио (нет `/file/temp-url`)                      | `syncRunner.js`                                                                   | `syncAudioDefault.test.js`                                                                 |
+| Lock / busy                       | параллельный sync → exit `4` / «занят» в боте; dry-run обходит lock   | `sync/runLock.js`, `syncFailureMapper.js`, `syncOrchestrator.js`                  | `syncRunner.errors.test.js`, `syncOrchestrator.test.js`                                    |
+| Plaud API изменился               | exit `3`, отчёт в `_errors/`                                          | `recordingsApi.js`, `plaudApiClient.js`, `errorClassifier.js`                     | `syncRunner.errors.test.js`, `recordingsApi.test.js`                                       |
+| Telegram owner-only + ручной sync | только владелец; чужие/группы молча игнор; progress → итог            | `privateUpdateGate.js`, `dispatch.js`, `syncOrchestrator.js`, streaming/\*        | `telegramAuth.test.js`, `telegramDispatch.test.js`, `syncOrchestrator.test.js`             |
+| Автосинк по расписанию            | интервал, по умолчанию молчит в чат (`scheduledSummaryVisible=false`) | `scheduler.js`, `botSettings.js`, `syncOrchestrator.js`                           | `scheduler.test.js`, `botSettings.test.js`                                                 |
+| Files tree pick-by-number         | stableId, отдать `.md`, тихий resync при отсутствии файла             | `treeBrowse.js`, `liveTreeReadModel.js`, `syncIndexRead.js`, `treeBrowseState.js` | `treeBrowse.test.js`, `plaudLiveTree.test.js`, `treeBrowseState.test.js`                   |
+| Extension smart sync              | skip unchanged, metadata-only rename; lock от параллельных прогонов   | `features/audioExport/audioExport.js`, `common/syncCore.js`, `content.js`         | `plaud-exporter/tests/syncCore.test.js`, `runtimeMessages.test.js`; ручной smoke попапа    |
+| status.json последний run         | schema, `lastAuthError` `{ message, at }`, merge без потери stats     | `syncStatusWriter.js`, `statusReader.js`, `statusSchema.js`                       | `syncStatusWriter.test.js`, `statusReader.test.js`                                         |
+
+TODO: уточнить — у части браузерных сценариев нет авто-покрытия: e2e попапа/`content.js` в CI отсутствует;
+sync-lock в `content.js` без юнит-теста; stale-lock reclaim (`runLock`, dead PID / >2h) описан в коде и
+[docs/troubleshooting.md](docs/troubleshooting.md), но без отдельного теста — после правок этих зон делать ручной smoke.
+
+## UI/UX инварианты
+
+Дизайн-системы как отдельного пакета нет; источники истины — два. Любые UI-изменения должны быть минимальными,
+консистентными существующим компонентам и проверенными на основных сценариях.
+
+### Telegram-бот (server)
+
+- Копия — только в `telegram/messages/*`, кнопки — в `keyboards.js`, routing — в `handlers/callbacks.js`. Не вшивать
+  тексты в обработчики.
+- HTML обрезаем через `clipTelegramText` / `TELEGRAM_HTML_MAX_LEN` (`messages/format.js`) — не превышать лимит Telegram
+  и не слать «битый» HTML.
+- Не ломать streaming-доставку (`streamingDelivery` → draft/typewriter/loadingPulse): прогресс-сообщение редактируется,
+  а не плодит новые.
+- Сохранять ActionGuard/cooldown (`actionGuard.js`): двойной тап и повтор сразу после успеха блокируются.
+- Не менять тексты/кнопки без задачи.
+
+### Расширение (popup)
+
+- Цвета, отступы, скругления, тени — только через токены и компоненты в [`popup/popup.css`](plaud-exporter/popup/popup.css)
+  (HSL-переменные `--primary`/`--muted`/`--destructive`/`--success`/`--radius`, классы `.card`/`.btn-*`/`.alert`/
+  `.badge`). Не вводить случайные цвета/отступы/шрифты.
+- Plaud-вкладка обязательна для export/sync/current; без неё показывается offline-панель. Не ломать взаимное исключение
+  (`updateExportControls`): во время export/sync/refresh кнопки заблокированы.
+- Текст — через `data-i18n` + `PlaudI18n` (ru/en, RU по умолчанию). Тема Auto/Light/Dark. Не хардкодить строки.
+- Сохранять состояния: offline-панель, загрузка/offline статистики, баннер экспорта с прогрессом, строки sync-статуса.
+- Подробности UX попапа — [`plaud-exporter/README.md`](plaud-exporter/README.md).
+
+## Команды проверки
+
+Из корня репо.
+
+```bash
+# Установка (ставит deps + pre-commit хук simple-git-hooks)
+npm install
+cd plaud-exporter && npm install && cd ..
+
+# Полный gate (= то, что гоняет CI)
+npm run check            # lint + lint:extension + typecheck + format:check
+                         #   + lint:markdown + verify + verify:extension
+                         #   + test + test:extension + smoke_container
+```
+
+Точечно (дешевле, когда менял один пакет):
+
+```bash
+# Только server
+npm test                 # node:test
+npm run lint             # eslint server, --max-warnings 0
+npm run typecheck:server # JSDoc + tsc --checkJs (server)
+npm run verify           # shared common imports OK
+
+# Только extension
+cd plaud-exporter && npm run lint && npm test && npm run verify
+
+# Остальные umbrella-шаги при необходимости
+npm run typecheck        # server + extension
+npm run format:check     # prettier --check (как в CI)
+npm run lint:markdown    # markdownlint-cli2 (docs/, README, AGENTS)
+npm run test:coverage    # lcov + thresholds (требует Node 22+)
+```
+
+Запуск приложения:
+
+```bash
+npm run server:auth      # Mac only: вход в Plaud (Playwright)
+npm run server:sync      # разовая выгрузка саммари
+npm run server:status    # конфиг и сессия
+npm run server:bot       # Telegram-бот (VPS / локальная проверка)
+node server/src/cli/index.js logout   # выход из сессии
+```
+
+Docker smoke (опционально, нужен Docker):
+
+```bash
+node scripts/smoke_container.mjs       # резолв критичных импортов
+bash scripts/docker-smoke-image.sh     # build + smoke run образа
+```
+
+Pre-commit (`simple-git-hooks` + `lint-staged`) ставится при `npm install` и гоняет prettier/eslint/verify на
+изменённые файлы — он **не** заменяет `npm run check` перед PR. CI и required checks —
+в [docs/quality-gate.md](docs/quality-gate.md). Автотестов e2e/браузерных в репо нет — не выдумывать; вместо них
+ручной smoke по [PR-шаблону](.github/PULL_REQUEST_TEMPLATE.md).
+
+## Минимальный чеклист перед сдачей изменения
+
+- [ ] Изменение точечное, не шире задачи.
+- [ ] Архитектурные границы не нарушены (sync-решения / папки / index write / status / session / ошибки).
+- [ ] Мёртвый код не оставлен (старая реализация удалена, импорты/usages проверены).
+- [ ] Критичные бизнес-сценарии в затронутой зоне не сломаны.
+- [ ] UI/UX (Telegram-копия, popup) не деградировал; изменения консистентны.
+- [ ] Прогнаны нужные проверки: `npm run check` или точечный набор по пакету.
+- [ ] Новые зависимости не добавлены без причины.
+- [ ] Ошибки не замаскированы, понятные ошибки не подменены на generic.
+- [ ] Документация обновлена только там, где нужно (включая этот файл при изменении контракта).
+
+## Правила отчёта после работы
+
+В финальном сообщении агент даёт короткий отчёт:
+
+- **Что изменено** — суть, не «обновил файл X».
+- **Почему** — связь с задачей/инвариантом.
+- **Затронутые файлы** — список.
+- **Запущенные проверки** — какие команды и результат.
+- **Не удалось запустить** — что и почему (нет Docker, нет сессии, Mac-only auth и т.п.).
+- **Оставшиеся риски** — что стоит перепроверить.
+- **Подозрение на мёртвый код** — если есть сомнение, но удалять не стал.
+- **Проверенные бизнес/UI-сценарии** — что подтверждено тестами или ручным smoke.
 
 ## Backlog (вне текущего server-рефактора)
 

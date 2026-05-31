@@ -4,9 +4,11 @@ import { realpathSync } from "node:fs";
 import { config, effectiveVaultRoot } from "../config/config.js";
 import { logger } from "../logger.js";
 import { redactError } from "../security/redact.js";
-import { loadPlaudSessionFromSnapshotDetailed } from "../auth/loadPlaudSession.js";
 import {
-  loadSessionSnapshot,
+  loadPlaudSessionFromSnapshotDetailed,
+  logCliSessionLoadFailure,
+} from "../auth/loadPlaudSession.js";
+import {
   removeSessionSnapshot,
   sessionFileInfo,
 } from "../auth/sessionStore.js";
@@ -81,11 +83,10 @@ async function commandAuth() {
     logContext: "cli:auth",
   });
   if (!session) {
-    if (status === "missing") {
-      logger.error("Login finished but no session snapshot was saved.");
-    } else {
-      logger.error("Login finished but session snapshot is unusable.");
-    }
+    logCliSessionLoadFailure(status, {
+      missing: "Login finished but no session snapshot was saved.",
+      invalid: "Login finished but session snapshot is unusable.",
+    });
     process.exitCode = 2;
     return;
   }
@@ -100,13 +101,10 @@ async function commandSync(flags) {
     logContext: "cli:sync",
   });
   if (!session) {
-    if (status === "missing") {
-      logger.error(
-        "No session snapshot found. Run `npm run server:auth` first."
-      );
-    } else {
-      logger.error("Failed to read Plaud session from snapshot.");
-    }
+    logCliSessionLoadFailure(status, {
+      missing: "No session snapshot found. Run `npm run server:auth` first.",
+      invalid: "Failed to read Plaud session from snapshot.",
+    });
     process.exitCode = 2;
     return;
   }
@@ -154,9 +152,11 @@ async function commandBot() {
 
 async function commandStatus() {
   const session = await sessionFileInfo();
-  const { status: sessionLoadStatus } =
-    await loadPlaudSessionFromSnapshotDetailed({ logContext: "cli:status" });
-  const snapshot = session.exists ? await loadSessionSnapshot() : null;
+  const { status: sessionLoadStatus, snapshot } =
+    await loadPlaudSessionFromSnapshotDetailed({
+      logContext: "cli:status",
+      includeSnapshot: true,
+    });
   const sessionDescription = describeSnapshot(snapshot);
   const index = await syncIndexInfo();
   const status = await readStatus();

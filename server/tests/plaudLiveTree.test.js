@@ -20,10 +20,10 @@ import { getRecordingCreatedAtRaw } from "../src/plaud/recordingTimestamps.js";
 import {
   PLAUD_FOLDER_TRASH,
   PLAUD_FOLDER_UNFILED,
+  isAllFilesMetaTag,
 } from "../src/plaud/plaudFolders.js";
 import {
   _resetPlaudLiveTreeCache,
-  isAllFilesMetaTag,
   loadPlaudLiveSyncTree,
 } from "../src/plaud/liveTreeReadModel.js";
 import {

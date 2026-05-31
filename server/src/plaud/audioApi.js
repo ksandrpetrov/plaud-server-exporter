@@ -5,7 +5,10 @@
  *   See `server/tests/syncAudioDefault.test.js`. Audio export is extension-only.
  */
 import { fetchPlaudApi } from "./httpTransport.js";
-import { normalizeHumanTitle, TITLE_KEYS } from "./recordingsApi.js";
+import {
+  normalizeHumanTitle,
+  TITLE_KEYS,
+} from "../../../plaud-exporter/common/plaudTitles.js";
 
 function looksLikeDownloadUrl(value) {
   if (typeof value !== "string" || !/^https?:\/\//i.test(value)) return false;

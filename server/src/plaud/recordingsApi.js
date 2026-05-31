@@ -260,16 +260,23 @@ async function enrichFilesWithFolderSegments(session, files) {
 
 /**
  * Lightweight recordings pull for the Telegram bot's "Дерево синка" view:
- * just the global non-trash + (optionally) trash listings, enriched with
- * `folderSegment` from the filetag list. Skips the per-folder fan-out the
- * full sync uses — fast enough for an interactive callback handler.
+ * global non-trash + trash listings without per-folder fan-out.
+ * Folder segments are resolved by `liveTreeReadModel` from its own tag fetch.
  */
 export async function listRecordingsForBotTree(session, options = {}) {
-  return listAllRecordingsSimple(session, { includeTrash: true, ...options });
+  return listAllRecordingsSimple(session, {
+    includeTrash: true,
+    skipFolderEnrichment: true,
+    ...options,
+  });
 }
 
 async function listAllRecordingsSimple(session, options = {}) {
-  const { includeTrash = false, sortBy = session.sortBy } = options;
+  const {
+    includeTrash = false,
+    sortBy = session.sortBy,
+    skipFolderEnrichment = false,
+  } = options;
   const variants = includeTrash ? ["0", "1"] : ["0"];
   const byId = new Map();
 
@@ -289,7 +296,7 @@ async function listAllRecordingsSimple(session, options = {}) {
   }
 
   const files = [...byId.values()];
-  if (!config.mirrorFolders) return files;
+  if (!config.mirrorFolders || skipFolderEnrichment) return files;
   return enrichFilesWithFolderSegments(session, files);
 }
 

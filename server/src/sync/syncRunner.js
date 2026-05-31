@@ -9,6 +9,7 @@ import { PlaudChangedError } from "../plaud/errors.js";
 import {
   buildAudioSignature,
   buildStableId,
+  buildSummaryBundle,
   detectDuplicate,
   determineSyncAction,
   hashSummary,
@@ -73,14 +74,6 @@ async function needsSummaryRestore(existingRecord, plannedAbsolutePath) {
     if (await summaryFileExists(path)) return false;
   }
   return true;
-}
-
-function buildSummaryBundle(summaries) {
-  if (!Array.isArray(summaries) || summaries.length === 0) return "";
-  return summaries
-    .map((s) => String(s?.markdown || "").trim())
-    .filter(Boolean)
-    .join("\n\n---\n\n");
 }
 
 function resolveSyncFolderSegment(file) {

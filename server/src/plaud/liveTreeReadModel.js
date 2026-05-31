@@ -6,7 +6,7 @@
 import { createPlaudSessionLoader } from "../auth/loadPlaudSession.js";
 import { logger } from "../logger.js";
 import { buildStableId } from "../../../plaud-exporter/common/syncCore.js";
-import { isAllFilesMetaTag, resolveFileFolderSegment } from "./plaudFolders.js";
+import { resolveFileFolderSegment } from "./plaudFolders.js";
 import { buildFolderResolutionContext } from "./folderResolution.js";
 import {
   fetchPlaudFiletagList,
@@ -159,4 +159,4 @@ function mergeWithSyncIndex(liveTree, syncIndex) {
   return { records: merged };
 }
 
-export { isAllFilesMetaTag, STATUS_NOT_SYNCED };
+export { STATUS_NOT_SYNCED };
