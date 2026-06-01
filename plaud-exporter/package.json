@@ -7,10 +7,12 @@
   "scripts": {
     "verify": "node scripts/verify-extension-imports.js",
     "lint": "eslint .",
-    "test": "node --test $(find tests -name '*.test.js' | sort)"
+    "test": "node --test $(find tests -name '*.test.js' | sort)",
+    "test:coverage": "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=../coverage/extension.lcov.info $(find tests -name '*.test.js' | sort)"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/chrome": "^0.1.42",
     "eslint": "^10.4.0",
     "globals": "^17.6.0"
   }
