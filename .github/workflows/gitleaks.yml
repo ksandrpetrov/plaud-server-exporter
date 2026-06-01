@@ -12,6 +12,10 @@ on:
 
 permissions:
   contents: read
+  # gitleaks-action lists PR commits via API on pull_request; posts review comments
+  # and uploads SARIF when GITLEAKS_ENABLE_* are true (defaults).
+  pull-requests: write
+  actions: write
 
 concurrency:
   group: gitleaks-${{ github.ref }}
