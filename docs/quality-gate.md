@@ -31,7 +31,7 @@ flowchart TD
   Reusable --> Smoke[smoke_container + deploy-script ordering tests]
   Reusable --> Audit[npm audit --omit=dev --audit-level=high]
   Reusable --> Docker[docker build --load + docker-smoke]
-  CodeQL[codeql.yml weekly + PR] --> SARIF
+  CodeQL[codeql.yml weekly + PR] --> SarifArtifact[SARIF artifact]
   Gitleaks[gitleaks.yml weekly + PR] --> SecretFindings
   Infra[infra-lint.yml on PR] --> Actionlint
   Infra --> Shellcheck
@@ -57,6 +57,21 @@ flowchart TD
 | `Infra lint / markdownlint (docs)`                         | `.github/workflows/infra-lint.yml` |
 | `CodeQL / CodeQL JavaScript/TypeScript`                    | `.github/workflows/codeql.yml`     |
 | `gitleaks / Secret scan`                                   | `.github/workflows/gitleaks.yml`   |
+
+### CodeQL на приватном репозитории
+
+Репозиторий **private**: загрузка SARIF в **Security → Code scanning** требует включённого code scanning и
+[GitHub Advanced Security](https://docs.github.com/en/get-started/learning-about-github/about-github-advanced-security)
+(GHAS). Без GHAS шаг `analyze` падает на upload с ошибкой «Code scanning is not enabled».
+
+Workflow [`.github/workflows/codeql.yml`](../.github/workflows/codeql.yml) по умолчанию:
+
+- выполняет полный CodeQL-анализ (`security-and-quality`);
+- **не** шлёт SARIF в GitHub (`upload: never`);
+- сохраняет SARIF как artifact **codeql-javascript-sarif** (скачать из run → Artifacts).
+
+После включения GHAS и code scanning в настройках репозитория: в `codeql.yml` смените `upload` на `always`,
+`wait-for-processing` на `true`, добавьте в job `security-events: write`.
 
 Дополнительно включить:
 

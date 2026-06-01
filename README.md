@@ -104,7 +104,7 @@ CI:
   verify, tests, coverage (на 22.x), npm audit, Docker PR build, smoke.
 - [`.github/workflows/infra-lint.yml`](.github/workflows/infra-lint.yml) — actionlint, shellcheck, hadolint,
   markdownlint в параллельных job-ах.
-- [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) и [`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — security/secret сканы (PR + weekly cron).
+- [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) и [`.github/workflows/gitleaks.yml`](.github/workflows/gitleaks.yml) — security/secret сканы (PR + weekly cron). CodeQL на private без GHAS кладёт SARIF в artifact, не в Security tab — см. [docs/quality-gate.md](docs/quality-gate.md#codeql-на-приватном-репозитории).
 - [`.github/dependabot.yml`](.github/dependabot.yml) — еженедельные апдейты npm/actions/docker, сгруппированные
   dev/prod/security.
 - Required checks и список политик — в [docs/quality-gate.md](docs/quality-gate.md).

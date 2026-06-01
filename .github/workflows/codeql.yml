@@ -24,7 +24,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      security-events: write
       actions: read
     steps:
       - name: Checkout
@@ -41,6 +40,21 @@ jobs:
         uses: github/codeql-action/autobuild@v3
 
       - name: Analyze
+        id: analyze
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:javascript-typescript"
+          # Private repo without GHAS cannot upload to Code scanning; SARIF → artifact below.
+          # After enabling GHAS + code scanning: set upload to always, wait-for-processing to true,
+          # add security-events: write to job permissions. See docs/quality-gate.md.
+          upload: never
+          wait-for-processing: false
+
+      - name: Upload SARIF artifact
+        if: always() && steps.analyze.conclusion != 'skipped'
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-javascript-sarif
+          path: ${{ steps.analyze.outputs.sarif-output }}
+          retention-days: 30
+          if-no-files-found: ignore
