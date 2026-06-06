@@ -7,11 +7,13 @@ import { redactError } from "../security/redact.js";
 import {
   loadPlaudSessionFromSnapshotDetailed,
   logCliSessionLoadFailure,
+  describeAuthState,
 } from "../auth/loadPlaudSession.js";
 import {
   removeSessionSnapshot,
   sessionFileInfo,
 } from "../auth/sessionStore.js";
+import { oauthTokensFileInfo } from "../auth/oauthTokenStore.js";
 import { describeSnapshot } from "../auth/plaudSessionExtractor.js";
 import { validateSession } from "../plaud/plaudApiClient.js";
 import { runSync } from "../sync/syncRunner.js";
@@ -56,7 +58,9 @@ function printUsage() {
       "Usage: plaud-server-exporter <command> [flags]",
       "",
       "Commands:",
-      "  auth                Interactive Plaud login via Playwright; saves a session snapshot.",
+      "  auth                Interactive Plaud login (OAuth by default; see flags).",
+      "    --playwright        Legacy login via Playwright snapshot (session.json).",
+      "    --oauth             Force OAuth browser login (oauth-tokens.json).",
       "",
       "  sync                Pull summaries from Plaud and write Markdown.",
       "    --dry-run           Do not write files or update the sync index.",
@@ -67,25 +71,36 @@ function printUsage() {
       "                      and reports every sync. Requires TELEGRAM_BOT_TOKEN and",
       "                      TELEGRAM_ALLOWED_USERNAME in .env.",
       "",
-      "  logout              Remove the saved session snapshot (keeps Playwright profile).",
+      "  logout              Remove saved credentials (OAuth tokens and/or snapshot).",
       "",
       "  help                Print this message.",
+      "",
+      "Auth/API env: PLAUD_AUTH_MODE=auto|oauth|snapshot, PLAUD_API_MODE=web|official|auto",
       "",
     ].join("\n")
   );
 }
 
-async function commandAuth() {
-  const { runInteractiveLogin } = await import("../auth/playwrightAuth.js");
-  await runInteractiveLogin({ headless: false });
+async function commandAuth(flags = {}) {
+  const usePlaywright = !!flags.playwright || config.authMode === "snapshot";
+  const useOAuth =
+    !!flags.oauth || config.authMode === "oauth" || !usePlaywright;
+
+  if (useOAuth && !usePlaywright) {
+    const { runInteractiveOAuthLogin } = await import("../auth/plaudOAuth.js");
+    await runInteractiveOAuthLogin();
+  } else {
+    const { runInteractiveLogin } = await import("../auth/playwrightAuth.js");
+    await runInteractiveLogin({ headless: false });
+  }
 
   const { session, status } = await loadPlaudSessionFromSnapshotDetailed({
     logContext: "cli:auth",
   });
   if (!session) {
     logCliSessionLoadFailure(status === "missing" ? "missing" : "invalid", {
-      missing: "Login finished but no session snapshot was saved.",
-      invalid: "Login finished but session snapshot is unusable.",
+      missing: "Login finished but no credentials were saved.",
+      invalid: "Login finished but credentials are unusable.",
     });
     process.exitCode = 2;
     return;
@@ -93,6 +108,8 @@ async function commandAuth() {
   const count = await validateSession(session);
   logger.info("Session validated against Plaud API.", {
     recordsVisible: count,
+    authMode: session.authMode,
+    apiMode: session.apiMode,
   });
 }
 
@@ -102,8 +119,9 @@ async function commandSync(flags) {
   });
   if (!session) {
     logCliSessionLoadFailure(status === "missing" ? "missing" : "invalid", {
-      missing: "No session snapshot found. Run `npm run server:auth` first.",
-      invalid: "Failed to read Plaud session from snapshot.",
+      missing:
+        "No Plaud credentials found. Run `npm run server:auth` first (OAuth or Playwright).",
+      invalid: "Failed to read Plaud credentials.",
     });
     process.exitCode = 2;
     return;
@@ -151,12 +169,17 @@ async function commandBot() {
 }
 
 async function commandStatus() {
-  const session = await sessionFileInfo();
-  const { status: sessionLoadStatus, snapshot } =
-    await loadPlaudSessionFromSnapshotDetailed({
-      logContext: "cli:status",
-      includeSnapshot: true,
-    });
+  const sessionFile = await sessionFileInfo();
+  const oauthFile = await oauthTokensFileInfo();
+  const authState = await describeAuthState();
+  const {
+    status: sessionLoadStatus,
+    snapshot,
+    authSource,
+  } = await loadPlaudSessionFromSnapshotDetailed({
+    logContext: "cli:status",
+    includeSnapshot: true,
+  });
   const sessionDescription = describeSnapshot(snapshot);
   const index = await syncIndexInfo();
   const status = await readStatus();
@@ -168,17 +191,23 @@ async function commandStatus() {
       vaultRoot: effectiveVaultRoot(),
       obsidianSubfolder: config.obsidianSubfolder,
       exportRoot: config.exportRoot,
+      authMode: config.authMode,
+      apiMode: config.apiMode,
       sessionPath: config.sessionPath,
+      oauthTokensPath: config.oauthTokensPath,
       syncIndexPath: config.syncIndexPath,
       errorsDir: errorsDir.path,
       playwrightProfileDir: config.playwrightProfileDir,
       timezone: config.timezone,
       mode: "summary-only",
     },
+    auth: authState,
     session: {
-      fileInfo: session,
+      fileInfo: sessionFile,
+      oauthFileInfo: oauthFile,
       snapshot: sessionDescription,
       loadStatus: sessionLoadStatus,
+      authSource: authSource || null,
       apiReady: sessionLoadStatus === "ok",
     },
     syncIndex: index,
@@ -196,7 +225,7 @@ async function main() {
   try {
     switch (cmd) {
       case "auth":
-        await commandAuth();
+        await commandAuth(args.flags);
         break;
       case "sync":
         await commandSync(args.flags);
@@ -207,10 +236,13 @@ async function main() {
       case "bot":
         await commandBot();
         break;
-      case "logout":
+      case "logout": {
+        const { revokeOAuthSession } = await import("../auth/plaudOAuth.js");
+        await revokeOAuthSession();
         await removeSessionSnapshot();
-        logger.info("Session snapshot removed.");
+        logger.info("OAuth tokens and session snapshot removed.");
         break;
+      }
       case "help":
       case "--help":
       case "-h":

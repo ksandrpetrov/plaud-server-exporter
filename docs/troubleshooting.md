@@ -2,18 +2,35 @@
 
 ## Plaud разлогинил (код выхода 2)
 
-**Симптомы:** `No session snapshot`, `PlaudAuthError`, `_errors/*auth_error*.md`.
+**Симптомы:** `No Plaud credentials`, `PlaudAuthError`, `_errors/*auth_error*.md`.
 
-**Исправление (Mac):**
+**Исправление (Mac) — OAuth (рекомендуется):**
 
 ```bash
 npm run server:auth
+scp server/.data/oauth-tokens.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/oauth-tokens.json
+```
+
+На сервере:
+
+```bash
+sudo install -o plaud -g plaud -m 600 /tmp/oauth-tokens.json /srv/plaud-exporter/server/.data/oauth-tokens.json
+sudo rm -f /tmp/oauth-tokens.json
+```
+
+**Legacy Playwright snapshot:**
+
+```bash
+npm run server:auth -- --playwright
 scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
 ```
 
 На сервере: перенести в `server/.data/`, `chown plaud:plaud`, `chmod 600` — [getting-started.md](./getting-started.md).
 
-Playwright на VPS с 1 GB RAM не запускайте.
+OAuth refresh на VPS обновляет access token автоматически; повторный `scp` нужен только если refresh token отозван
+(`plaud logout` / смена пароля). Playwright на VPS с 1 GB RAM не запускайте.
+
+Подробнее о режимах auth/API — [plaud-oauth-spike.md](./plaud-oauth-spike.md).
 
 ## Изменился API Plaud (код выхода 3)
 

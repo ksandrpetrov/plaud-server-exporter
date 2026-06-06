@@ -38,6 +38,7 @@ function dataDir() {
 /** Basenames of JSON state files under `server/.data/` (or PLAUD_DATA_DIR). */
 export const DATA_STATE_FILE_NAMES = [
   "session.json",
+  "oauth-tokens.json",
   "sync-index.json",
   "status.json",
   "owner-chat.json",
@@ -57,6 +58,76 @@ const staticConfig = {
       process.env.PLAUD_SESSION_PATH,
       join(dataDir(), "session.json")
     );
+  },
+  get oauthTokensPath() {
+    return absPath(
+      process.env.PLAUD_OAUTH_TOKENS_PATH,
+      join(dataDir(), "oauth-tokens.json")
+    );
+  },
+  get authMode() {
+    const raw = (process.env.PLAUD_AUTH_MODE || "auto").trim().toLowerCase();
+    if (raw === "oauth" || raw === "snapshot" || raw === "auto") return raw;
+    return "auto";
+  },
+  get apiMode() {
+    const raw = (process.env.PLAUD_API_MODE || "web").trim().toLowerCase();
+    if (raw === "official" || raw === "web" || raw === "auto") return raw;
+    return "web";
+  },
+  get plaudOAuthClientId() {
+    return (
+      process.env.PLAUD_CLI_CLIENT_ID ||
+      process.env.PLAUD_CLIENT_ID ||
+      "client_f9e0b214-c11f-434b-8b95-c4497d1feb81"
+    ).trim();
+  },
+  get plaudOAuthClientSecret() {
+    return (process.env.PLAUD_CLIENT_SECRET || "").trim();
+  },
+  get plaudOAuthRedirectUri() {
+    const port = asInt(process.env.PLAUD_OAUTH_CALLBACK_PORT, 8199);
+    return (
+      process.env.PLAUD_OAUTH_REDIRECT_URI ||
+      `http://localhost:${port}/auth/callback`
+    ).trim();
+  },
+  get plaudOAuthCallbackPort() {
+    return asInt(process.env.PLAUD_OAUTH_CALLBACK_PORT, 8199);
+  },
+  get plaudOAuthLoginTimeoutMs() {
+    return asInt(process.env.PLAUD_OAUTH_LOGIN_TIMEOUT_MS, 120_000);
+  },
+  get plaudOAuthAuthorizationUrl() {
+    return (
+      process.env.PLAUD_AUTH_URL || "https://web.plaud.ai/platform/oauth"
+    ).trim();
+  },
+  get plaudOAuthTokenUrl() {
+    return (
+      process.env.PLAUD_TOKEN_URL ||
+      "https://platform.plaud.ai/developer/api/oauth/third-party/access-token"
+    ).trim();
+  },
+  get plaudOAuthRefreshUrl() {
+    return (
+      process.env.PLAUD_REFRESH_URL ||
+      "https://platform.plaud.ai/developer/api/oauth/third-party/access-token/refresh"
+    ).trim();
+  },
+  get plaudOfficialApiBase() {
+    return (
+      process.env.PLAUD_API_BASE || "https://platform.plaud.ai/developer/api"
+    ).trim();
+  },
+  get plaudOAuthExtraHeaders() {
+    /** @type {Record<string, string>} */
+    const headers = {};
+    if (process.env.PLAUD_ENV) headers["x-pld-env"] = process.env.PLAUD_ENV;
+    if (process.env.PLAUD_REGION) {
+      headers["x-pld-region"] = process.env.PLAUD_REGION;
+    }
+    return headers;
   },
   get syncIndexPath() {
     return absPath(

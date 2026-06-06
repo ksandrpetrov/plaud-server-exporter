@@ -37,7 +37,7 @@ test("sync without session snapshot exits with code 2", async () => {
     PLAUD_EXPORT_ROOT: join(dir, "exports"),
   });
   assert.equal(result.code, 2);
-  assert.match(result.stderr + result.stdout, /No session snapshot/i);
+  assert.match(result.stderr + result.stdout, /No Plaud credentials/i);
 });
 
 test("sync against a read-only export root surfaces write_error", async () => {

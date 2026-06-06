@@ -8,6 +8,7 @@
  */
 import { PlaudChangedError } from "./errors.js";
 import { fetchPlaudApi, fetchUrlTextWithRetries } from "./httpTransport.js";
+import { fetchOfficialSummaries } from "./officialPlaudApi.js";
 import {
   findSummaryNotes,
   getNoteDataLink,
@@ -38,6 +39,9 @@ async function getNoteRawContent(note) {
  * @returns {Promise<Array<{ title: string; markdown: string }>>}
  */
 export async function fetchSummaries(session, file) {
+  if (session?.apiMode === "official") {
+    return fetchOfficialSummaries(session, file);
+  }
   const payload = await fetchPlaudApi(session, "/ai/query_note", {
     headers: { "file-id": file.id },
   });

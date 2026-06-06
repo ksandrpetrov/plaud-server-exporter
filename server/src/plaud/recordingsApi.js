@@ -9,6 +9,10 @@ import { logger } from "../logger.js";
 import { PlaudChangedError } from "./errors.js";
 import { fetchPlaudApi } from "./httpTransport.js";
 import {
+  listAllOfficialRecordings,
+  validateOfficialSession,
+} from "./officialPlaudApi.js";
+import {
   extractRawRecordingId,
   normalizePlaudRecordingId,
 } from "../../../plaud-exporter/common/plaudRecordingIds.js";
@@ -305,6 +309,9 @@ async function listAllRecordingsSimple(session, options = {}) {
  * When PLAUD_MIRROR_FOLDERS=false, only the global non-trash list is fetched.
  */
 export async function listAllRecordings(session, options = {}) {
+  if (session?.apiMode === "official") {
+    return listAllOfficialRecordings(session);
+  }
   const includeTrash =
     options.includeTrash ?? (config.mirrorFolders ? true : false);
   const { sortBy = session.sortBy } = options;
@@ -444,6 +451,9 @@ function findFileArray(payload, { requireArray = false } = {}) {
  * the snapshot does not actually work. Returns the number of items returned.
  */
 export async function validateSession(session) {
+  if (session?.apiMode === "official") {
+    return validateOfficialSession(session);
+  }
   const payload = await fetchPlaudApi(
     session,
     `/file/simple/web?${new URLSearchParams({

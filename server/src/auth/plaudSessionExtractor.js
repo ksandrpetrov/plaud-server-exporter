@@ -82,6 +82,8 @@ function apiBaseFromSnapshot(snapshot, userId) {
  *   workspaceId: string;
  *   sortBy: string;
  *   userId: string;
+ *   authMode?: "oauth" | "snapshot";
+ *   apiMode?: "official" | "web";
  * }} PlaudSession
  */
 
@@ -154,6 +156,8 @@ export function createSessionFromSnapshot(snapshot) {
         : "",
     sortBy: typeof sortBy === "string" && sortBy.trim() ? sortBy : "start_time",
     userId,
+    authMode: "snapshot",
+    apiMode: "web",
   };
 }
 

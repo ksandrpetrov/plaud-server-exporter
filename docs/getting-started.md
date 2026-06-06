@@ -22,14 +22,14 @@ Telegram-бот (long-polling, один процесс под systemd); вход
 2. Скопируйте `.env.example` в `.env`. Задайте `PLAUD_EXPORT_ROOT` на локальную папку, например `~/plaud-exports`, и
    `PLAUD_TIMEZONE`.
 3. Создайте каталог выгрузки: `mkdir -p ~/plaud-exports`.
-4. Войдите в Plaud и сохраните сессию:
+4. Войдите в Plaud и сохраните credentials:
 
    ```bash
    npm run server:auth
    ```
 
-   Откроется Chrome → войдите в Plaud (email/Google). Дождитесь сообщения в терминале про успешную валидацию сессии.
-   Файл: `server/.data/session.json`.
+   По умолчанию откроется **OAuth** (браузер → Authorize → `server/.data/oauth-tokens.json` с auto-refresh).
+   Legacy Playwright snapshot: `npm run server:auth -- --playwright` → `server/.data/session.json`.
 
 5. Проверьте конфиг и сессию:
 
@@ -37,7 +37,8 @@ Telegram-бот (long-polling, один процесс под systemd); вход
    npm run server:status
    ```
 
-   Должно быть `session.snapshot.present: true` и корректный `PLAUD_EXPORT_ROOT`.
+   Должно быть `session.loadStatus: "ok"`, `auth.oauth.present: true` (или `session.snapshot.present` для Playwright)
+   и корректный `PLAUD_EXPORT_ROOT`.
 
 6. (Опционально) Пробный прогон без записи на диск:
 
@@ -53,7 +54,8 @@ Telegram-бот (long-polling, один процесс под systemd); вход
 
 8. Убедитесь, что появились `.md` в `{PLAUD_EXPORT_ROOT}/Plaud/…` (год и дата в имени файла). Код выхода `0` — успех.
 
-Если `server:auth` ругается на Google — [troubleshooting.md](troubleshooting.md#google-блокирует-вход-при-serverauth).
+Если `server:auth` ругается на Google — только для `--playwright`: [troubleshooting.md](troubleshooting.md#google-блокирует-вход-при-serverauth).
+OAuth обычно не требует Playwright.
 
 ### B. Первый sync на сервере (после установки)
 
@@ -62,9 +64,9 @@ Telegram-бот (long-polling, один процесс под systemd); вход
 
 **На Mac** (из корня локального клона):
 
-1. В `.env` на Mac можно оставить тот же `PLAUD_EXPORT_ROOT`, что для проверки; для auth это не критично — важен только
-   `session.json`.
-2. Сохраните сессию:
+1. В `.env` на Mac можно оставить тот же `PLAUD_EXPORT_ROOT`, что для проверки; для auth это не критично — важны
+   `oauth-tokens.json` (OAuth) или `session.json` (Playwright).
+2. Сохраните credentials:
 
    ```bash
    npm run server:auth
@@ -76,7 +78,13 @@ Telegram-бот (long-polling, один процесс под systemd); вход
    ssh YOUR_SSH_USER@YOUR_SERVER_HOST 'echo ok'
    ```
 
-4. Скопируйте сессию на сервер:
+4. Скопируйте credentials на сервер (**OAuth — рекомендуется**):
+
+   ```bash
+   scp server/.data/oauth-tokens.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/oauth-tokens.json
+   ```
+
+   Legacy Playwright snapshot (если использовали `--playwright`):
 
    ```bash
    scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
@@ -84,22 +92,26 @@ Telegram-бот (long-polling, один процесс под systemd); вход
 
 **На сервере** (под своим SSH-пользователем):
 
-1. Положите сессию в каталог приложения и выставьте права (`install` атомарно проставит владельца `plaud` и режим
-   `600`):
+1. Положите credentials в каталог приложения (`install` атомарно проставит владельца `plaud` и режим `600`):
 
    ```bash
    sudo install -d -o plaud -g plaud -m 700 /srv/plaud-exporter/server/.data
-   sudo install -o plaud -g plaud -m 600 /tmp/session.json /srv/plaud-exporter/server/.data/session.json
-   sudo rm -f /tmp/session.json
+   sudo install -o plaud -g plaud -m 600 /tmp/oauth-tokens.json /srv/plaud-exporter/server/.data/oauth-tokens.json
+   sudo rm -f /tmp/oauth-tokens.json
    ```
 
-2. Проверка от пользователя `plaud`:
+   Для legacy snapshot вместо этого — `session.json` (см. выше).
+
+2. На сервере: OAuth использует Developer API (`apiMode: official`) — **без** filetags/папок Plaud.
+   Для mirror папок (`PLAUD_MIRROR_FOLDERS=true`) нужен legacy Playwright snapshot (`--playwright`) и web API.
+
+3. Проверка от пользователя `plaud`:
 
    ```bash
    sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
    ```
 
-3. Первый sync вручную (бот пока не поднимаем):
+4. Первый sync вручную (бот пока не поднимаем):
 
    ```bash
    sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:sync'
@@ -107,7 +119,7 @@ Telegram-бот (long-polling, один процесс под systemd); вход
 
    Либо через обёртку: `sudo /srv/plaud-exporter/scripts/server-as-plaud.sh npm run server:sync`.
 
-4. Проверьте результат:
+5. Проверьте результат:
 
    ```bash
    sudo -u plaud ls -la /srv/plaud-exporter/exports/Plaud/
@@ -121,12 +133,12 @@ Telegram-бот (long-polling, один процесс под systemd); вход
 nginx: [deploy/README.md](../deploy/README.md). Для Obsidian на Mac настройте
 Syncthing — [obsidian-sync.md](obsidian-sync.md).
 
-| Код выхода | Значение                                                     |
-| ---------- | ------------------------------------------------------------ |
-| `0`        | Успех                                                        |
-| `2`        | Нет или битая сессия → снова `server:auth` на Mac и `scp`    |
-| `4`        | Уже идёт другой sync → подождать                             |
-| `1`, `3`   | Ошибка sync / API → [troubleshooting.md](troubleshooting.md) |
+| Код выхода | Значение                                                                         |
+| ---------- | -------------------------------------------------------------------------------- |
+| `0`        | Успех                                                                            |
+| `2`        | Нет или битые credentials → снова `server:auth` на Mac и `scp oauth-tokens.json` |
+| `4`        | Уже идёт другой sync → подождать                                                 |
+| `1`, `3`   | Ошибка sync / API → [troubleshooting.md](troubleshooting.md)                     |
 
 ---
 
@@ -143,12 +155,14 @@ cp .env.example .env
 В `.env` задайте `PLAUD_EXPORT_ROOT` (папка для проверки) и `PLAUD_TIMEZONE` (IANA timezone, например `UTC`).
 
 ```bash
-npm run server:auth          # Chromium → войти в Plaud → сессия в server/.data/session.json
+npm run server:auth          # OAuth (default) → server/.data/oauth-tokens.json
+npm run server:auth -- --playwright   # legacy → session.json
 npm run server:sync          # выгрузка .md
-npm run server:status        # сессия и пути
+npm run server:status        # auth.oauth + session.snapshot + пути
 ```
 
-Сессия протухла — снова `npm run server:auth` и скопируйте `session.json` на сервер (см. ниже).
+Credentials протухли — снова `npm run server:auth` и скопируйте `oauth-tokens.json` (или `session.json` для Playwright)
+на сервер (см. ниже). OAuth refresh на VPS обновляет access token автоматически, пока жив refresh token.
 
 ---
 
@@ -190,7 +204,7 @@ PLAUD_LOG_LEVEL=info
 sudo -u plaud mkdir -p /srv/plaud-exporter/exports /srv/plaud-exporter/server/.data
 ```
 
-**Сессия с Mac.** В `scp` укажите тот же логин, что и в `ssh` (`YOUR_SSH_USER`, **не** системный `plaud` с `nologin`).
+**Credentials с Mac.** В `scp` укажите тот же логин, что и в `ssh` (`YOUR_SSH_USER`, **не** системный `plaud` с `nologin`).
 
 1. Сначала проверьте логин/пароль обычным `ssh` — `scp` использует те же. Если просит пароль и не пускает (
    `Permission denied, please try again.`) — это **тот самый** пароль, что в `scp`: проверяйте здесь, чтобы не вслепую
@@ -200,7 +214,13 @@ sudo -u plaud mkdir -p /srv/plaud-exporter/exports /srv/plaud-exporter/server/.d
    ssh YOUR_SSH_USER@YOUR_SERVER_HOST 'echo ok'
    ```
 
-2. Получили `ok` — копируйте сессию (из корня репозитория):
+2. Получили `ok` — копируйте OAuth tokens (рекомендуется):
+
+   ```bash
+   scp server/.data/oauth-tokens.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/oauth-tokens.json
+   ```
+
+   Legacy Playwright snapshot:
 
    ```bash
    scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
@@ -216,6 +236,13 @@ Permission denied не уходит — раздел «scp: Permission denied» 
 
 ```bash
 sudo install -d -o plaud -g plaud -m 700 /srv/plaud-exporter/server/.data
+sudo install -o plaud -g plaud -m 600 /tmp/oauth-tokens.json /srv/plaud-exporter/server/.data/oauth-tokens.json
+sudo rm -f /tmp/oauth-tokens.json
+```
+
+Legacy snapshot вместо OAuth:
+
+```bash
 sudo install -o plaud -g plaud -m 600 /tmp/session.json /srv/plaud-exporter/server/.data/session.json
 sudo rm -f /tmp/session.json
 ```

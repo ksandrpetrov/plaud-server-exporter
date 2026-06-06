@@ -7,11 +7,16 @@ import test from "node:test";
 const dir = await mkdtemp(join(tmpdir(), "plaud-load-session-"));
 process.env.PLAUD_DATA_DIR = join(dir, ".data");
 process.env.PLAUD_SESSION_PATH = join(dir, ".data", "session.json");
+process.env.PLAUD_OAUTH_TOKENS_PATH = join(dir, ".data", "oauth-tokens.json");
 process.env.PLAUD_EXPORT_ROOT = join(dir, "exports");
+process.env.PLAUD_AUTH_MODE = "auto";
 
 const { loadPlaudSessionFromSnapshotDetailed } =
   await import("../src/auth/loadPlaudSession.js");
-const { saveSessionSnapshot } = await import("../src/auth/sessionStore.js");
+const { saveSessionSnapshot, removeSessionSnapshot } =
+  await import("../src/auth/sessionStore.js");
+const { saveOAuthTokens, removeOAuthTokens } =
+  await import("../src/auth/oauthTokenStore.js");
 
 const FAKE_USER_ID = "u-abcdef";
 
@@ -48,7 +53,23 @@ function validSnapshot() {
   };
 }
 
+test("loadPlaudSessionFromSnapshotDetailed prefers OAuth when tokens present", async () => {
+  await saveOAuthTokens({
+    access_token: "oauth.access.token",
+    expires_at: Date.now() + 3600_000,
+  });
+  await saveSessionSnapshot(validSnapshot());
+  const result = await loadPlaudSessionFromSnapshotDetailed({
+    logContext: "test",
+  });
+  assert.equal(result.status, "ok");
+  assert.equal(result.authSource, "oauth");
+  assert.equal(result.session?.authMode, "oauth");
+});
+
 test("loadPlaudSessionFromSnapshotDetailed returns missing when no snapshot", async () => {
+  await removeOAuthTokens();
+  await removeSessionSnapshot();
   const result = await loadPlaudSessionFromSnapshotDetailed({
     logContext: "test",
   });
