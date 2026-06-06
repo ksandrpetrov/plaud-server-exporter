@@ -20,7 +20,7 @@
 
 **Важно:**
 
-- Не запускайте `npm run server:auth` (Playwright) на VPS — риск OOM. Вход на Mac, `scp session.json`.
+- Не запускайте `npm run server:auth` на VPS — риск OOM. Вход на Mac, затем `scp oauth-tokens.json` (OAuth, default) или `session.json` (Playwright `--playwright`).
 - `npm run server:sync` ~80–150 MB RSS без аудио — нормально на 1 GB, если нет тяжёлых соседей.
 - По желанию: swap 2 GB, если `npm install` не хватает памяти.
 
@@ -80,7 +80,15 @@ PLAUD_LOG_LEVEL=info
 На Mac (локальный клон):
 
 ```bash
-npm run server:auth
+npm run server:auth                    # OAuth → oauth-tokens.json (auto-refresh на VPS)
+# npm run server:auth -- --playwright  # legacy → session.json (нужен для mirror папок)
+scp server/.data/oauth-tokens.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/oauth-tokens.json
+```
+
+Legacy Playwright snapshot (mirror папок `PLAUD_MIRROR_FOLDERS`):
+
+```bash
+npm run server:auth -- --playwright
 scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
 ```
 
@@ -88,6 +96,13 @@ scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
 
 ```bash
 sudo install -d -o plaud -g plaud -m 700 /srv/plaud-exporter/server/.data
+sudo install -o plaud -g plaud -m 600 /tmp/oauth-tokens.json /srv/plaud-exporter/server/.data/oauth-tokens.json
+sudo rm -f /tmp/oauth-tokens.json
+```
+
+Для legacy snapshot вместо OAuth:
+
+```bash
 sudo install -o plaud -g plaud -m 600 /tmp/session.json /srv/plaud-exporter/server/.data/session.json
 sudo rm -f /tmp/session.json
 ```
