@@ -332,7 +332,7 @@ export async function runInteractiveOAuthLogin() {
 export async function validateOAuthSession(session) {
   const cfg = oauthConfig();
   const res = await fetch(
-    `${session.apiBase}/open/third-party/files/?page=1&page_size=1`,
+    `${session.apiBase}/open/third-party/files/?page=1&page_size=10`,
     {
       headers: {
         Authorization: session.authHeader,

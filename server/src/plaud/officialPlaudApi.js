@@ -19,6 +19,17 @@ import {
 } from "../../../plaud-exporter/common/plaudSummaries.js";
 import { fetchUrlTextWithRetries } from "./httpTransport.js";
 
+/** Official API rejects page_size below 10. */
+export const OFFICIAL_API_MIN_PAGE_SIZE = 10;
+
+function officialApiUrl(session, path) {
+  const base = session.apiBase.endsWith("/")
+    ? session.apiBase
+    : `${session.apiBase}/`;
+  const relative = path.startsWith("/") ? path.slice(1) : path;
+  return new URL(relative, base).toString();
+}
+
 function normalizeOfficialFile(rawFile) {
   const id = normalizePlaudRecordingId(rawFile);
   if (!id) return null;
@@ -48,7 +59,7 @@ async function fetchWithTimeout(url, init, timeoutMs) {
  */
 export async function fetchOfficialPlaudApi(session, path, options = {}) {
   const { method = "GET", headers = {} } = options;
-  const url = new URL(path, session.apiBase).toString();
+  const url = officialApiUrl(session, path);
   let lastError;
   const max = config.apiMaxRetries;
 
@@ -178,6 +189,10 @@ export async function fetchOfficialSummaries(session, file) {
  * @param {object} session
  */
 export async function validateOfficialSession(session) {
-  const payload = await listOfficialFilesPage(session, 1, 1);
+  const payload = await listOfficialFilesPage(
+    session,
+    1,
+    OFFICIAL_API_MIN_PAGE_SIZE
+  );
   return Array.isArray(payload?.data) ? payload.data.length : 0;
 }

@@ -57,7 +57,7 @@ async function countOfficialOAuth(tokenPath) {
   const apiBase =
     process.env.PLAUD_API_BASE || "https://platform.plaud.ai/developer/api";
   const res = await fetch(
-    `${apiBase}/open/third-party/files/?page=1&page_size=1`,
+    `${apiBase}/open/third-party/files/?page=1&page_size=10`,
     {
       headers: {
         Authorization: `Bearer ${tokens.access_token}`,
