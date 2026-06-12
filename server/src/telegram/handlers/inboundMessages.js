@@ -1,5 +1,6 @@
 import {
   BOT_HELP_HTML,
+  BOT_HELP_RICH_MARKDOWN,
   BOT_UNKNOWN_COMMAND,
   parseTreeFilePickNumber,
 } from "../messages.js";
@@ -10,7 +11,7 @@ import {
   isStartCommand,
   isStatusCommand,
 } from "../commandParsers.js";
-import { safeSend } from "../botMessageUtils.js";
+import { safeSend, safeSendRich } from "../botMessageUtils.js";
 import { handleTreeFilePick } from "../treeBrowse.js";
 import { handleStart, openMenu, sendStatusMessage } from "./menu.js";
 import { guardAuthorizedPrivateUpdate } from "./privateUpdateGate.js";
@@ -43,7 +44,9 @@ export async function handleMessage(ctx, message) {
     return;
   }
   if (isHelpCommand(text)) {
-    await safeSend(ctx, chatId, BOT_HELP_HTML);
+    await safeSendRich(ctx, chatId, BOT_HELP_RICH_MARKDOWN, {
+      fallbackHtml: BOT_HELP_HTML,
+    });
     return;
   }
   if (isMenuCommand(text)) {

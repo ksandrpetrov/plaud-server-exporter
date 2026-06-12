@@ -4,6 +4,7 @@
 
 import { logger } from "../../logger.js";
 import { clipTelegramText } from "../messages/format.js";
+import { clipRichMarkdown, isRichMessageUnavailable } from "../richFormat.js";
 import { TelegramError } from "../telegramClient.js";
 
 const MIN_DRAFT_INTERVAL_MS = 280;
@@ -43,6 +44,20 @@ function isEmptyTextRejected(err) {
 }
 
 /**
+ * @param {string | { html?: string; richMarkdown?: string | null }} payload
+ * @returns {{ html: string; richMarkdown: string | null }}
+ */
+export function normalizeProgressPayload(payload) {
+  if (typeof payload === "string") {
+    return { html: payload, richMarkdown: null };
+  }
+  return {
+    html: String(payload?.html ?? ""),
+    richMarkdown: payload?.richMarkdown ? String(payload.richMarkdown) : null,
+  };
+}
+
+/**
  * @param {number} chatId
  * @param {number} seed
  * @returns {number}
@@ -50,6 +65,44 @@ function isEmptyTextRejected(err) {
 export function stableDraftId(chatId, seed) {
   const mixed = (chatId * 1_000_003) ^ seed;
   return (mixed % 2_147_483_646) + 1;
+}
+
+/**
+ * @param {{
+ *   telegram: import("../telegramClient.js").TelegramClient;
+ *   chatId: number;
+ *   draftId: number;
+ *   initialMarkdown?: string;
+ * }} params
+ * @returns {Promise<boolean>}
+ */
+export async function tryOpenRichDraft({
+  telegram,
+  chatId,
+  draftId,
+  initialMarkdown = "",
+}) {
+  const clipped = clipRichMarkdown(initialMarkdown);
+  if (!clipped) return false;
+  try {
+    await telegram.sendRichMessageDraft({
+      chatId,
+      draftId,
+      markdown: clipped,
+    });
+    return true;
+  } catch (err) {
+    if (isRichMessageUnavailable(err)) {
+      logger.info("sendRichMessageDraft unavailable at open", {
+        error: String(err?.message || err),
+      });
+      return false;
+    }
+    logger.debug?.("sendRichMessageDraft open failed", {
+      error: String(err?.message || err),
+    });
+    return false;
+  }
 }
 
 /**
@@ -165,48 +218,85 @@ export function createSyncProgressDelivery({
   nowMs = () => Date.now(),
 }) {
   const seed = nowMs();
-  let mode = /** @type {"draft" | "legacy"} */ ("legacy");
+  let mode = /** @type {"rich" | "text" | "legacy"} */ ("legacy");
   let draftId = stableDraftId(chatId, seed);
   let legacyMessageId = loadingMessageId;
   let lastDraftMs = 0;
   let lastPushed = "";
-  let draftFailed = false;
+  let richDraftFailed = false;
+  let textDraftFailed = false;
 
   return {
     draftId,
     isDraftMode() {
-      return mode === "draft" && !draftFailed;
+      if (mode === "legacy") return false;
+      if (mode === "rich") return !richDraftFailed;
+      return !textDraftFailed;
+    },
+    markRichDraftActive() {
+      mode = "rich";
+      richDraftFailed = false;
+      textDraftFailed = false;
     },
     markDraftActive() {
-      mode = "draft";
-      draftFailed = false;
+      mode = "text";
+      textDraftFailed = false;
     },
 
-    async pushProgress(text) {
-      const clipped = clipTelegramText(text);
-      if (draftFailed) {
+    async pushProgress(payload) {
+      const { html, richMarkdown } = normalizeProgressPayload(payload);
+      if (mode === "rich" && !richDraftFailed && richMarkdown) {
+        const clippedRich = clipRichMarkdown(richMarkdown);
+        if (!shouldPushDraft(clippedRich)) return;
+        lastPushed = clippedRich;
+        lastDraftMs = nowMs();
+        try {
+          await telegram.sendRichMessageDraft({
+            chatId,
+            draftId,
+            markdown: clippedRich,
+          });
+          return;
+        } catch (err) {
+          if (isRichMessageUnavailable(err)) {
+            logger.info(
+              "sendRichMessageDraft unavailable, falling back to text draft",
+              { error: String(err?.message || err) }
+            );
+            richDraftFailed = true;
+            mode = "text";
+          } else if (err instanceof TelegramError) {
+            logger.debug?.("sendRichMessageDraft update failed", {
+              error: err.message,
+            });
+            return;
+          }
+        }
+      }
+
+      const clipped = clipTelegramText(html);
+      if (textDraftFailed || mode === "legacy") {
         await pushLegacy(clipped);
         return;
       }
       if (!shouldPushDraft(clipped)) return;
       lastPushed = clipped;
-      const now = nowMs();
-      lastDraftMs = now;
+      lastDraftMs = nowMs();
       try {
         await telegram.sendMessageDraft({
           chatId,
           draftId,
           text: clipped,
         });
-        mode = "draft";
+        mode = "text";
       } catch (err) {
         if (isDraftUnavailable(err)) {
           logger.info("sendMessageDraft unavailable, using legacy delivery", {
             error: String(err?.message || err),
           });
-          draftFailed = true;
+          textDraftFailed = true;
           mode = "legacy";
-          await pushLegacy(text);
+          await pushLegacy(clipped);
           return;
         }
         if (err instanceof TelegramError) {
@@ -219,7 +309,7 @@ export function createSyncProgressDelivery({
 
     async finish({ text, replyMarkup, messageEffectId }) {
       const clipped = clipTelegramText(text);
-      if (mode === "draft" && !draftFailed) {
+      if ((mode === "rich" || mode === "text") && !textDraftFailed) {
         try {
           const result = await telegram.sendMessage({
             chatId,
@@ -293,7 +383,7 @@ export class DraftLoadingPulse {
   /**
    * @param {{
    *   delivery: ReturnType<typeof createSyncProgressDelivery>;
-   *   frames: string[];
+   *   frames: Array<string | { html?: string; richMarkdown?: string | null }>;
    *   frameMs?: number;
    * }} params
    */

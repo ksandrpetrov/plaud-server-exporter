@@ -36,6 +36,21 @@ export const BOT_WELCOME_HTML =
   "\n\n" +
   expandableBlockquote(BOT_COMMANDS_BLOCK, { threshold: 3 });
 
+export const BOT_WELCOME_RICH_MARKDOWN =
+  "# 🛰 Plaud-экспортер на связи\n\n" +
+  "Этот бот приватный: команды доступны только владельцу.\n\n" +
+  "<details>\n<summary>Что умею</summary>\n\n" +
+  "🔄 запустить синк по кнопке\n" +
+  "📊 показать статус последнего синка\n" +
+  "📁 откроить дерево синка и скачать .md по номеру в чате\n" +
+  "⚙️ настроить интервал автоматического запуска\n\n" +
+  "</details>\n\n" +
+  "<details>\n<summary>Команды</summary>\n\n" +
+  "/menu — главное меню\n" +
+  "/status — статус последнего синка\n" +
+  "/help — справка\n\n" +
+  "</details>";
+
 export const BOT_HELP_HTML =
   "🛰 <b>Как пользоваться</b>\n\n" +
   expandableBlockquote(BOT_COMMANDS_BLOCK, { threshold: 3 }) +
@@ -43,6 +58,26 @@ export const BOT_HELP_HTML =
   expandableBlockquote(BOT_MENU_BLOCK, { threshold: 3 }) +
   "\n\n" +
   blockquote(TREE_PICK_TIP);
+
+export const BOT_HELP_RICH_MARKDOWN =
+  "# 🛰 Как пользоваться\n\n" +
+  "<details>\n<summary>Команды</summary>\n\n" +
+  "/menu — главное меню\n" +
+  "/status — статус последнего синка\n" +
+  "/help — справка\n\n" +
+  "</details>\n\n" +
+  "<details>\n<summary>Через /menu доступно</summary>\n\n" +
+  "🔄 запуск синка вручную\n" +
+  "📊 статус последнего синка\n" +
+  "📁 файлы: дерево синка и сводка vault\n" +
+  "⚙️ настройки расписания (интервал автозапуска)\n\n" +
+  "</details>\n\n" +
+  "<details>\n<summary>Дерево синка</summary>\n\n" +
+  "Открой папку — у записей будут номера. " +
+  "Отправь цифру (1–30 на странице), чтобы получить .md: " +
+  "если файла ещё нет на сервере, я сначала запущу синк, а потом пришлю его.\n\n" +
+  "</details>\n\n" +
+  ".md из бота открывается отформатированным во встроенном браузере Telegram.";
 
 export const BOT_PRIVATE_HINT =
   "🛰 Этот бот приватный. Команды доступны только владельцу.";

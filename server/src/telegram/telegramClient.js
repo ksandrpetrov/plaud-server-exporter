@@ -211,6 +211,56 @@ export class TelegramClient {
   }
 
   /**
+   * @param {{
+   *   chatId: number | string;
+   *   markdown: string;
+   *   replyMarkup?: object | null;
+   *   messageEffectId?: string | null;
+   * }} params
+   */
+  async sendRichMessage(params) {
+    return this._sendRichWithFallback({
+      methodName: "sendRichMessage",
+      markdown: params.markdown,
+      buildData: (markdown, { dropEffect = false } = {}) => {
+        const data = {
+          chat_id: params.chatId,
+          rich_message: { markdown },
+        };
+        if (params.replyMarkup != null) {
+          data.reply_markup = JSON.stringify(params.replyMarkup);
+        }
+        if (!dropEffect && params.messageEffectId) {
+          data.message_effect_id = params.messageEffectId;
+        }
+        return data;
+      },
+      timeoutMs: SEND_MESSAGE_TIMEOUT_MS,
+      maxRetries: SEND_MESSAGE_MAX_RETRIES,
+    });
+  }
+
+  /**
+   * @param {{
+   *   chatId: number | string;
+   *   draftId: number;
+   *   markdown: string;
+   * }} params
+   */
+  async sendRichMessageDraft(params) {
+    const data = {
+      chat_id: params.chatId,
+      draft_id: params.draftId,
+      rich_message: { markdown: params.markdown },
+    };
+    return this._call("sendRichMessageDraft", {
+      data,
+      timeoutMs: EDIT_MESSAGE_TIMEOUT_MS,
+      maxRetries: 0,
+    });
+  }
+
+  /**
    * Closes the "loading clock" on an inline button. Best-effort: Telegram
    * shows the spinner for up to 30 s if we don't answer, but if we already
    * edited the message we just want to make the indicator go away.
@@ -300,6 +350,32 @@ export class TelegramClient {
   }
 
   // --- internals ---------------------------------------------------------
+
+  async _sendRichWithFallback({
+    methodName,
+    markdown,
+    buildData,
+    timeoutMs,
+    maxRetries,
+  }) {
+    try {
+      return await this._call(methodName, {
+        data: buildData(markdown),
+        timeoutMs,
+        maxRetries,
+      });
+    } catch (err) {
+      if (!(err instanceof TelegramError)) throw err;
+      if (isMessageEffectRejected(err)) {
+        return this._call(methodName, {
+          data: buildData(markdown, { dropEffect: true }),
+          timeoutMs,
+          maxRetries: 0,
+        });
+      }
+      throw err;
+    }
+  }
 
   async _sendOrEditWithFallback({
     methodName,

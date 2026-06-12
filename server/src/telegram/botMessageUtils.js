@@ -22,6 +22,7 @@
  */
 
 import { logger } from "../logger.js";
+import { isRichMessageUnavailable } from "./richFormat.js";
 
 /**
  * @typedef {{
@@ -57,6 +58,43 @@ export async function safeSend(ctx, chatId, text, options = {}) {
     logger.warn("sendMessage failed", {
       error: String(err?.message || err),
     });
+  }
+}
+
+/**
+ * Sends a rich-markdown message; falls back to HTML via `safeSend`.
+ *
+ * @param {HasTelegram} ctx
+ * @param {number} chatId
+ * @param {string} markdown
+ * @param {{ fallbackHtml?: string; replyMarkup?: object | null; messageEffectId?: string | null; animate?: boolean }} [options]
+ * @returns {Promise<boolean>} true when rich delivery succeeded
+ */
+export async function safeSendRich(ctx, chatId, markdown, options = {}) {
+  if (typeof ctx.telegram.sendRichMessage !== "function") {
+    if (options.fallbackHtml) {
+      await safeSend(ctx, chatId, options.fallbackHtml, options);
+    }
+    return false;
+  }
+  try {
+    await ctx.telegram.sendRichMessage({
+      chatId,
+      markdown,
+      replyMarkup: options.replyMarkup ?? null,
+      messageEffectId: options.messageEffectId ?? null,
+    });
+    return true;
+  } catch (err) {
+    if (!isRichMessageUnavailable(err)) {
+      logger.info("sendRichMessage failed; falling back to HTML", {
+        error: String(err?.message || err),
+      });
+    }
+    if (options.fallbackHtml) {
+      await safeSend(ctx, chatId, options.fallbackHtml, options);
+    }
+    return false;
   }
 }
 

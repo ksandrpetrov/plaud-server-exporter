@@ -18,7 +18,7 @@
  * and route through `botMessageUtils.js`, so they never throw.
  */
 
-import { access } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { config, effectiveVaultRoot } from "../config/config.js";
 import { logger } from "../logger.js";
 import { getRecordByStableId, loadIndexForBot } from "../sync/syncIndexRead.js";
@@ -38,6 +38,10 @@ import {
   TREE_FILE_PICK_NO_CONTEXT_HTML,
   treeFilePickOutOfRangeHtml,
 } from "./messages.js";
+import {
+  prepareSummaryRichMarkdown,
+  isRichMessageUnavailable,
+} from "./richFormat.js";
 import { TypingIndicator } from "./telegramVisual.js";
 import { editToMenuScreen, safeSend } from "./botMessageUtils.js";
 import { loadPlaudLiveSyncTree } from "../plaud/liveTreeReadModel.js";
@@ -191,6 +195,7 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
 
   const directPath = String(item.summaryPath || "").trim();
   if (directPath && (await isReadable(directPath))) {
+    await trySendRichSummary(ctx, chatId, directPath, item.title);
     if (await trySendDocument(ctx, chatId, directPath)) return;
     // The file vanished or Telegram refused — fall through to the sync-then-retry path.
   }
@@ -213,8 +218,25 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
     await safeSend(ctx, chatId, ERR_TREE_FILE_STILL_MISSING_HTML);
     return;
   }
+  await trySendRichSummary(ctx, chatId, freshPath, item.title);
   if (!(await trySendDocument(ctx, chatId, freshPath))) {
     await safeSend(ctx, chatId, ERR_TREE_SEND_DOCUMENT_HTML);
+  }
+}
+
+async function trySendRichSummary(ctx, chatId, documentPath, title) {
+  if (typeof ctx.telegram.sendRichMessage !== "function") return;
+  try {
+    const raw = await readFile(documentPath, "utf8");
+    const markdown = prepareSummaryRichMarkdown({ markdown: raw, title });
+    await ctx.telegram.sendRichMessage({ chatId, markdown });
+  } catch (err) {
+    if (!isRichMessageUnavailable(err)) {
+      logger.info("Rich summary preview failed; document still sent", {
+        path: documentPath,
+        error: String(err?.message || err),
+      });
+    }
   }
 }
 

@@ -18,9 +18,13 @@ import {
   SYNC_LOADING_SCHEDULED_HTML,
   SYNC_NO_SESSION_HTML,
   syncFetchStatusHtml,
+  syncFetchStatusRichMarkdown,
+  syncChecklistRichFrames,
   syncLoadingPulseFrames,
   syncProgressHtml,
+  syncProgressRichMarkdown,
   syncSummaryHtml,
+  syncSummaryRichMarkdown,
 } from "./messages.js";
 import {
   clipTelegramText,
@@ -28,6 +32,7 @@ import {
   DraftLoadingPulse,
   LoadingPulse,
   tryOpenDraft,
+  tryOpenRichDraft,
   TYPEWRITER_FRAME_MS,
 } from "./streamingDelivery.js";
 import { syncActionKey, syncRunGuard } from "./syncGuards.js";
@@ -84,6 +89,7 @@ export async function runSyncWithReporting(params) {
   const loadingHtml =
     source === "scheduled" ? SYNC_LOADING_SCHEDULED_HTML : SYNC_LOADING_HTML;
   const fetchStatusHtml = syncFetchStatusHtml(source);
+  const fetchStatusRich = syncFetchStatusRichMarkdown(source);
   const delivery = createSyncProgressDelivery({
     telegram,
     chatId,
@@ -93,15 +99,29 @@ export async function runSyncWithReporting(params) {
   const typing = new TypingIndicator({ telegram, chatId, nowMs });
   typing.start();
   const draftId = delivery.draftId;
-  const draftLive = await tryOpenDraft({
+  let draftLive = await tryOpenRichDraft({
     telegram,
     chatId,
     draftId,
-    initialText: clipTelegramText(fetchStatusHtml),
+    initialMarkdown: fetchStatusRich,
   });
   if (draftLive) {
-    delivery.markDraftActive();
-    void delivery.pushProgress(fetchStatusHtml);
+    delivery.markRichDraftActive();
+    void delivery.pushProgress({
+      html: fetchStatusHtml,
+      richMarkdown: fetchStatusRich,
+    });
+  } else {
+    draftLive = await tryOpenDraft({
+      telegram,
+      chatId,
+      draftId,
+      initialText: clipTelegramText(fetchStatusHtml),
+    });
+    if (draftLive) {
+      delivery.markDraftActive();
+      void delivery.pushProgress(fetchStatusHtml);
+    }
   }
   const callbackMessageId = params.loadingMessageId ?? null;
 
@@ -119,7 +139,12 @@ export async function runSyncWithReporting(params) {
       });
     }
 
-    const pulseFrames = syncLoadingPulseFrames(source);
+    const pulseFramesHtml = syncLoadingPulseFrames(source);
+    const pulseFramesRich = syncChecklistRichFrames(source);
+    const pulseFrames = pulseFramesHtml.map((html, i) => ({
+      html,
+      richMarkdown: pulseFramesRich[i] ?? pulseFramesRich.at(-1) ?? null,
+    }));
     pulse = draftLive
       ? new DraftLoadingPulse({
           delivery,
@@ -130,7 +155,7 @@ export async function runSyncWithReporting(params) {
           telegram,
           chatId,
           messageId,
-          frames: pulseFrames,
+          frames: pulseFramesHtml,
           frameMs: pulseFrameMs,
         });
     pulse.start();
@@ -165,7 +190,10 @@ export async function runSyncWithReporting(params) {
       if (now - lastEditMs < PROGRESS_THROTTLE_MS) return;
       lastEditMs = now;
       const progressText = syncProgressHtml(stats);
-      void delivery.pushProgress(progressText);
+      void delivery.pushProgress({
+        html: progressText,
+        richMarkdown: syncProgressRichMarkdown(stats),
+      });
       if (!draftLive) {
         void editProgressBestEffort({ telegram, chatId, messageId, stats });
       }
@@ -198,6 +226,10 @@ export async function runSyncWithReporting(params) {
       source,
       durationSec: (nowMs() - startMs) / 1000,
     });
+    const summaryRich = syncSummaryRichMarkdown(stats, {
+      source,
+      durationSec: (nowMs() - startMs) / 1000,
+    });
     const effectId =
       source === "manual"
         ? privateMessageEffect(EFFECT_SPARKLES, chatId)
@@ -209,6 +241,7 @@ export async function runSyncWithReporting(params) {
       messageId,
       draftId,
       text: summaryText,
+      richMarkdown: summaryRich,
       keyboard: buildSyncFinishedKeyboard(),
       messageEffectId: effectId,
       frameMs: typewriterFrameMs,

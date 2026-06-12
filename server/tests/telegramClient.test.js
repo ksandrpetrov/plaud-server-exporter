@@ -205,3 +205,47 @@ test("sendMessage retries without blockquote when Telegram rejects HTML entities
   assert.doesNotMatch(secondBody, /blockquote/);
   client.close();
 });
+
+test("sendRichMessage posts rich_message markdown payload", async () => {
+  const { client, calls } = makeClient({
+    responses: [
+      jsonResponse({
+        body: { ok: true, result: { message_id: 55 } },
+      }),
+    ],
+  });
+
+  const result = await client.sendRichMessage({
+    chatId: 99,
+    markdown: "# Hello\n\nBody",
+  });
+  assert.deepEqual(result, { message_id: 55 });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /sendRichMessage$/);
+  const body = calls[0].options?.body?.toString?.() || "";
+  assert.match(body, /rich_message/);
+  assert.match(body, /Hello/);
+  client.close();
+});
+
+test("sendRichMessageDraft posts draft rich_message payload", async () => {
+  const { client, calls } = makeClient({
+    responses: [
+      jsonResponse({
+        body: { ok: true, result: true },
+      }),
+    ],
+  });
+
+  await client.sendRichMessageDraft({
+    chatId: 1,
+    draftId: 42,
+    markdown: "- [x] Step",
+  });
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /sendRichMessageDraft$/);
+  const body = calls[0].options?.body?.toString?.() || "";
+  assert.match(body, /draft_id=42/);
+  assert.match(body, /rich_message/);
+  client.close();
+});

@@ -6,6 +6,7 @@ import {
 } from "../keyboards.js";
 import {
   BOT_WELCOME_HTML,
+  BOT_WELCOME_RICH_MARKDOWN,
   lastSyncSummaryLine,
   MENU_HEADER,
   settingsScreenHtml,
@@ -17,7 +18,11 @@ import {
   loadEffectiveScheduledSummaryVisible,
   saveBotSettings,
 } from "../botSettings.js";
-import { editToMenuScreen, safeSend } from "../botMessageUtils.js";
+import {
+  editToMenuScreen,
+  safeSend,
+  safeSendRich,
+} from "../botMessageUtils.js";
 import { saveOwnerChat } from "../ownerChat.js";
 import { readStatus } from "../../sync/statusReader.js";
 import { userIdFromPayload, usernameFromPayload } from "../auth.js";
@@ -45,7 +50,8 @@ export async function handleStart(ctx, { chatId, from }) {
       error: String(err?.message || err),
     });
   }
-  await safeSend(ctx, chatId, BOT_WELCOME_HTML, {
+  await safeSendRich(ctx, chatId, BOT_WELCOME_RICH_MARKDOWN, {
+    fallbackHtml: BOT_WELCOME_HTML,
     replyMarkup: buildMainMenuKeyboard(),
   });
 }

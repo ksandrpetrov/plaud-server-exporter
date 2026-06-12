@@ -24,6 +24,7 @@ import {
   TYPEWRITER_FRAME_MS,
 } from "../streamingDelivery.js";
 import { redactError } from "../../security/redact.js";
+import { isRichMessageUnavailable } from "../richFormat.js";
 
 export async function sendOrEditLoading({
   telegram,
@@ -89,6 +90,7 @@ export async function editProgressBestEffort({
  *   messageId: number | null;
  *   draftId: number;
  *   text: string;
+ *   richMarkdown?: string | null;
  *   keyboard?: object | null;
  *   messageEffectId?: string | null;
  *   frameMs?: number;
@@ -104,6 +106,7 @@ export async function revealFinal({
   messageId,
   draftId,
   text,
+  richMarkdown = null,
   keyboard = null,
   messageEffectId = null,
   frameMs = TYPEWRITER_FRAME_MS,
@@ -111,6 +114,25 @@ export async function revealFinal({
   delivery,
   editInPlace = false,
 }) {
+  if (richMarkdown && typeof telegram.sendRichMessage === "function") {
+    try {
+      const result = await telegram.sendRichMessage({
+        chatId,
+        markdown: richMarkdown,
+        replyMarkup: keyboard ?? null,
+        messageEffectId: messageEffectId ?? null,
+      });
+      const mid = Number(result?.message_id);
+      if (Number.isInteger(mid)) return mid;
+    } catch (err) {
+      if (!isRichMessageUnavailable(err)) {
+        logger.info("sendRichMessage failed; falling back to HTML delivery", {
+          error: String(err?.message || err),
+        });
+      }
+    }
+  }
+
   const clipped = clipTelegramText(text);
   await runDraftTypewriterPreview({
     telegram,

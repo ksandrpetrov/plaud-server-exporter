@@ -11,6 +11,7 @@ export {
   isDraftUnavailable,
   stableDraftId,
   tryOpenDraft,
+  tryOpenRichDraft,
 } from "./streaming/draftChannel.js";
 
 export {

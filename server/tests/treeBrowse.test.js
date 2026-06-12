@@ -44,10 +44,12 @@ function fakeCtx(overrides = {}) {
   const edits = [];
   const sends = [];
   const documents = [];
+  const richMessages = [];
   return {
     edits,
     sends,
     documents,
+    richMessages,
     runSyncQuiet: overrides.runSyncQuiet,
     telegram: {
       sendChatAction: async () => true,
@@ -62,6 +64,10 @@ function fakeCtx(overrides = {}) {
       sendDocument: async ({ chatId, documentPath }) => {
         documents.push({ chatId, documentPath });
         return { message_id: 300 };
+      },
+      sendRichMessage: async ({ chatId, markdown }) => {
+        richMessages.push({ chatId, markdown });
+        return { message_id: 301 };
       },
     },
   };
@@ -130,9 +136,33 @@ test("handleTreeFilePick sends document when summary file exists", async () => {
   const ctx = fakeCtx();
   await handleTreeFilePick(ctx, { chatId: 55, pick: 1 });
 
+  assert.equal(ctx.richMessages.length, 1);
+  assert.match(ctx.richMessages[0].markdown, /Hello/);
   assert.equal(ctx.documents.length, 1);
   assert.equal(ctx.documents[0].documentPath, mdPath);
   assert.equal(ctx.sends.length, 0);
+});
+
+test("handleTreeFilePick still sends document when rich preview fails", async () => {
+  const root = await mkdtemp(join(tmpdir(), "plaud-tree-rich-fail-"));
+  const mdPath = join(root, "note.md");
+  await writeFile(mdPath, "# Hello\n", "utf8");
+
+  await setTreeBrowseState(56, {
+    folderIndex: 0,
+    page: 1,
+    items: [{ stableId: "plaud:y", title: "Fail rich", summaryPath: mdPath }],
+  });
+
+  const ctx = fakeCtx();
+  ctx.telegram.sendRichMessage = async () => {
+    throw new Error("sendRichMessage: method not found");
+  };
+
+  await handleTreeFilePick(ctx, { chatId: 56, pick: 1 });
+
+  assert.equal(ctx.documents.length, 1);
+  assert.equal(ctx.documents[0].documentPath, mdPath);
 });
 
 test("handleTreeFilePick runs quiet sync when file is missing", async () => {
