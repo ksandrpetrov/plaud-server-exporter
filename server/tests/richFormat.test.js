@@ -19,6 +19,13 @@ test("clipRichMarkdown clips under max length", () => {
   assert.ok(clipped.length <= RICH_MARKDOWN_MAX_LEN);
 });
 
+test("clipRichMarkdown trims without newline when boundary is too early", () => {
+  const text = "a".repeat(RICH_MARKDOWN_MAX_LEN + 100);
+  const clipped = clipRichMarkdown(text);
+  assert.ok(clipped.length <= RICH_MARKDOWN_MAX_LEN);
+  assert.ok(!clipped.includes("\n"));
+});
+
 test("prepareSummaryRichMarkdown adds title heading and strips BOM", () => {
   const md = prepareSummaryRichMarkdown({
     markdown: "\uFEFF## Section\n\nBody",
