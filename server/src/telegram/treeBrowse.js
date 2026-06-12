@@ -42,8 +42,9 @@ import {
 } from "./messages.js";
 import {
   createSyncProgressDelivery,
-  tryPushThinkingDraft,
-  withThinkingDraft,
+  dismissDraftBubbleBestEffort,
+  tryOpenDraft,
+  tryOpenRichDraft,
 } from "./streamingDelivery.js";
 import { editToMenuScreen, safeSend } from "./botMessageUtils.js";
 import { EFFECT_SPARKLES, privateMessageEffect } from "./telegramVisual.js";
@@ -98,81 +99,73 @@ export async function loadTreeSource() {
 
 export async function showFilesTreeRoot(ctx, { chatId, messageId }) {
   await clearTreeBrowseState(chatId);
-  await withThinkingDraft({
-    telegram: ctx.telegram,
-    chatId,
-    fn: async () => {
-      try {
-        const idx = await loadTreeSource();
-        const root = buildSyncIndexTreeRoot(idx, {
-          vaultRoot: effectiveVaultRoot(),
-          subfolder: config.obsidianSubfolder,
-        });
-        await editToMenuScreen(ctx, {
-          chatId,
-          messageId,
-          text: filesTreeRootHtml(root),
-          keyboard: buildFilesTreeRootKeyboard(root),
-        });
-      } catch (err) {
-        logger.warn("showFilesTreeRoot failed", {
-          error: String(err?.message || err),
-        });
-        await editToMenuScreen(ctx, {
-          chatId,
-          messageId,
-          text: ERR_TREE_LOAD_HTML,
-          keyboard: buildBackToMenuKeyboard(),
-        });
-      }
-    },
-  });
+  try {
+    const idx = await loadTreeSource();
+    const root = buildSyncIndexTreeRoot(idx, {
+      vaultRoot: effectiveVaultRoot(),
+      subfolder: config.obsidianSubfolder,
+    });
+    await editToMenuScreen(ctx, {
+      chatId,
+      messageId,
+      text: filesTreeRootHtml(root),
+      keyboard: buildFilesTreeRootKeyboard(root),
+      animate: false,
+    });
+  } catch (err) {
+    logger.warn("showFilesTreeRoot failed", {
+      error: String(err?.message || err),
+    });
+    await editToMenuScreen(ctx, {
+      chatId,
+      messageId,
+      text: ERR_TREE_LOAD_HTML,
+      keyboard: buildBackToMenuKeyboard(),
+      animate: false,
+    });
+  }
 }
 
 export async function showFilesTreeFolder(
   ctx,
   { chatId, messageId, folderIndex, page }
 ) {
-  await withThinkingDraft({
-    telegram: ctx.telegram,
-    chatId,
-    fn: async () => {
-      try {
-        const idx = await loadTreeSource();
-        const folderPage = buildSyncIndexFolderPage(idx, {
-          folderIndex,
-          page,
-          vaultRoot: effectiveVaultRoot(),
-          subfolder: config.obsidianSubfolder,
-        });
-        if (!folderPage.exists) {
-          await showFilesTreeRoot(ctx, { chatId, messageId });
-          return;
-        }
-        await setTreeBrowseState(chatId, {
-          folderIndex: folderPage.folderIndex,
-          page: folderPage.page,
-          items: folderPage.items,
-        });
-        await editToMenuScreen(ctx, {
-          chatId,
-          messageId,
-          text: filesTreeFolderHtml(folderPage),
-          keyboard: buildFilesTreeFolderKeyboard(folderPage),
-        });
-      } catch (err) {
-        logger.warn("showFilesTreeFolder failed", {
-          error: String(err?.message || err),
-        });
-        await editToMenuScreen(ctx, {
-          chatId,
-          messageId,
-          text: ERR_TREE_LOAD_HTML,
-          keyboard: buildBackToMenuKeyboard(),
-        });
-      }
-    },
-  });
+  try {
+    const idx = await loadTreeSource();
+    const folderPage = buildSyncIndexFolderPage(idx, {
+      folderIndex,
+      page,
+      vaultRoot: effectiveVaultRoot(),
+      subfolder: config.obsidianSubfolder,
+    });
+    if (!folderPage.exists) {
+      await showFilesTreeRoot(ctx, { chatId, messageId });
+      return;
+    }
+    await setTreeBrowseState(chatId, {
+      folderIndex: folderPage.folderIndex,
+      page: folderPage.page,
+      items: folderPage.items,
+    });
+    await editToMenuScreen(ctx, {
+      chatId,
+      messageId,
+      text: filesTreeFolderHtml(folderPage),
+      keyboard: buildFilesTreeFolderKeyboard(folderPage),
+      animate: false,
+    });
+  } catch (err) {
+    logger.warn("showFilesTreeFolder failed", {
+      error: String(err?.message || err),
+    });
+    await editToMenuScreen(ctx, {
+      chatId,
+      messageId,
+      text: ERR_TREE_LOAD_HTML,
+      keyboard: buildBackToMenuKeyboard(),
+      animate: false,
+    });
+  }
 }
 
 /**
@@ -287,24 +280,44 @@ async function runQuietSyncSafely(ctx, chatId) {
     telegram: ctx.telegram,
     chatId,
   });
-  const thinking = await tryPushThinkingDraft({
-    telegram: ctx.telegram,
-    chatId,
-    draftId: delivery.draftId,
-  });
-  if (thinking === "rich") {
-    delivery.markRichDraftActive();
-  } else if (thinking) {
-    delivery.markDraftActive();
-  }
+  let draftActivated = false;
+
+  const pushQuietSyncProgress = async (stats) => {
+    const payload = {
+      html: syncProgressHtml(stats),
+      richMarkdown: syncProgressRichMarkdown(stats),
+    };
+    if (!draftActivated) {
+      draftActivated = true;
+      const richOpened = await tryOpenRichDraft({
+        telegram: ctx.telegram,
+        chatId,
+        draftId: delivery.draftId,
+        initialMarkdown: payload.richMarkdown,
+      });
+      if (richOpened) {
+        delivery.markRichDraftActive();
+        return;
+      }
+      const textOpened = await tryOpenDraft({
+        telegram: ctx.telegram,
+        chatId,
+        draftId: delivery.draftId,
+        initialText: payload.html,
+      });
+      if (textOpened) {
+        delivery.markDraftActive();
+        return;
+      }
+    }
+    await delivery.pushProgress(payload);
+  };
+
   try {
     const result = await ctx.runSyncQuiet({
       chatId,
       onProgress: (stats) => {
-        void delivery.pushProgress({
-          html: syncProgressHtml(stats),
-          richMarkdown: syncProgressRichMarkdown(stats),
-        });
+        void pushQuietSyncProgress(stats);
       },
     });
     return result || { status: "failed" };
@@ -313,6 +326,13 @@ async function runQuietSyncSafely(ctx, chatId) {
       error: String(err?.message || err),
     });
     return { status: "failed" };
+  } finally {
+    if (delivery.isDraftMode()) {
+      await dismissDraftBubbleBestEffort({
+        telegram: ctx.telegram,
+        chatId,
+      });
+    }
   }
 }
 

@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createSyncProgressDelivery,
   deleteStaleProgressMessage,
+  dismissDraftBubbleBestEffort,
   tryOpenDraft,
   tryOpenRichDraft,
 } from "../src/telegram/streaming/draftChannel.js";
@@ -155,4 +156,25 @@ test("createSyncProgressDelivery uses rich draft then falls back to text draft",
     richMarkdown: "- [x] Step 2",
   });
   assert.ok(textCalls >= 1, "should fall back to text draft");
+});
+
+test("dismissDraftBubbleBestEffort sends then deletes a throwaway message", async () => {
+  const sends = [];
+  const deletes = [];
+  const telegram = {
+    sendMessage: async (payload) => {
+      sends.push(payload);
+      return { message_id: 99 };
+    },
+    deleteMessage: async (payload) => {
+      deletes.push(payload);
+      return true;
+    },
+  };
+
+  await dismissDraftBubbleBestEffort({ telegram, chatId: 5 });
+
+  assert.equal(sends.length, 1);
+  assert.equal(sends[0].text, "\u200b");
+  assert.deepEqual(deletes, [{ chatId: 5, messageId: 99 }]);
 });

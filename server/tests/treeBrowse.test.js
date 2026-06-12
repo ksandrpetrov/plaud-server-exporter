@@ -46,12 +46,14 @@ function fakeCtx(overrides = {}) {
   const documents = [];
   const richMessages = [];
   const drafts = [];
+  const deletes = [];
   return {
     edits,
     sends,
     documents,
     richMessages,
     drafts,
+    deletes,
     runSyncQuiet: overrides.runSyncQuiet,
     telegram: {
       sendMessageDraft: async ({ chatId, draftId, text }) => {
@@ -61,6 +63,10 @@ function fakeCtx(overrides = {}) {
       sendMessage: async ({ chatId, text }) => {
         sends.push({ chatId, text });
         return { message_id: sends.length + 200 };
+      },
+      deleteMessage: async ({ chatId, messageId }) => {
+        deletes.push({ chatId, messageId });
+        return true;
       },
       editMessageText: async ({ chatId, messageId, text }) => {
         edits.push({ chatId, messageId, text });
@@ -132,7 +138,7 @@ test("showFilesTreeRoot edits menu with folder list from tree source", async () 
   assert.match(ctx.edits[0].text, /1 записей/);
 });
 
-test("showFilesTreeRoot opens a thinking draft while the tree loads", async () => {
+test("showFilesTreeRoot does not open a thinking draft (inline edit only)", async () => {
   _setTreeBrowseHooksForTests({
     loadIndex: async () => LIVE_INDEX,
     loadLive: async () => null,
@@ -140,9 +146,10 @@ test("showFilesTreeRoot opens a thinking draft while the tree loads", async () =
   const ctx = fakeCtx();
   await showFilesTreeRoot(ctx, { chatId: 42, messageId: 99 });
 
-  assert.ok(
-    ctx.drafts.some((d) => d.text === ""),
-    "thinking bubble (empty draft) should open before the menu edit"
+  assert.equal(
+    ctx.drafts.length,
+    0,
+    "tree navigation edits the menu in place; no orphan draft bubble"
   );
 });
 
@@ -233,12 +240,13 @@ test("handleTreeFilePick runs quiet sync when file is missing", async () => {
 
   assert.equal(syncRuns, 1);
   assert.ok(
-    ctx.drafts.some((d) => d.text === ""),
-    "thinking draft should open before quiet sync progress"
-  );
-  assert.ok(
     ctx.drafts.some((d) => /Идёт синк|Synced:/.test(d.text)),
     "quiet sync should stream progress in draft instead of a static toast"
+  );
+  assert.equal(
+    ctx.deletes.length,
+    1,
+    "draft bubble dismissed after quiet sync"
   );
   assert.equal(ctx.documents.length, 1);
   assert.equal(ctx.documents[0].documentPath, mdPath);

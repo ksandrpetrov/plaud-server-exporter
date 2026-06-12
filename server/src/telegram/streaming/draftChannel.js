@@ -75,6 +75,44 @@ export function stableDraftId(chatId, seed) {
  * @param {number | null | undefined} staleMessageId
  * @param {number | null | undefined} finalMessageId
  */
+/**
+ * Clears the native draft bubble when the final delivery is not `sendMessage`
+ * (e.g. quiet sync → `sendDocument`). `sendMessage` dismisses the draft
+ * channel; we send a minimal throwaway and delete it immediately.
+ *
+ * @param {{
+ *   telegram: import("../telegramClient.js").TelegramClient;
+ *   chatId: number;
+ * }} params
+ */
+export async function dismissDraftBubbleBestEffort({ telegram, chatId }) {
+  if (typeof telegram.sendMessage !== "function") return;
+  try {
+    const result = await telegram.sendMessage({
+      chatId,
+      text: "\u200b",
+    });
+    const mid = Number(result?.message_id);
+    if (
+      Number.isInteger(mid) &&
+      mid > 0 &&
+      typeof telegram.deleteMessage === "function"
+    ) {
+      try {
+        await telegram.deleteMessage({ chatId, messageId: mid });
+      } catch (err) {
+        logger.debug?.("deleteMessage after draft dismiss ignored", {
+          error: String(err?.message || err),
+        });
+      }
+    }
+  } catch (err) {
+    logger.debug?.("dismissDraftBubble ignored", {
+      error: String(err?.message || err),
+    });
+  }
+}
+
 export async function deleteStaleProgressMessage(
   telegram,
   chatId,

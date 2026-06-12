@@ -7,6 +7,7 @@ export { clipTelegramText, safeSliceHtml } from "./messages/format.js";
 
 export {
   createSyncProgressDelivery,
+  dismissDraftBubbleBestEffort,
   DraftLoadingPulse,
   isDraftUnavailable,
   isEmptyTextRejected,

@@ -165,9 +165,9 @@ export async function runDraftThinkingPreview({
 }
 
 /**
- * Holds the thinking bubble while `fn` runs (e.g. tree loading). There is no
- * draft-cancel API: the bubble is superseded by whatever the callback
- * delivers (draft preview, message, or edit) or expires on its own.
+ * Holds the thinking bubble while `fn` runs. Use only when the callback ends
+ * with `sendMessage` (which dismisses the draft). Do not use for inline menu
+ * edits (`editMessageText`) — the draft channel is not cleared by edits.
  *
  * @template T
  * @param {{
