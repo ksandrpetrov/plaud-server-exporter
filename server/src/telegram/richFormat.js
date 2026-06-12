@@ -8,6 +8,12 @@
 /** @type {number} */
 export const RICH_MARKDOWN_MAX_LEN = 30000;
 
+/**
+ * Bot API 10.1 `RichBlockThinking` — native "Thinking…" placeholder for
+ * `sendRichMessageDraft`. Draft-only: never appears in persisted messages.
+ */
+export const RICH_THINKING_MARKDOWN = "<tg-thinking></tg-thinking>";
+
 const RICH_UNAVAILABLE_MARKERS = [
   "sendrichmessage",
   "sendrichmessagedraft",

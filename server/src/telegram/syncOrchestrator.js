@@ -17,8 +17,6 @@ import {
   SYNC_LOADING_HTML,
   SYNC_LOADING_SCHEDULED_HTML,
   SYNC_NO_SESSION_HTML,
-  syncFetchStatusHtml,
-  syncFetchStatusRichMarkdown,
   syncChecklistRichFrames,
   syncLoadingPulseFrames,
   syncProgressHtml,
@@ -26,14 +24,13 @@ import {
   syncSummaryHtml,
   syncSummaryRichMarkdown,
 } from "./messages.js";
+import { RICH_THINKING_MARKDOWN } from "./richFormat.js";
 import {
-  clipTelegramText,
   createSyncProgressDelivery,
   DraftLoadingPulse,
   LoadingPulse,
   tryOpenDraft,
   tryOpenRichDraft,
-  TYPEWRITER_FRAME_MS,
 } from "./streamingDelivery.js";
 import { syncActionKey, syncRunGuard } from "./syncGuards.js";
 import { defaultSessionLoader } from "./sync/syncRunBridge.js";
@@ -43,11 +40,7 @@ import {
   revealFinal,
   sendOrEditLoading,
 } from "./sync/syncProgressPresenter.js";
-import {
-  EFFECT_SPARKLES,
-  privateMessageEffect,
-  TypingIndicator,
-} from "./telegramVisual.js";
+import { EFFECT_SPARKLES, privateMessageEffect } from "./telegramVisual.js";
 
 export { defaultSessionLoader, runSyncSilent } from "./sync/syncRunBridge.js";
 
@@ -65,7 +58,6 @@ const LOADING_PULSE_FRAME_MS = 900;
  *   nowMs?: () => number;
  *   sleep?: (ms: number) => Promise<void>;
  *   pulseFrameMs?: number;
- *   typewriterFrameMs?: number;
  * }} OrchestratorParams
  */
 
@@ -83,44 +75,36 @@ export async function runSyncWithReporting(params) {
     nowMs = () => Date.now(),
     sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
     pulseFrameMs = LOADING_PULSE_FRAME_MS,
-    typewriterFrameMs = TYPEWRITER_FRAME_MS,
   } = params;
 
   const loadingHtml =
     source === "scheduled" ? SYNC_LOADING_SCHEDULED_HTML : SYNC_LOADING_HTML;
-  const fetchStatusHtml = syncFetchStatusHtml(source);
-  const fetchStatusRich = syncFetchStatusRichMarkdown(source);
   const delivery = createSyncProgressDelivery({
     telegram,
     chatId,
     loadingMessageId: params.loadingMessageId,
     nowMs,
   });
-  const typing = new TypingIndicator({ telegram, chatId, nowMs });
-  typing.start();
   const draftId = delivery.draftId;
+  // Open the draft with the native "Thinking…" bubble (replaces the legacy
+  // typing indicator); the checklist pulse takes over from there.
   let draftLive = await tryOpenRichDraft({
     telegram,
     chatId,
     draftId,
-    initialMarkdown: fetchStatusRich,
+    initialMarkdown: RICH_THINKING_MARKDOWN,
   });
   if (draftLive) {
     delivery.markRichDraftActive();
-    void delivery.pushProgress({
-      html: fetchStatusHtml,
-      richMarkdown: fetchStatusRich,
-    });
   } else {
     draftLive = await tryOpenDraft({
       telegram,
       chatId,
       draftId,
-      initialText: clipTelegramText(fetchStatusHtml),
+      initialText: "",
     });
     if (draftLive) {
       delivery.markDraftActive();
-      void delivery.pushProgress(fetchStatusHtml);
     }
   }
   const callbackMessageId = params.loadingMessageId ?? null;
@@ -137,6 +121,7 @@ export async function runSyncWithReporting(params) {
         loadingMessageId: callbackMessageId,
         text: loadingHtml,
       });
+      delivery.setLegacyMessageId(messageId);
     }
 
     const pulseFramesHtml = syncLoadingPulseFrames(source);
@@ -170,7 +155,6 @@ export async function runSyncWithReporting(params) {
         draftId,
         text: SYNC_NO_SESSION_HTML,
         keyboard: buildBackToMenuKeyboard(),
-        frameMs: typewriterFrameMs,
         sleep,
         delivery,
         editInPlace: Boolean(callbackMessageId),
@@ -215,7 +199,6 @@ export async function runSyncWithReporting(params) {
         durationSec: (nowMs() - startMs) / 1000,
         delivery,
         sleep,
-        typewriterFrameMs,
         editInPlace: Boolean(callbackMessageId),
       });
     }
@@ -244,7 +227,6 @@ export async function runSyncWithReporting(params) {
       richMarkdown: summaryRich,
       keyboard: buildSyncFinishedKeyboard(),
       messageEffectId: effectId,
-      frameMs: typewriterFrameMs,
       sleep,
       delivery,
       editInPlace: Boolean(callbackMessageId),
@@ -260,7 +242,6 @@ export async function runSyncWithReporting(params) {
     sentOk = true;
     return { status: "ok", summaryMessageId: finalMessageId ?? undefined };
   } finally {
-    typing.stop();
     pulse?.stop();
     syncRunGuard.release(chatId, syncActionKey(source), { sent: sentOk });
   }

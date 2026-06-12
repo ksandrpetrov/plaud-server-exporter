@@ -42,7 +42,6 @@ function makeFakeTelegram() {
     sendMessageDraft: record("sendMessageDraft"),
     answerCallbackQuery: record("answerCallbackQuery"),
     sendDocument: record("sendDocument"),
-    sendChatAction: record("sendChatAction"),
   };
 }
 
@@ -366,15 +365,14 @@ test("dispatch: username-only legacy mode still works for the matching username"
   });
 });
 
-test("dispatch: with messageAnimator wired in, /menu sends ONE sendMessage + draft typewriter frames", async () => {
+test("dispatch: with messageAnimator wired in, /menu sends ONE sendMessage + thinking draft frames", async () => {
   await withOwnerChatDir(async () => {
     const tg = makeFakeTelegram();
     const animator = createMessageAnimator({
       telegram: tg,
       minLen: 1,
-      maxFrames: 4,
       sleep: () => Promise.resolve(),
-      frameMs: 0,
+      holdMs: 0,
     });
     await dispatchUpdate(
       ctx(tg, { messageAnimator: animator }),
@@ -407,9 +405,8 @@ test("dispatch: with messageAnimator wired in, status callback drafts then edits
     const animator = createMessageAnimator({
       telegram: tg,
       minLen: 1,
-      maxFrames: 5,
       sleep: () => Promise.resolve(),
-      frameMs: 0,
+      holdMs: 0,
     });
     await dispatchUpdate(
       ctx(tg, { messageAnimator: animator }),

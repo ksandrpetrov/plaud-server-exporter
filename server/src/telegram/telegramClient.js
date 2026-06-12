@@ -279,8 +279,21 @@ export class TelegramClient {
   }
 
   /**
-   * @param {{ chatId: number | string; action?: string }} params
+   * Best-effort removal of a stale progress bubble after the final message lands.
+   *
+   * @param {{ chatId: number | string; messageId: number }} params
    */
+  async deleteMessage(params) {
+    return this._call("deleteMessage", {
+      data: {
+        chat_id: params.chatId,
+        message_id: params.messageId,
+      },
+      timeoutMs: EDIT_MESSAGE_TIMEOUT_MS,
+      maxRetries: 0,
+    });
+  }
+
   /**
    * Sends a file as a Telegram document (e.g. vault .md unchanged).
    *
@@ -304,18 +317,6 @@ export class TelegramClient {
       form,
       timeoutMs: SEND_MESSAGE_TIMEOUT_MS,
       maxRetries: SEND_MESSAGE_MAX_RETRIES,
-    });
-  }
-
-  async sendChatAction(params) {
-    const data = {
-      chat_id: params.chatId,
-      action: params.action || "typing",
-    };
-    return this._call("sendChatAction", {
-      data,
-      timeoutMs: EDIT_MESSAGE_TIMEOUT_MS,
-      maxRetries: 0,
     });
   }
 

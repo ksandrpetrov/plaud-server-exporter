@@ -12,10 +12,10 @@
  *
  * If `ctx.messageAnimator` is set (production wiring in
  * `server/src/telegram/index.js`), both `safeSend` and `editToMenuScreen`
- * route through it: long copy is previewed via `sendMessageDraft` in the
- * input field (Чайка/GPT style), then one `sendMessage` or `editMessageText`.
- * When the animator is absent (e.g. in unit tests that build a minimal `ctx`),
- * both helpers fall back to a single bare Telegram call.
+ * route through it: long copy shows the native "Thinking…" draft bubble
+ * (GPT style), then one `sendMessage` or `editMessageText`. When the
+ * animator is absent (e.g. in unit tests that build a minimal `ctx`), both
+ * helpers fall back to a single bare Telegram call.
  *
  * Pass `{ animate: false }` to `safeSend` to force the bare path even when an
  * animator is wired in (used for tiny system toasts, e.g. sync busy).

@@ -42,7 +42,7 @@ import {
   prepareSummaryRichMarkdown,
   isRichMessageUnavailable,
 } from "./richFormat.js";
-import { TypingIndicator } from "./telegramVisual.js";
+import { withThinkingDraft } from "./streamingDelivery.js";
 import { editToMenuScreen, safeSend } from "./botMessageUtils.js";
 import { loadPlaudLiveSyncTree } from "../plaud/liveTreeReadModel.js";
 import {
@@ -95,77 +95,81 @@ export async function loadTreeSource() {
 
 export async function showFilesTreeRoot(ctx, { chatId, messageId }) {
   await clearTreeBrowseState(chatId);
-  const typing = new TypingIndicator({ telegram: ctx.telegram, chatId });
-  typing.start();
-  try {
-    const idx = await loadTreeSource();
-    const root = buildSyncIndexTreeRoot(idx, {
-      vaultRoot: effectiveVaultRoot(),
-      subfolder: config.obsidianSubfolder,
-    });
-    await editToMenuScreen(ctx, {
-      chatId,
-      messageId,
-      text: filesTreeRootHtml(root),
-      keyboard: buildFilesTreeRootKeyboard(root),
-    });
-  } catch (err) {
-    logger.warn("showFilesTreeRoot failed", {
-      error: String(err?.message || err),
-    });
-    await editToMenuScreen(ctx, {
-      chatId,
-      messageId,
-      text: ERR_TREE_LOAD_HTML,
-      keyboard: buildBackToMenuKeyboard(),
-    });
-  } finally {
-    typing.stop();
-  }
+  await withThinkingDraft({
+    telegram: ctx.telegram,
+    chatId,
+    fn: async () => {
+      try {
+        const idx = await loadTreeSource();
+        const root = buildSyncIndexTreeRoot(idx, {
+          vaultRoot: effectiveVaultRoot(),
+          subfolder: config.obsidianSubfolder,
+        });
+        await editToMenuScreen(ctx, {
+          chatId,
+          messageId,
+          text: filesTreeRootHtml(root),
+          keyboard: buildFilesTreeRootKeyboard(root),
+        });
+      } catch (err) {
+        logger.warn("showFilesTreeRoot failed", {
+          error: String(err?.message || err),
+        });
+        await editToMenuScreen(ctx, {
+          chatId,
+          messageId,
+          text: ERR_TREE_LOAD_HTML,
+          keyboard: buildBackToMenuKeyboard(),
+        });
+      }
+    },
+  });
 }
 
 export async function showFilesTreeFolder(
   ctx,
   { chatId, messageId, folderIndex, page }
 ) {
-  const typing = new TypingIndicator({ telegram: ctx.telegram, chatId });
-  typing.start();
-  try {
-    const idx = await loadTreeSource();
-    const folderPage = buildSyncIndexFolderPage(idx, {
-      folderIndex,
-      page,
-      vaultRoot: effectiveVaultRoot(),
-      subfolder: config.obsidianSubfolder,
-    });
-    if (!folderPage.exists) {
-      await showFilesTreeRoot(ctx, { chatId, messageId });
-      return;
-    }
-    await setTreeBrowseState(chatId, {
-      folderIndex: folderPage.folderIndex,
-      page: folderPage.page,
-      items: folderPage.items,
-    });
-    await editToMenuScreen(ctx, {
-      chatId,
-      messageId,
-      text: filesTreeFolderHtml(folderPage),
-      keyboard: buildFilesTreeFolderKeyboard(folderPage),
-    });
-  } catch (err) {
-    logger.warn("showFilesTreeFolder failed", {
-      error: String(err?.message || err),
-    });
-    await editToMenuScreen(ctx, {
-      chatId,
-      messageId,
-      text: ERR_TREE_LOAD_HTML,
-      keyboard: buildBackToMenuKeyboard(),
-    });
-  } finally {
-    typing.stop();
-  }
+  await withThinkingDraft({
+    telegram: ctx.telegram,
+    chatId,
+    fn: async () => {
+      try {
+        const idx = await loadTreeSource();
+        const folderPage = buildSyncIndexFolderPage(idx, {
+          folderIndex,
+          page,
+          vaultRoot: effectiveVaultRoot(),
+          subfolder: config.obsidianSubfolder,
+        });
+        if (!folderPage.exists) {
+          await showFilesTreeRoot(ctx, { chatId, messageId });
+          return;
+        }
+        await setTreeBrowseState(chatId, {
+          folderIndex: folderPage.folderIndex,
+          page: folderPage.page,
+          items: folderPage.items,
+        });
+        await editToMenuScreen(ctx, {
+          chatId,
+          messageId,
+          text: filesTreeFolderHtml(folderPage),
+          keyboard: buildFilesTreeFolderKeyboard(folderPage),
+        });
+      } catch (err) {
+        logger.warn("showFilesTreeFolder failed", {
+          error: String(err?.message || err),
+        });
+        await editToMenuScreen(ctx, {
+          chatId,
+          messageId,
+          text: ERR_TREE_LOAD_HTML,
+          keyboard: buildBackToMenuKeyboard(),
+        });
+      }
+    },
+  });
 }
 
 /**

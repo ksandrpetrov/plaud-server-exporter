@@ -1,13 +1,13 @@
 /**
- * Unit tests for the Чайка-style typewriter wrapper used by
+ * Unit tests for the GPT-style thinking wrapper used by
  * `botMessageUtils.safeSend` / `editToMenuScreen` when the dispatcher has
  * `ctx.messageAnimator` wired in.
  *
  * Three behavioural branches:
- *  - short text → single bare API call, no typewriter
- *  - long text via `send` → multiple `sendMessageDraft` frames (Telegram-native
- *    smooth animation in the user's input field) + one final `sendMessage`
- *  - long text via `edit` → draft preview in the input field, then one
+ *  - short text → single bare API call, no thinking preview
+ *  - long text via `send` → thinking draft + one full-text draft frame
+ *    (native Telegram animation) + one final `sendMessage`
+ *  - long text via `edit` → same thinking preview, then one
  *    `editMessageText` on the menu bubble (no multi-frame in-chat edits)
  *
  * The animator's `safeSend` integration (production wiring in
@@ -37,15 +37,18 @@ function fakeTelegram() {
       calls.push({ name: "sendMessageDraft", payload });
       return true;
     },
-    sendChatAction: async () => true,
+    sendChatAction: async (payload) => {
+      calls.push({ name: "sendChatAction", payload });
+      return true;
+    },
   };
 }
 
 const longText =
   "<b>Plaud экспортер.</b>\n\n" +
   "Готов помочь: смотри меню, выбирай действие, я подсвечу прогресс. " +
-  "Эта строка достаточно длинная, чтобы пройти порог typewriter, " +
-  "потому что иначе плавная Чайка-style анимация в поле ввода не запустится.";
+  "Эта строка достаточно длинная, чтобы пройти порог thinking-превью, " +
+  "потому что иначе GPT-style облачко в поле ввода не запустится.";
 
 test("animator.send: short text falls through to a single sendMessage", async () => {
   const telegram = fakeTelegram();
@@ -53,7 +56,7 @@ test("animator.send: short text falls through to a single sendMessage", async ()
     telegram,
     minLen: 60,
     sleep: () => Promise.resolve(),
-    frameMs: 0,
+    holdMs: 0,
   });
   const id = await animator.send({ chatId: 11, text: "ОК" });
   assert.equal(typeof id, "number");
@@ -62,14 +65,13 @@ test("animator.send: short text falls through to a single sendMessage", async ()
   assert.equal(telegram.calls[0].payload.text, "ОК");
 });
 
-test("animator.send: long text streams via sendMessageDraft + final sendMessage", async () => {
+test("animator.send: long text shows thinking bubble + one full draft + final sendMessage", async () => {
   const telegram = fakeTelegram();
   const animator = createMessageAnimator({
     telegram,
     minLen: 40,
-    maxFrames: 5,
     sleep: () => Promise.resolve(),
-    frameMs: 0,
+    holdMs: 0,
   });
   const replyMarkup = {
     inline_keyboard: [[{ text: "ok", callback_data: "x" }]],
@@ -84,26 +86,37 @@ test("animator.send: long text streams via sendMessageDraft + final sendMessage"
   const sends = telegram.calls.filter((c) => c.name === "sendMessage");
   const drafts = telegram.calls.filter((c) => c.name === "sendMessageDraft");
   const edits = telegram.calls.filter((c) => c.name === "editMessageText");
+  const typing = telegram.calls.filter((c) => c.name === "sendChatAction");
   assert.equal(sends.length, 1, "exactly one sendMessage (final delivery)");
   assert.equal(
     edits.length,
     0,
     "must never edit; jumpy editMessageText path is gone"
   );
-  assert.ok(
-    drafts.length >= 2,
-    `expected several draft frames, got ${drafts.length}`
-  );
-  const draftIds = new Set(drafts.map((d) => d.payload.draftId));
   assert.equal(
-    draftIds.size,
-    1,
-    "all draft frames share one draft_id for smooth animation"
+    typing.length,
+    0,
+    "no typing indicator — the thinking bubble replaces it"
   );
-  const lastDraft = drafts[drafts.length - 1].payload;
-  assert.ok(
-    lastDraft.text.length < longText.length,
-    "draft typewriter ends on a partial prefix (Чайка); full text only in sendMessage"
+  assert.equal(
+    drafts.length,
+    2,
+    "thinking frame + full text frame, no per-chunk typewriter"
+  );
+  assert.equal(
+    drafts[0].payload.text,
+    "",
+    "first draft frame is the native thinking placeholder"
+  );
+  assert.equal(
+    drafts[1].payload.text,
+    longText,
+    "second draft frame carries the full text for the native animation"
+  );
+  assert.equal(
+    drafts[0].payload.draftId,
+    drafts[1].payload.draftId,
+    "draft frames share one draft_id for smooth animation"
   );
   assert.equal(
     sends[0].payload.text,
@@ -122,14 +135,13 @@ test("animator.send: long text streams via sendMessageDraft + final sendMessage"
   );
 });
 
-test("animator.edit: long text drafts then a single editMessageText", async () => {
+test("animator.edit: long text shows thinking preview then a single editMessageText", async () => {
   const telegram = fakeTelegram();
   const animator = createMessageAnimator({
     telegram,
     minLen: 40,
-    maxFrames: 5,
     sleep: () => Promise.resolve(),
-    frameMs: 0,
+    holdMs: 0,
   });
   const id = await animator.edit({
     chatId: 5,
@@ -142,10 +154,12 @@ test("animator.edit: long text drafts then a single editMessageText", async () =
   const sends = telegram.calls.filter((c) => c.name === "sendMessage");
   assert.equal(sends.length, 0, "edit must never call sendMessage");
   const drafts = telegram.calls.filter((c) => c.name === "sendMessageDraft");
-  assert.ok(
-    drafts.length >= 1,
-    `edit should preview via sendMessageDraft, got ${drafts.length}`
+  assert.equal(
+    drafts.length,
+    2,
+    `edit should preview via thinking + full draft, got ${drafts.length}`
   );
+  assert.equal(drafts[0].payload.text, "");
   const edits = telegram.calls.filter((c) => c.name === "editMessageText");
   assert.equal(edits.length, 1, "edit lands with exactly one editMessageText");
   const payload = edits[0].payload;
@@ -160,7 +174,7 @@ test("animator.edit: short text uses one editMessageText", async () => {
     telegram,
     minLen: 50,
     sleep: () => Promise.resolve(),
-    frameMs: 0,
+    holdMs: 0,
   });
   const id = await animator.edit({
     chatId: 5,
@@ -181,7 +195,7 @@ test("animator.send: draft errors do not block the final sendMessage", async () 
     telegram,
     minLen: 40,
     sleep: () => Promise.resolve(),
-    frameMs: 0,
+    holdMs: 0,
   });
   const id = await animator.send({ chatId: 1, text: longText });
   assert.ok(

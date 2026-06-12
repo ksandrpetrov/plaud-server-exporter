@@ -1,5 +1,5 @@
 /**
- * Telegram sync progress UI: loading pulse, draft typewriter, final reveal, errors.
+ * Telegram sync progress UI: loading pulse, thinking preview, final reveal, errors.
  */
 
 import { logger } from "../../logger.js";
@@ -18,10 +18,10 @@ import {
   syncProgressHtml,
   syncSummaryHtml,
 } from "../messages.js";
+import { deleteStaleProgressMessage } from "../streaming/draftChannel.js";
 import {
   clipTelegramText,
-  runDraftTypewriterPreview,
-  TYPEWRITER_FRAME_MS,
+  runDraftThinkingPreview,
 } from "../streamingDelivery.js";
 import { redactError } from "../../security/redact.js";
 import { isRichMessageUnavailable } from "../richFormat.js";
@@ -93,7 +93,6 @@ export async function editProgressBestEffort({
  *   richMarkdown?: string | null;
  *   keyboard?: object | null;
  *   messageEffectId?: string | null;
- *   frameMs?: number;
  *   sleep?: (ms: number) => Promise<void>;
  *   delivery: ReturnType<typeof import("../streamingDelivery.js").createSyncProgressDelivery>;
  *   editInPlace?: boolean;
@@ -109,11 +108,22 @@ export async function revealFinal({
   richMarkdown = null,
   keyboard = null,
   messageEffectId = null,
-  frameMs = TYPEWRITER_FRAME_MS,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   delivery,
   editInPlace = false,
 }) {
+  const clipped = clipTelegramText(text);
+  // Thinking bubble → one full-text draft frame; the final send below
+  // dismisses the draft natively.
+  await runDraftThinkingPreview({
+    telegram,
+    chatId,
+    text: clipped,
+    richMarkdown,
+    draftId,
+    sleep,
+  });
+
   if (richMarkdown && typeof telegram.sendRichMessage === "function") {
     try {
       const result = await telegram.sendRichMessage({
@@ -123,7 +133,10 @@ export async function revealFinal({
         messageEffectId: messageEffectId ?? null,
       });
       const mid = Number(result?.message_id);
-      if (Number.isInteger(mid)) return mid;
+      if (Number.isInteger(mid)) {
+        await deleteStaleProgressMessage(telegram, chatId, messageId, mid);
+        return mid;
+      }
     } catch (err) {
       if (!isRichMessageUnavailable(err)) {
         logger.info("sendRichMessage failed; falling back to HTML delivery", {
@@ -133,16 +146,6 @@ export async function revealFinal({
     }
   }
 
-  const clipped = clipTelegramText(text);
-  await runDraftTypewriterPreview({
-    telegram,
-    chatId,
-    text: clipped,
-    draftId,
-    frameMs,
-    sleep,
-    withTyping: false,
-  });
   if (delivery.isDraftMode()) {
     return finishDelivery({
       delivery,
@@ -263,7 +266,6 @@ export async function handleSyncError({
   durationSec,
   delivery,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
-  typewriterFrameMs = TYPEWRITER_FRAME_MS,
   editInPlace = false,
 }) {
   const failure = classifySyncFailure(err);
@@ -278,7 +280,6 @@ export async function handleSyncError({
       draftId,
       text,
       keyboard: backToMenu,
-      frameMs: typewriterFrameMs,
       sleep,
       delivery,
       editInPlace,

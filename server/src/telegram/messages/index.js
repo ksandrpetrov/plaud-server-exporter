@@ -22,8 +22,6 @@ export {
 export {
   SYNC_LOADING_HTML,
   SYNC_LOADING_SCHEDULED_HTML,
-  syncFetchStatusHtml,
-  syncFetchStatusRichMarkdown,
   syncBusyText,
   syncLoadingPulseFrames,
   syncChecklistRichFrames,

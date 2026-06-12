@@ -46,11 +46,14 @@ function fakeTelegram({ failFirstEdit = false } = {}) {
       });
       return { message_id: messageId };
     },
+    deleteMessage: async ({ chatId, messageId }) => {
+      events.push({ type: "delete", chatId, messageId });
+      return true;
+    },
     sendMessageDraft: async ({ chatId, text }) => {
       events.push({ type: "draft", chatId, text });
       return true;
     },
-    sendChatAction: async () => true,
     answerCallbackQuery: async () => true,
     close: () => {},
   };
@@ -75,7 +78,6 @@ test("manual sync edits the loading message into the final summary", async () =>
     nowMs: () => (now += 1000),
     sleep: noSleep,
     pulseFrameMs: HUGE_PULSE,
-    typewriterFrameMs: 0,
     syncRunner: async ({ onProgress }) => {
       onProgress?.({ processed: 1, total: 2 });
       now += 3_000; // pass the 2s throttle on the next call
@@ -104,6 +106,13 @@ test("manual sync edits the loading message into the final summary", async () =>
   );
   assert.ok(finalSend, "draft finish should send summary into chat");
   assert.match(finalSend.text, /Новых: 1/);
+  const loadingDelete = telegram.events.find(
+    (e) => e.type === "delete" && e.messageId === 555
+  );
+  assert.ok(
+    loadingDelete,
+    "should delete the in-chat loading bubble after the final send"
+  );
   syncRunGuard.reset();
 });
 
@@ -120,7 +129,6 @@ test("scheduled sync sends a fresh message instead of editing", async () => {
     nowMs: () => Date.now(),
     sleep: noSleep,
     pulseFrameMs: HUGE_PULSE,
-    typewriterFrameMs: 0,
     syncRunner: async () => ({
       status: "completed",
       new: 0,
@@ -152,7 +160,6 @@ test("SyncLockError turns into a friendly busy message", async () => {
     nowMs: () => Date.now(),
     sleep: noSleep,
     pulseFrameMs: HUGE_PULSE,
-    typewriterFrameMs: 0,
     syncRunner: async () => {
       throw new SyncLockError("busy", null);
     },
@@ -180,7 +187,6 @@ test("missing session reports SYNC_NO_SESSION_HTML", async () => {
     sessionLoader: async () => null,
     sleep: noSleep,
     pulseFrameMs: HUGE_PULSE,
-    typewriterFrameMs: 0,
     syncRunner: async () => {
       syncCalled = true;
       return {};
@@ -209,7 +215,6 @@ test("PlaudAuthError reports the auth-rejected message", async () => {
     sessionLoader: async () => okSession,
     sleep: noSleep,
     pulseFrameMs: HUGE_PULSE,
-    typewriterFrameMs: 0,
     syncRunner: async () => {
       throw new PlaudAuthError("token expired");
     },
@@ -236,7 +241,6 @@ test("manual sync success may attach message effect in private chat", async () =
     sessionLoader: async () => okSession,
     sleep: noSleep,
     pulseFrameMs: HUGE_PULSE,
-    typewriterFrameMs: 0,
     syncRunner: async () => ({
       status: "completed",
       new: 0,
@@ -253,7 +257,7 @@ test("manual sync success may attach message effect in private chat", async () =
   syncRunGuard.reset();
 });
 
-test("Чайка-style reveal: draft typewriter then sendMessage (no final edit snap)", async () => {
+test("GPT-style reveal: thinking draft then sendMessage (no final edit snap)", async () => {
   syncRunGuard.reset();
   syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
   const telegram = fakeTelegram();
@@ -265,7 +269,6 @@ test("Чайка-style reveal: draft typewriter then sendMessage (no final edit 
     sessionLoader: async () => okSession,
     sleep: noSleep,
     pulseFrameMs: HUGE_PULSE,
-    typewriterFrameMs: 0,
     syncRunner: async () => ({
       status: "completed",
       new: 1200,

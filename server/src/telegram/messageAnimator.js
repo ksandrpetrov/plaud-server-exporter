@@ -1,17 +1,19 @@
 /**
- * Central Чайка-style typewriter wrapper for bot replies.
+ * Central GPT-style "Thinking…" wrapper for bot replies.
  *
  * Two methods that the dispatcher can use instead of bare `sendMessage` /
  * `editMessageText`:
  *
  *  - `send({ chatId, text, replyMarkup, messageEffectId })` — messages at or
- *    above `minLen` are previewed in the user's input field via
- *    `sendMessageDraft`, then delivered as a single `sendMessage`. Shorter
- *    copy and unavailable draft API fall back to one bare `sendMessage`.
+ *    above `minLen` show the native thinking bubble in the user's input
+ *    field, then the full text is pushed once via `sendMessageDraft` (the
+ *    client animates the transition) and delivered as a single
+ *    `sendMessage`. Shorter copy and unavailable draft API fall back to one
+ *    bare `sendMessage`.
  *
  *  - `edit({ chatId, messageId, text, replyMarkup, messageEffectId })` —
- *    same draft preview for long text, then a single `editMessageText` on the
- *    inline menu bubble (no multi-frame in-chat edits — clients don't
+ *    same thinking preview for long text, then a single `editMessageText` on
+ *    the inline menu bubble (no multi-frame in-chat edits — clients don't
  *    interpolate those smoothly).
  *
  * The wiring is opt-in via `ctx.messageAnimator`: if the dispatcher's context
@@ -23,10 +25,9 @@
 import { logger } from "../logger.js";
 import { clipTelegramText } from "./messages/format.js";
 import {
-  runDraftTypewriterPreview,
-  TYPEWRITER_FRAME_MS,
-  TYPEWRITER_MAX_FRAMES,
-  TYPEWRITER_MIN_LEN,
+  runDraftThinkingPreview,
+  THINKING_HOLD_MS,
+  THINKING_PREVIEW_MIN_LEN,
 } from "./streamingDelivery.js";
 
 /**
@@ -50,9 +51,8 @@ import {
 /**
  * @param {{
  *   telegram: import("./telegramClient.js").TelegramClient;
- *   frameMs?: number;
- *   maxFrames?: number;
  *   minLen?: number;
+ *   holdMs?: number;
  *   sleep?: (ms: number) => Promise<void>;
  *   nowMs?: () => number;
  * }} params
@@ -60,20 +60,19 @@ import {
  */
 export function createMessageAnimator({
   telegram,
-  frameMs = TYPEWRITER_FRAME_MS,
-  maxFrames = TYPEWRITER_MAX_FRAMES,
-  minLen = TYPEWRITER_MIN_LEN,
+  minLen = THINKING_PREVIEW_MIN_LEN,
+  holdMs = THINKING_HOLD_MS,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   nowMs = () => Date.now(),
 }) {
-  const previewOpts = { telegram, frameMs, maxFrames, minLen, sleep, nowMs };
+  const previewOpts = { telegram, minLen, holdMs, sleep, nowMs };
 
   return {
     async send({ chatId, text, replyMarkup = null, messageEffectId = null }) {
       const finalText = clipTelegramText(String(text ?? ""));
       if (!finalText) return null;
 
-      await runDraftTypewriterPreview({
+      await runDraftThinkingPreview({
         ...previewOpts,
         chatId,
         text: finalText,
@@ -99,7 +98,7 @@ export function createMessageAnimator({
       const finalText = clipTelegramText(String(text ?? ""));
       if (!finalText) return null;
 
-      await runDraftTypewriterPreview({
+      await runDraftThinkingPreview({
         ...previewOpts,
         chatId,
         text: finalText,

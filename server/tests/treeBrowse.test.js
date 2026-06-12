@@ -45,14 +45,19 @@ function fakeCtx(overrides = {}) {
   const sends = [];
   const documents = [];
   const richMessages = [];
+  const drafts = [];
   return {
     edits,
     sends,
     documents,
     richMessages,
+    drafts,
     runSyncQuiet: overrides.runSyncQuiet,
     telegram: {
-      sendChatAction: async () => true,
+      sendMessageDraft: async ({ chatId, draftId, text }) => {
+        drafts.push({ chatId, draftId, text });
+        return true;
+      },
       sendMessage: async ({ chatId, text }) => {
         sends.push({ chatId, text });
         return { message_id: sends.length + 200 };
@@ -120,6 +125,20 @@ test("showFilesTreeRoot edits menu with folder list from tree source", async () 
   assert.equal(ctx.edits[0].messageId, 99);
   assert.match(ctx.edits[0].text, /Work/);
   assert.match(ctx.edits[0].text, /1 записей/);
+});
+
+test("showFilesTreeRoot opens a thinking draft while the tree loads", async () => {
+  _setTreeBrowseHooksForTests({
+    loadIndex: async () => LIVE_INDEX,
+    loadLive: async () => null,
+  });
+  const ctx = fakeCtx();
+  await showFilesTreeRoot(ctx, { chatId: 42, messageId: 99 });
+
+  assert.ok(
+    ctx.drafts.some((d) => d.text === ""),
+    "thinking bubble (empty draft) should open before the menu edit"
+  );
 });
 
 test("handleTreeFilePick sends document when summary file exists", async () => {

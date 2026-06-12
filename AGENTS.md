@@ -76,7 +76,7 @@
 Средние (500–600 LOC) тоже лучше править прицельно: [`server/src/telegram/messages/`](server/src/telegram/messages/) (
 barrel: `messages.js`), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js), [`server/src/telegram/syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js).
 
-Streaming Telegram (draft/progress/typewriter): barrel [`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js), [`streaming/typewriter.js`](server/src/telegram/streaming/typewriter.js), [`streaming/loadingPulse.js`](server/src/telegram/streaming/loadingPulse.js).
+Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js), [`streaming/thinkingDraft.js`](server/src/telegram/streaming/thinkingDraft.js), [`streaming/loadingPulse.js`](server/src/telegram/streaming/loadingPulse.js).
 
 ### Telegram module map (server)
 
@@ -228,7 +228,7 @@ sync-lock в `content.js` без юнит-теста; stale-lock reclaim (`runLo
   тексты в обработчики.
 - HTML обрезаем через `clipTelegramText` / `TELEGRAM_HTML_MAX_LEN` (`messages/format.js`) — не превышать лимит Telegram
   и не слать «битый» HTML.
-- Не ломать streaming-доставку (`streamingDelivery` → draft/typewriter/loadingPulse): прогресс-сообщение редактируется,
+- Не ломать streaming-доставку (`streamingDelivery` → draft/thinking/loadingPulse): прогресс-сообщение редактируется,
   а не плодит новые.
 - Сохранять ActionGuard/cooldown (`actionGuard.js`): двойной тап и повтор сразу после успеха блокируются.
 - Не менять тексты/кнопки без задачи.

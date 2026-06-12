@@ -38,7 +38,7 @@ export function isDraftUnavailable(err) {
  * @param {unknown} err
  * @returns {boolean}
  */
-function isEmptyTextRejected(err) {
+export function isEmptyTextRejected(err) {
   const text = String(/** @type {any} */ (err)?.message || err).toLowerCase();
   return EMPTY_TEXT_REJECTED_MARKERS.some((m) => text.includes(m));
 }
@@ -65,6 +65,34 @@ export function normalizeProgressPayload(payload) {
 export function stableDraftId(chatId, seed) {
   const mixed = (chatId * 1_000_003) ^ seed;
   return (mixed % 2_147_483_646) + 1;
+}
+
+/**
+ * Removes a superseded in-chat progress bubble once the final message is sent.
+ *
+ * @param {import("../telegramClient.js").TelegramClient} telegram
+ * @param {number} chatId
+ * @param {number | null | undefined} staleMessageId
+ * @param {number | null | undefined} finalMessageId
+ */
+export async function deleteStaleProgressMessage(
+  telegram,
+  chatId,
+  staleMessageId,
+  finalMessageId
+) {
+  const stale = Number(staleMessageId);
+  const final = Number(finalMessageId);
+  if (!Number.isInteger(stale) || stale <= 0) return;
+  if (stale === final) return;
+  if (typeof telegram.deleteMessage !== "function") return;
+  try {
+    await telegram.deleteMessage({ chatId, messageId: stale });
+  } catch (err) {
+    logger.debug?.("deleteMessage ignored", {
+      error: String(err?.message || err),
+    });
+  }
 }
 
 /**
@@ -242,6 +270,10 @@ export function createSyncProgressDelivery({
       mode = "text";
       textDraftFailed = false;
     },
+    setLegacyMessageId(id) {
+      const mid = Number(id);
+      if (Number.isInteger(mid) && mid > 0) legacyMessageId = mid;
+    },
 
     async pushProgress(payload) {
       const { html, richMarkdown } = normalizeProgressPayload(payload);
@@ -318,7 +350,15 @@ export function createSyncProgressDelivery({
             messageEffectId: messageEffectId ?? null,
           });
           const mid = Number(result?.message_id);
-          return Number.isInteger(mid) ? mid : null;
+          if (Number.isInteger(mid)) {
+            await deleteStaleProgressMessage(
+              telegram,
+              chatId,
+              legacyMessageId,
+              mid
+            );
+            return mid;
+          }
         } catch (err) {
           logger.info("Final send after draft failed; falling back to edit", {
             error: String(err?.message || err),

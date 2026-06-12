@@ -10,16 +10,6 @@ export const SYNC_LOADING_HTML =
 export const SYNC_LOADING_SCHEDULED_HTML =
   "🕒 <b>Автозапуск синка по расписанию.</b>\nЭто может занять до минуты.";
 
-export function syncFetchStatusHtml(source) {
-  if (source === "scheduled") {
-    return (
-      "➡️ <b>Plaud готовит сводку по расписанию.</b>\n\n" +
-      "Сейчас принесу результат."
-    );
-  }
-  return "📅 <b>Plaud готовит сводку.</b>\n\nСейчас принесу результат.";
-}
-
 export function syncBusyText(source = "manual") {
   const prefix = source === "scheduled" ? "➡️" : "📅";
   return `${prefix} Уже готовлю сводку или недавно прислала — подожди немного и попробуй снова.`;
@@ -62,16 +52,6 @@ export function syncChecklistRichFrames(source) {
     frames.push(`${header}\n\n${tasks.join("\n")}`);
   }
   return frames;
-}
-
-export function syncFetchStatusRichMarkdown(source) {
-  if (source === "scheduled") {
-    return (
-      "## ➡️ Plaud готовит сводку по расписанию\n\n" +
-      "Сейчас принесу результат."
-    );
-  }
-  return "## 📅 Plaud готовит сводку\n\nСейчас принесу результат.";
 }
 
 export const SYNC_LOCK_BUSY_HTML =

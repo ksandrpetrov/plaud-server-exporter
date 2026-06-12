@@ -9,21 +9,18 @@ export {
   createSyncProgressDelivery,
   DraftLoadingPulse,
   isDraftUnavailable,
+  isEmptyTextRejected,
   stableDraftId,
   tryOpenDraft,
   tryOpenRichDraft,
 } from "./streaming/draftChannel.js";
 
 export {
-  buildTypewriterFrames,
-  runDraftTypewriterPreview,
-  TYPEWRITER_FRAME_MS,
-  TYPEWRITER_MAX_FRAMES,
-  TYPEWRITER_MIN_CHUNK,
-  TYPEWRITER_MIN_LEN,
-  typewriterChunks,
-  typewriterDraftAnimate,
-  typewriterReveal,
-} from "./streaming/typewriter.js";
+  runDraftThinkingPreview,
+  THINKING_HOLD_MS,
+  THINKING_PREVIEW_MIN_LEN,
+  tryPushThinkingDraft,
+  withThinkingDraft,
+} from "./streaming/thinkingDraft.js";
 
 export { LoadingPulse } from "./streaming/loadingPulse.js";
