@@ -94,12 +94,21 @@ test("manual sync edits the loading message into the final summary", async () =>
   });
 
   assert.equal(result.status, "ok");
-  // First we edit the original message into the "loading" state.
-  const firstEdit = telegram.events.find(
-    (e) => e.type === "edit" && /готовит сводку|Запускаю синк/.test(e.text)
+  const thinkingDraft = telegram.events.find(
+    (e) => e.type === "draft" && e.text === ""
   );
-  assert.ok(firstEdit, "should edit loading message first");
-  assert.equal(firstEdit.messageId, 555);
+  assert.ok(
+    thinkingDraft,
+    "draft-live manual sync opens thinking bubble instead of editing callback"
+  );
+  const loadingEdit = telegram.events.find(
+    (e) => e.type === "edit" && /Запускаю синк/.test(e.text)
+  );
+  assert.equal(
+    loadingEdit,
+    undefined,
+    "must not create a parallel loading edit while draft stream is live"
+  );
 
   const finalSend = telegram.events.find(
     (e) => e.type === "send" && /Синк завершён/.test(e.text)

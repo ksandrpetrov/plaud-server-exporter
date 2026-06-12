@@ -4,6 +4,7 @@ import {
   escapeHtml,
   formatDateTimeLocal,
 } from "./format.js";
+import { clipRichMarkdown } from "../richFormat.js";
 
 const BOT_COMMANDS_BLOCK =
   "Команды:\n" +
@@ -100,4 +101,24 @@ export function lastSyncSummaryLine(status) {
     `${lastStats.updated ?? 0} обновлено, ` +
     `${lastStats.errors ?? 0} ошибок`;
   return `📊 Последний синк: ${escapeHtml(formatDateTimeLocal(lastAt))} (${verdict}, ${counters}).`;
+}
+
+function lastSyncSummaryLinePlain(status) {
+  const lastStats = status?.lastSyncStats;
+  const lastAt = status?.lastSyncAt;
+  if (!lastStats || !lastAt) {
+    return "📊 Последний синк: ещё не запускался.";
+  }
+  const verdict = describeStatusVerdict(lastStats.status);
+  const counters =
+    `+${lastStats.new ?? 0} новых, ` +
+    `${lastStats.updated ?? 0} обновлено, ` +
+    `${lastStats.errors ?? 0} ошибок`;
+  return `📊 Последний синк: ${formatDateTimeLocal(lastAt)} (${verdict}, ${counters}).`;
+}
+
+export function buildMainMenuRichMarkdown(status) {
+  return clipRichMarkdown(
+    `# 🛰 Plaud-экспортер\n\n${lastSyncSummaryLinePlain(status)}\n\nВыбери действие:`
+  );
 }

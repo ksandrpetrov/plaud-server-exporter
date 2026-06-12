@@ -45,6 +45,8 @@ import { EFFECT_SPARKLES, privateMessageEffect } from "./telegramVisual.js";
 export { defaultSessionLoader, runSyncSilent } from "./sync/syncRunBridge.js";
 
 const PROGRESS_THROTTLE_MS = 2000;
+const PROGRESS_THROTTLE_LARGE_MS = 1500;
+const LARGE_SYNC_TOTAL = 50;
 const LOADING_PULSE_FRAME_MS = 900;
 
 /**
@@ -114,7 +116,7 @@ export async function runSyncWithReporting(params) {
   let pulse = null;
   try {
     let messageId = callbackMessageId;
-    if (!draftLive || callbackMessageId) {
+    if (!draftLive) {
       messageId = await sendOrEditLoading({
         telegram,
         chatId,
@@ -122,6 +124,8 @@ export async function runSyncWithReporting(params) {
         text: loadingHtml,
       });
       delivery.setLegacyMessageId(messageId);
+    } else if (callbackMessageId) {
+      delivery.setLegacyMessageId(callbackMessageId);
     }
 
     const pulseFramesHtml = syncLoadingPulseFrames(source);
@@ -165,13 +169,18 @@ export async function runSyncWithReporting(params) {
 
     let lastEditMs = 0;
     let firstProgress = true;
+    let progressThrottleMs = PROGRESS_THROTTLE_MS;
     const onProgress = (stats) => {
       if (firstProgress) {
         firstProgress = false;
         pulse?.stop();
       }
+      const total = Number(stats?.total ?? 0);
+      if (total > LARGE_SYNC_TOTAL) {
+        progressThrottleMs = PROGRESS_THROTTLE_LARGE_MS;
+      }
       const now = nowMs();
-      if (now - lastEditMs < PROGRESS_THROTTLE_MS) return;
+      if (now - lastEditMs < progressThrottleMs) return;
       lastEditMs = now;
       const progressText = syncProgressHtml(stats);
       void delivery.pushProgress({

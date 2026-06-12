@@ -18,7 +18,7 @@
  * and route through `botMessageUtils.js`, so they never throw.
  */
 
-import { access, readFile } from "node:fs/promises";
+import { access } from "node:fs/promises";
 import { config, effectiveVaultRoot } from "../config/config.js";
 import { logger } from "../logger.js";
 import { getRecordByStableId, loadIndexForBot } from "../sync/syncIndexRead.js";
@@ -34,16 +34,19 @@ import {
   ERR_TREE_SEND_DOCUMENT_HTML,
   filesTreeFolderHtml,
   filesTreeRootHtml,
-  TREE_FILE_PICK_AUTO_SYNC_STARTED_HTML,
+  stripLeadingDateFromTreeTitle,
+  syncProgressHtml,
+  syncProgressRichMarkdown,
   TREE_FILE_PICK_NO_CONTEXT_HTML,
   treeFilePickOutOfRangeHtml,
 } from "./messages.js";
 import {
-  prepareSummaryRichMarkdown,
-  isRichMessageUnavailable,
-} from "./richFormat.js";
-import { withThinkingDraft } from "./streamingDelivery.js";
+  createSyncProgressDelivery,
+  tryPushThinkingDraft,
+  withThinkingDraft,
+} from "./streamingDelivery.js";
 import { editToMenuScreen, safeSend } from "./botMessageUtils.js";
+import { EFFECT_SPARKLES, privateMessageEffect } from "./telegramVisual.js";
 import { loadPlaudLiveSyncTree } from "../plaud/liveTreeReadModel.js";
 import {
   clearTreeBrowseState,
@@ -184,7 +187,9 @@ export async function showFilesTreeFolder(
 export async function handleTreeFilePick(ctx, { chatId, pick }) {
   const state = await getTreeBrowseState(chatId);
   if (!state?.items?.length) {
-    await safeSend(ctx, chatId, TREE_FILE_PICK_NO_CONTEXT_HTML);
+    await safeSend(ctx, chatId, TREE_FILE_PICK_NO_CONTEXT_HTML, {
+      animate: false,
+    });
     return;
   }
   const item = treeBrowseItemAtPick(state, pick);
@@ -192,19 +197,19 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
     await safeSend(
       ctx,
       chatId,
-      treeFilePickOutOfRangeHtml(pick, state.items.length)
+      treeFilePickOutOfRangeHtml(pick, state.items.length),
+      {
+        animate: false,
+      }
     );
     return;
   }
 
   const directPath = String(item.summaryPath || "").trim();
   if (directPath && (await isReadable(directPath))) {
-    await trySendRichSummary(ctx, chatId, directPath, item.title);
-    if (await trySendDocument(ctx, chatId, directPath)) return;
+    if (await trySendDocument(ctx, chatId, directPath, item)) return;
     // The file vanished or Telegram refused — fall through to the sync-then-retry path.
   }
-
-  await safeSend(ctx, chatId, TREE_FILE_PICK_AUTO_SYNC_STARTED_HTML);
 
   const syncResult = await runQuietSyncSafely(ctx, chatId);
   if (syncResult.status !== "ok") {
@@ -213,35 +218,35 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
       stableId: item.stableId,
       status: syncResult.status,
     });
-    await safeSend(ctx, chatId, ERR_TREE_AUTO_SYNC_FAILED_HTML);
+    await safeSend(ctx, chatId, ERR_TREE_AUTO_SYNC_FAILED_HTML, {
+      animate: false,
+    });
     return;
   }
 
   const freshPath = await resolveSummaryPathAfterSync(item.stableId);
   if (!freshPath) {
-    await safeSend(ctx, chatId, ERR_TREE_FILE_STILL_MISSING_HTML);
+    await safeSend(ctx, chatId, ERR_TREE_FILE_STILL_MISSING_HTML, {
+      animate: false,
+    });
     return;
   }
-  await trySendRichSummary(ctx, chatId, freshPath, item.title);
-  if (!(await trySendDocument(ctx, chatId, freshPath))) {
-    await safeSend(ctx, chatId, ERR_TREE_SEND_DOCUMENT_HTML);
+  if (!(await trySendDocument(ctx, chatId, freshPath, item))) {
+    await safeSend(ctx, chatId, ERR_TREE_SEND_DOCUMENT_HTML, {
+      animate: false,
+    });
   }
 }
 
-async function trySendRichSummary(ctx, chatId, documentPath, title) {
-  if (typeof ctx.telegram.sendRichMessage !== "function") return;
-  try {
-    const raw = await readFile(documentPath, "utf8");
-    const markdown = prepareSummaryRichMarkdown({ markdown: raw, title });
-    await ctx.telegram.sendRichMessage({ chatId, markdown });
-  } catch (err) {
-    if (!isRichMessageUnavailable(err)) {
-      logger.info("Rich summary preview failed; document still sent", {
-        path: documentPath,
-        error: String(err?.message || err),
-      });
-    }
-  }
+async function buildDocumentCaption(item) {
+  const title = stripLeadingDateFromTreeTitle(
+    item?.date,
+    String(item?.title || "Запись")
+  );
+  const parts = [title];
+  if (item?.date) parts.push(String(item.date));
+  if (item?.folder) parts.push(String(item.folder));
+  return parts.join(" · ");
 }
 
 async function isReadable(path) {
@@ -253,9 +258,14 @@ async function isReadable(path) {
   }
 }
 
-async function trySendDocument(ctx, chatId, documentPath) {
+async function trySendDocument(ctx, chatId, documentPath, item) {
   try {
-    await ctx.telegram.sendDocument({ chatId, documentPath });
+    await ctx.telegram.sendDocument({
+      chatId,
+      documentPath,
+      caption: await buildDocumentCaption(item),
+      messageEffectId: privateMessageEffect(EFFECT_SPARKLES, chatId),
+    });
     return true;
   } catch (err) {
     logger.warn("sendDocument failed", {
@@ -273,8 +283,30 @@ async function runQuietSyncSafely(ctx, chatId) {
     );
     return { status: "failed" };
   }
+  const delivery = createSyncProgressDelivery({
+    telegram: ctx.telegram,
+    chatId,
+  });
+  const thinking = await tryPushThinkingDraft({
+    telegram: ctx.telegram,
+    chatId,
+    draftId: delivery.draftId,
+  });
+  if (thinking === "rich") {
+    delivery.markRichDraftActive();
+  } else if (thinking) {
+    delivery.markDraftActive();
+  }
   try {
-    const result = await ctx.runSyncQuiet({ chatId });
+    const result = await ctx.runSyncQuiet({
+      chatId,
+      onProgress: (stats) => {
+        void delivery.pushProgress({
+          html: syncProgressHtml(stats),
+          richMarkdown: syncProgressRichMarkdown(stats),
+        });
+      },
+    });
     return result || { status: "failed" };
   } catch (err) {
     logger.warn("runSyncQuiet threw", {

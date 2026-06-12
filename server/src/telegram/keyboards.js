@@ -31,7 +31,13 @@ import { INTERVAL_PRESETS_MIN } from "./botSettings.js";
 export function buildMainMenuKeyboard() {
   return {
     inline_keyboard: [
-      [{ text: "🔄 Запустить синк сейчас", callback_data: CB_RUN_SYNC }],
+      [
+        {
+          text: "🔄 Запустить синк сейчас",
+          callback_data: CB_RUN_SYNC,
+          style: "primary",
+        },
+      ],
       [{ text: "📊 Статус последнего синка", callback_data: CB_STATUS }],
       [{ text: "📁 Файлы", callback_data: CB_FILES }],
       [{ text: "⚙️ Настройки расписания", callback_data: CB_SETTINGS }],
@@ -154,7 +160,11 @@ export function buildSettingsKeyboard(
   const buttons = INTERVAL_PRESETS_MIN.map((min) => {
     const isActive = min === activeIntervalMin;
     const label = isActive ? `✅ ${min} мин` : `${min} мин`;
-    return { text: label, callback_data: presetToCallback[min] };
+    return {
+      text: label,
+      callback_data: presetToCallback[min],
+      ...(isActive ? { style: "success" } : {}),
+    };
   });
   const summaryLabel = scheduledSummaryVisible
     ? "🔔 Сообщения автосинка: вкл"

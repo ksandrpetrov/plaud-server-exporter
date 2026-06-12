@@ -1,9 +1,28 @@
+import { expandableBlockquote } from "../htmlFormat.js";
 import {
+  clipTelegramText,
   describeStatusVerdict,
   escapeHtml,
   formatDateTimeLocal,
 } from "./format.js";
 import { clipRichMarkdown } from "../richFormat.js";
+
+const SYNC_PROGRESS_STEPS = [
+  "Подключение к Plaud",
+  "Список записей",
+  "Скачивание саммари",
+];
+
+/**
+ * @param {object} [_stats]
+ * @returns {string}
+ */
+export function syncProgressChecklistMarkdown(_stats) {
+  return SYNC_PROGRESS_STEPS.map((label, i) => {
+    const mark = i < 2 ? "x" : " ";
+    return `- [${mark}] ${label}`;
+  }).join("\n");
+}
 
 export const SYNC_LOADING_HTML =
   "🛰 <b>Запускаю синк…</b>\nЭто может занять до минуты.";
@@ -115,6 +134,14 @@ export function syncSummaryRichMarkdown(stats, meta) {
     `| Ошибок | ${stats.errors ?? 0} |`,
   ].join("\n");
   let md = `${header}${duration}\n\n${table}`;
+  const skipped = Number(stats?.skipped ?? 0);
+  const errors = Number(stats?.errors ?? 0);
+  if (skipped > 0 || errors > 0) {
+    const lines = [];
+    if (skipped > 0) lines.push(`- Пропущено: ${skipped}`);
+    if (errors > 0) lines.push(`- Ошибок: ${errors}`);
+    md += `\n\n<details open>\n<summary>Детали</summary>\n\n${lines.join("\n")}\n\n</details>`;
+  }
   if (stats.plaudChanged) {
     md += "\n\n> ⚠️ Plaud, похоже, поменял API — нужна ручная проверка.";
   }
@@ -124,10 +151,20 @@ export function syncSummaryRichMarkdown(stats, meta) {
 export function syncProgressHtml(stats) {
   const processed = Number(stats?.processed ?? 0);
   const total = Number(stats?.total ?? 0);
-  if (total <= 0) {
-    return `⏳ Идёт синк… обработано ${processed}.`;
+  const pct = total > 0 ? ` (${Math.round((processed / total) * 100)}%)` : "";
+  const counter =
+    total <= 0
+      ? `обработано ${processed}`
+      : `обработано ${processed} из ${total}${pct}`;
+  const lines = [`⏳ <b>Идёт синк…</b>`, counter];
+  const lastMessage = String(stats?.lastMessage || "").trim();
+  if (lastMessage) {
+    lines.push(
+      "",
+      expandableBlockquote(escapeHtml(lastMessage), { threshold: 1 })
+    );
   }
-  return `⏳ Идёт синк… обработано ${processed} из ${total}.`;
+  return clipTelegramText(lines.join("\n"));
 }
 
 /**
@@ -137,11 +174,21 @@ export function syncProgressHtml(stats) {
 export function syncProgressRichMarkdown(stats) {
   const processed = Number(stats?.processed ?? 0);
   const total = Number(stats?.total ?? 0);
-  const line =
-    total <= 0
-      ? `**обработано ${processed}**`
-      : `**обработано ${processed} из ${total}**`;
-  return clipRichMarkdown(`## ⏳ Идёт синк…\n\n${line}`);
+  const pct = total > 0 ? ` (${Math.round((processed / total) * 100)}%)` : "";
+  const counter =
+    total <= 0 ? `**${processed}**` : `**${processed} / ${total}**${pct}`;
+  const parts = [
+    "## ⏳ Идёт синк…",
+    "",
+    counter,
+    "",
+    syncProgressChecklistMarkdown(stats),
+  ];
+  const lastMessage = String(stats?.lastMessage || "").trim();
+  if (lastMessage) {
+    parts.push("", `> ${lastMessage.replace(/\n/g, " ")}`);
+  }
+  return clipRichMarkdown(parts.join("\n"));
 }
 
 export function statusScreenHtml(status) {
@@ -154,11 +201,17 @@ export function statusScreenHtml(status) {
     "",
     `🕘 Завершён: ${escapeHtml(formatDateTimeLocal(status.lastSyncAt))}`,
     `🏁 Итог: ${escapeHtml(describeStatusVerdict(stats.status))}`,
-    `📥 Новых: ${stats.new ?? 0}`,
-    `✏️ Обновлено: ${stats.updated ?? 0}`,
-    `🟢 Без изменений: ${stats.unchanged ?? 0}`,
-    `⏭ Пропущено: ${stats.skipped ?? 0}`,
-    `⚠️ Ошибок: ${stats.errors ?? 0}`,
+    "",
+    expandableBlockquote(
+      [
+        `📥 Новых: ${stats.new ?? 0}`,
+        `✏️ Обновлено: ${stats.updated ?? 0}`,
+        `🟢 Без изменений: ${stats.unchanged ?? 0}`,
+        `⏭ Пропущено: ${stats.skipped ?? 0}`,
+        `⚠️ Ошибок: ${stats.errors ?? 0}`,
+      ].join("\n"),
+      { threshold: 3 }
+    ),
   ];
   if (status.lastAuthError?.message) {
     lines.push(
@@ -167,4 +220,31 @@ export function statusScreenHtml(status) {
     );
   }
   return lines.join("\n");
+}
+
+/**
+ * @param {object} status
+ * @returns {string}
+ */
+export function statusScreenRichMarkdown(status) {
+  if (!status?.lastSyncStats || !status?.lastSyncAt) {
+    return clipRichMarkdown("# 📊 Статус\n\nСинк ещё ни разу не запускался.");
+  }
+  const stats = status.lastSyncStats;
+  const table = [
+    "| Метрика | Значение |",
+    "| --- | --- |",
+    `| Завершён | ${formatDateTimeLocal(status.lastSyncAt)} |`,
+    `| Итог | ${describeStatusVerdict(stats.status)} |`,
+    `| Новых | ${stats.new ?? 0} |`,
+    `| Обновлено | ${stats.updated ?? 0} |`,
+    `| Без изменений | ${stats.unchanged ?? 0} |`,
+    `| Пропущено | ${stats.skipped ?? 0} |`,
+    `| Ошибок | ${stats.errors ?? 0} |`,
+  ].join("\n");
+  let md = `# 📊 Статус последнего синка\n\n${table}`;
+  if (status.lastAuthError?.message) {
+    md += `\n\n> ⚠️ Последняя ошибка авторизации: ${status.lastAuthError.message}`;
+  }
+  return clipRichMarkdown(md);
 }

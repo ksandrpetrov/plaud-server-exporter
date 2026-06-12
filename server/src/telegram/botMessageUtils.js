@@ -152,10 +152,57 @@ export async function answerBestEffort(ctx, callback, options = {}) {
     await ctx.telegram.answerCallbackQuery({
       callbackQueryId: id,
       text: options.text ?? undefined,
+      show_alert: options.showAlert ? true : undefined,
     });
   } catch (err) {
     logger.info("answerCallbackQuery failed", {
       error: String(err?.message || err),
     });
   }
+}
+
+/**
+ * Premium inline-screen delivery: delete the callback bubble and send a rich
+ * message when the API supports it; otherwise edit the bubble with HTML.
+ *
+ * @param {HasTelegram} ctx
+ * @param {{
+ *   chatId: number;
+ *   messageId: number;
+ *   richMarkdown: string;
+ *   fallbackHtml: string;
+ *   keyboard?: object | null;
+ *   animate?: boolean;
+ * }} params
+ * @returns {Promise<boolean>} true when rich delivery succeeded
+ */
+export async function safeCallbackRichScreen(
+  ctx,
+  { chatId, messageId, richMarkdown, fallbackHtml, keyboard = null, animate }
+) {
+  if (typeof ctx.telegram.sendRichMessage === "function") {
+    try {
+      if (typeof ctx.telegram.deleteMessage === "function") {
+        await ctx.telegram.deleteMessage({ chatId, messageId });
+      }
+    } catch (err) {
+      logger.debug?.("deleteMessage before rich screen failed", {
+        error: String(err?.message || err),
+      });
+    }
+    const ok = await safeSendRich(ctx, chatId, richMarkdown, {
+      fallbackHtml,
+      replyMarkup: keyboard,
+      animate,
+    });
+    if (ok) return true;
+  }
+  await editToMenuScreen(ctx, {
+    chatId,
+    messageId,
+    text: fallbackHtml,
+    keyboard,
+    animate,
+  });
+  return false;
 }

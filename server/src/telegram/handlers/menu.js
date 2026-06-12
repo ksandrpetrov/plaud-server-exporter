@@ -7,10 +7,13 @@ import {
 import {
   BOT_WELCOME_HTML,
   BOT_WELCOME_RICH_MARKDOWN,
+  buildMainMenuRichMarkdown,
   lastSyncSummaryLine,
   MENU_HEADER,
   settingsScreenHtml,
+  settingsScreenRichMarkdown,
   statusScreenHtml,
+  statusScreenRichMarkdown,
 } from "../messages.js";
 import {
   isAllowedInterval,
@@ -20,7 +23,7 @@ import {
 } from "../botSettings.js";
 import {
   editToMenuScreen,
-  safeSend,
+  safeCallbackRichScreen,
   safeSendRich,
 } from "../botMessageUtils.js";
 import { saveOwnerChat } from "../ownerChat.js";
@@ -62,7 +65,8 @@ export function buildMainMenuText(status) {
 
 export async function openMenu(ctx, chatId) {
   const status = await readStatus();
-  await safeSend(ctx, chatId, buildMainMenuText(status), {
+  await safeSendRich(ctx, chatId, buildMainMenuRichMarkdown(status), {
+    fallbackHtml: buildMainMenuText(status),
     replyMarkup: buildMainMenuKeyboard(),
   });
 }
@@ -79,7 +83,8 @@ export async function openMenuAtMessage(ctx, { chatId, messageId }) {
 
 export async function sendStatusMessage(ctx, chatId) {
   const status = await readStatus();
-  await safeSend(ctx, chatId, statusScreenHtml(status), {
+  await safeSendRich(ctx, chatId, statusScreenRichMarkdown(status), {
+    fallbackHtml: statusScreenHtml(status),
     replyMarkup: buildBackToMenuKeyboard(),
   });
 }
@@ -96,10 +101,15 @@ export async function renderSettingsScreen(
   const resolvedVisible =
     scheduledSummaryVisible ?? (await loadEffectiveScheduledSummaryVisible());
   const status = await readStatus();
-  await editToMenuScreen(ctx, {
+  await safeCallbackRichScreen(ctx, {
     chatId,
     messageId,
-    text: settingsScreenHtml({
+    richMarkdown: settingsScreenRichMarkdown({
+      intervalMin: resolvedInterval,
+      lastSyncAt: status?.lastSyncAt || null,
+      scheduledSummaryVisible: resolvedVisible,
+    }),
+    fallbackHtml: settingsScreenHtml({
       intervalMin: resolvedInterval,
       lastSyncAt: status?.lastSyncAt || null,
       scheduledSummaryVisible: resolvedVisible,

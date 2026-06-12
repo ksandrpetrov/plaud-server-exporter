@@ -4,8 +4,15 @@ import {
   buildFilesMenuKeyboard,
 } from "../keyboards.js";
 import { parseFilesTreeFolderCallback } from "../callbackData.js";
-import { filesMenuHtml, filesStatsHtml } from "../messages.js";
-import { editToMenuScreen } from "../botMessageUtils.js";
+import {
+  filesMenuHtml,
+  filesStatsHtml,
+  filesStatsRichMarkdown,
+} from "../messages.js";
+import {
+  editToMenuScreen,
+  safeCallbackRichScreen,
+} from "../botMessageUtils.js";
 import { showFilesTreeFolder, showFilesTreeRoot } from "../treeBrowse.js";
 import { scanVaultSummary } from "../vaultTree.js";
 
@@ -29,10 +36,11 @@ export async function handleFilesStatsCallback({ ctx, chatId, messageId }) {
     vaultRoot: effectiveVaultRoot(),
     subfolder: config.obsidianSubfolder,
   });
-  await editToMenuScreen(ctx, {
+  await safeCallbackRichScreen(ctx, {
     chatId,
     messageId,
-    text: filesStatsHtml(stats),
+    richMarkdown: filesStatsRichMarkdown(stats),
+    fallbackHtml: filesStatsHtml(stats),
     keyboard: buildBackToMenuKeyboard(),
   });
   return false;

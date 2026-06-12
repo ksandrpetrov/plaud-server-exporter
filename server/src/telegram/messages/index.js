@@ -17,6 +17,7 @@ export {
   MENU_HEADER,
   MENU_CLOSED_TEXT,
   lastSyncSummaryLine,
+  buildMainMenuRichMarkdown,
 } from "./menu.js";
 
 export {
@@ -34,10 +35,16 @@ export {
   syncSummaryRichMarkdown,
   syncProgressHtml,
   syncProgressRichMarkdown,
+  syncProgressChecklistMarkdown,
   statusScreenHtml,
+  statusScreenRichMarkdown,
 } from "./sync.js";
 
-export { SETTINGS_CLOSED_TEXT, settingsScreenHtml } from "./settings.js";
+export {
+  SETTINGS_CLOSED_TEXT,
+  settingsScreenHtml,
+  settingsScreenRichMarkdown,
+} from "./settings.js";
 
 export {
   FILES_MENU_HEADER,
@@ -46,7 +53,10 @@ export {
   filesMenuHtml,
   filesTreeRootHtml,
   filesTreeFolderHtml,
+  filesTreeRootRichMarkdown,
+  filesTreeFolderRichMarkdown,
   filesStatsHtml,
+  filesStatsRichMarkdown,
   formatNumberEmoji,
   treeListNumberPrefix,
   formatTreeFolderItemLine,

@@ -20,12 +20,14 @@ export const defaultSessionLoader = createPlaudSessionLoader("syncRunBridge");
  *   sessionLoader?: () => Promise<object | null>;
  *   syncRunner?: typeof runSync;
  *   chatId?: number | null;
+ *   onProgress?: (stats: object) => void;
  * }} [params]
  */
 export async function runSyncSilent({
   sessionLoader = defaultSessionLoader,
   syncRunner = runSync,
   chatId = null,
+  onProgress,
 } = {}) {
   const guardChatId = Number.isInteger(chatId) ? chatId : null;
   if (
@@ -44,7 +46,7 @@ export async function runSyncSilent({
       return { status: "no_session" };
     }
     try {
-      const stats = await syncRunner({ session });
+      const stats = await syncRunner({ session, onProgress });
       logger.info("Silent sync completed", {
         new: stats?.new,
         updated: stats?.updated,

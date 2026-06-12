@@ -66,8 +66,13 @@ function fakeCtx(overrides = {}) {
         edits.push({ chatId, messageId, text });
         return { message_id: messageId };
       },
-      sendDocument: async ({ chatId, documentPath }) => {
-        documents.push({ chatId, documentPath });
+      sendDocument: async ({
+        chatId,
+        documentPath,
+        caption,
+        messageEffectId,
+      }) => {
+        documents.push({ chatId, documentPath, caption, messageEffectId });
         return { message_id: 300 };
       },
       sendRichMessage: async ({ chatId, markdown }) => {
@@ -155,10 +160,14 @@ test("handleTreeFilePick sends document when summary file exists", async () => {
   const ctx = fakeCtx();
   await handleTreeFilePick(ctx, { chatId: 55, pick: 1 });
 
-  assert.equal(ctx.richMessages.length, 1);
-  assert.match(ctx.richMessages[0].markdown, /Hello/);
+  assert.equal(
+    ctx.richMessages.length,
+    0,
+    "delivery is document + caption only"
+  );
   assert.equal(ctx.documents.length, 1);
   assert.equal(ctx.documents[0].documentPath, mdPath);
+  assert.match(ctx.documents[0].caption, /Note/);
   assert.equal(ctx.sends.length, 0);
 });
 
@@ -208,8 +217,13 @@ test("handleTreeFilePick runs quiet sync when file is missing", async () => {
   });
 
   const ctx = fakeCtx({
-    runSyncQuiet: async () => {
+    runSyncQuiet: async ({ onProgress }) => {
       syncRuns++;
+      onProgress?.({
+        processed: 1,
+        total: 1,
+        lastMessage: "Synced: Needs sync",
+      });
       await writeFile(mdPath, "# synced\n", "utf8");
       return { status: "ok" };
     },
@@ -218,7 +232,14 @@ test("handleTreeFilePick runs quiet sync when file is missing", async () => {
   await handleTreeFilePick(ctx, { chatId: 77, pick: 1 });
 
   assert.equal(syncRuns, 1);
-  assert.ok(ctx.sends.some((m) => /синк/i.test(m.text)));
+  assert.ok(
+    ctx.drafts.some((d) => d.text === ""),
+    "thinking draft should open before quiet sync progress"
+  );
+  assert.ok(
+    ctx.drafts.some((d) => /Идёт синк|Synced:/.test(d.text)),
+    "quiet sync should stream progress in draft instead of a static toast"
+  );
   assert.equal(ctx.documents.length, 1);
   assert.equal(ctx.documents[0].documentPath, mdPath);
 });

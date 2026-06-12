@@ -23,6 +23,7 @@ import {
   clipTelegramText,
   runDraftThinkingPreview,
 } from "../streamingDelivery.js";
+import { SYNC_THINKING_HOLD_MS } from "../streaming/thinkingDraft.js";
 import { redactError } from "../../security/redact.js";
 import { isRichMessageUnavailable } from "../richFormat.js";
 
@@ -94,6 +95,8 @@ export async function editProgressBestEffort({
  *   keyboard?: object | null;
  *   messageEffectId?: string | null;
  *   sleep?: (ms: number) => Promise<void>;
+ *   holdMs?: number;
+ *   skipThinking?: boolean;
  *   delivery: ReturnType<typeof import("../streamingDelivery.js").createSyncProgressDelivery>;
  *   editInPlace?: boolean;
  * }} params
@@ -109,6 +112,8 @@ export async function revealFinal({
   keyboard = null,
   messageEffectId = null,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
+  holdMs = SYNC_THINKING_HOLD_MS,
+  skipThinking = false,
   delivery,
   editInPlace = false,
 }) {
@@ -122,6 +127,8 @@ export async function revealFinal({
     richMarkdown,
     draftId,
     sleep,
+    holdMs,
+    skipThinking,
   });
 
   if (richMarkdown && typeof telegram.sendRichMessage === "function") {
@@ -272,7 +279,7 @@ export async function handleSyncError({
   const outcome = mapSyncFailureToBotOutcome(failure, { interactive: true });
   const backToMenu = buildBackToMenuKeyboard();
 
-  const reveal = (text) =>
+  const reveal = (text, options = {}) =>
     revealFinal({
       telegram,
       chatId,
@@ -281,8 +288,10 @@ export async function handleSyncError({
       text,
       keyboard: backToMenu,
       sleep,
+      skipThinking: true,
       delivery,
       editInPlace,
+      ...options,
     });
 
   if (failure.kind === SYNC_FAILURE_LOCK) {

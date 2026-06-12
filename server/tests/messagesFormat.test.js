@@ -5,6 +5,12 @@ import {
   safeSliceHtml,
   TELEGRAM_HTML_MAX_LEN,
 } from "../src/telegram/messages/format.js";
+import {
+  syncProgressHtml,
+  syncProgressRichMarkdown,
+  syncSummaryRichMarkdown,
+} from "../src/telegram/messages/sync.js";
+import { clipRichMarkdown } from "../src/telegram/richFormat.js";
 
 test("safeSliceHtml closes open tags and never cuts inside a tag", () => {
   const text = "<b>Hello <i>world</i> friend</b>";
@@ -27,4 +33,43 @@ test("clipTelegramText keeps HTML balanced under TELEGRAM_HTML_MAX_LEN", () => {
     (clipped.match(/<b>/g) || []).length,
     (clipped.match(/<\/b>/g) || []).length
   );
+});
+
+test("syncProgressRichMarkdown includes percent, checklist, and lastMessage", () => {
+  const md = syncProgressRichMarkdown({
+    processed: 42,
+    total: 128,
+    lastMessage: "Synced: Встреча с командой QA",
+  });
+  assert.match(md, /\*\*42 \/ 128\*\* \(33%\)/);
+  assert.match(md, /- \[x\] Подключение к Plaud/);
+  assert.match(md, /> Synced: Встреча с командой QA/);
+});
+
+test("syncProgressHtml wraps lastMessage in a blockquote", () => {
+  const html = syncProgressHtml({
+    processed: 5,
+    total: 10,
+    lastMessage: "Synced: Demo",
+  });
+  assert.match(html, /50%/);
+  assert.match(html, /<blockquote>Synced: Demo<\/blockquote>/);
+});
+
+test("syncSummaryRichMarkdown adds details when errors or skipped", () => {
+  const md = syncSummaryRichMarkdown(
+    { new: 0, updated: 0, unchanged: 0, skipped: 2, errors: 1 },
+    { source: "manual", durationSec: 12 }
+  );
+  assert.match(md, /<details open>/);
+  assert.match(md, /Пропущено: 2/);
+  assert.match(md, /Ошибок: 1/);
+});
+
+test("clipRichMarkdown preserves table and details blocks", () => {
+  const md = clipRichMarkdown(
+    "# Title\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n<details><summary>S</summary>\n\nBody\n\n</details>"
+  );
+  assert.match(md, /\| A \| B \|/);
+  assert.match(md, /<details>/);
 });

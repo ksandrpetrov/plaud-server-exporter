@@ -301,6 +301,7 @@ export class TelegramClient {
    *   chatId: number | string;
    *   documentPath: string;
    *   caption?: string | null;
+   *   messageEffectId?: string | null;
    * }} params
    */
   async sendDocument(params) {
@@ -313,6 +314,9 @@ export class TelegramClient {
     form.append("chat_id", String(params.chatId));
     form.append("document", new Blob([buf]), basename(path));
     if (params.caption) form.append("caption", params.caption);
+    if (params.messageEffectId) {
+      form.append("message_effect_id", params.messageEffectId);
+    }
     return this._callMultipart("sendDocument", {
       form,
       timeoutMs: SEND_MESSAGE_TIMEOUT_MS,

@@ -18,8 +18,10 @@ import {
 import { buildBackToMenuKeyboard } from "../keyboards.js";
 import {
   BOT_HELP_HTML,
+  BOT_HELP_RICH_MARKDOWN,
   MENU_CLOSED_TEXT,
   statusScreenHtml,
+  statusScreenRichMarkdown,
   syncBusyText,
 } from "../messages.js";
 import {
@@ -30,6 +32,7 @@ import {
 import {
   answerBestEffort,
   editToMenuScreen,
+  safeCallbackRichScreen,
   safeSend,
 } from "../botMessageUtils.js";
 import { readStatus } from "../../sync/statusReader.js";
@@ -56,7 +59,7 @@ const CB_INTERVAL_VALUES = {
 async function handleRunSyncCallback({ ctx, chatId, messageId, callback }) {
   if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_MANUAL)) {
     const busy = syncBusyText("manual");
-    await answerBestEffort(ctx, callback, { text: busy });
+    await answerBestEffort(ctx, callback, { text: busy, showAlert: true });
     await safeSend(ctx, chatId, busy, { animate: false });
     return true;
   }
@@ -66,10 +69,11 @@ async function handleRunSyncCallback({ ctx, chatId, messageId, callback }) {
 
 async function handleStatusCallback({ ctx, chatId, messageId }) {
   const status = await readStatus();
-  await editToMenuScreen(ctx, {
+  await safeCallbackRichScreen(ctx, {
     chatId,
     messageId,
-    text: statusScreenHtml(status),
+    richMarkdown: statusScreenRichMarkdown(status),
+    fallbackHtml: statusScreenHtml(status),
     keyboard: buildBackToMenuKeyboard(),
   });
   return false;
@@ -80,16 +84,31 @@ async function handleSettingsCallback({ ctx, chatId, messageId }) {
   return false;
 }
 
-async function handleIntervalCallback({ ctx, chatId, messageId, data }) {
+async function handleIntervalCallback({
+  ctx,
+  chatId,
+  messageId,
+  data,
+  callback,
+}) {
+  const intervalMin = CB_INTERVAL_VALUES[data];
   await handleSetInterval(ctx, {
     chatId,
     messageId,
-    intervalMin: CB_INTERVAL_VALUES[data],
+    intervalMin,
+  });
+  await answerBestEffort(ctx, callback, {
+    text: `Интервал: ${intervalMin} мин`,
   });
   return false;
 }
 
-async function handleToggleSummaryCallback({ ctx, chatId, messageId }) {
+async function handleToggleSummaryCallback({
+  ctx,
+  chatId,
+  messageId,
+  callback,
+}) {
   const existing = await loadBotSettings();
   const previous = existing?.scheduledSummaryVisible ?? false;
   const next = !previous;
@@ -110,6 +129,9 @@ async function handleToggleSummaryCallback({ ctx, chatId, messageId }) {
     intervalMin,
     scheduledSummaryVisible: next,
   });
+  await answerBestEffort(ctx, callback, {
+    text: next ? "Сообщения автосинка: вкл" : "Сообщения автосинка: выкл",
+  });
   return false;
 }
 
@@ -119,10 +141,11 @@ async function handleBackCallback({ ctx, chatId, messageId }) {
 }
 
 async function handleHelpCallback({ ctx, chatId, messageId }) {
-  await editToMenuScreen(ctx, {
+  await safeCallbackRichScreen(ctx, {
     chatId,
     messageId,
-    text: BOT_HELP_HTML,
+    richMarkdown: BOT_HELP_RICH_MARKDOWN,
+    fallbackHtml: BOT_HELP_HTML,
     keyboard: buildBackToMenuKeyboard(),
   });
   return false;

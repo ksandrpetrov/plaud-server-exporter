@@ -32,6 +32,8 @@ import {
 export const THINKING_PREVIEW_MIN_LEN = 60;
 /** How long the thinking bubble stays before the full text is pushed. */
 export const THINKING_HOLD_MS = 450;
+/** Shorter hold for sync finish reveal (still noticeable). */
+export const SYNC_THINKING_HOLD_MS = 300;
 
 /**
  * Shows the native thinking bubble in the chat's draft channel.
@@ -102,6 +104,7 @@ export async function tryPushThinkingDraft({ telegram, chatId, draftId }) {
  *   draftId?: number;
  *   minLen?: number;
  *   holdMs?: number;
+ *   skipThinking?: boolean;
  *   sleep?: (ms: number) => Promise<void>;
  *   nowMs?: () => number;
  * }} params
@@ -115,11 +118,13 @@ export async function runDraftThinkingPreview({
   draftId,
   minLen = THINKING_PREVIEW_MIN_LEN,
   holdMs = THINKING_HOLD_MS,
+  skipThinking = false,
   sleep = (ms) => new Promise((r) => setTimeout(r, ms)),
   nowMs = () => Date.now(),
 }) {
   const clipped = clipTelegramText(String(text ?? ""));
   if (!clipped || clipped.length < minLen) return false;
+  if (skipThinking) return false;
 
   const resolvedDraftId = draftId ?? stableDraftId(chatId, nowMs());
   const mode = await tryPushThinkingDraft({
