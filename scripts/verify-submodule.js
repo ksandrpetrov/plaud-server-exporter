@@ -22,6 +22,7 @@ const REQUIRED_SUBMODULE_FILES = [
   "plaud-exporter/common/plaudRecordingIds.js",
   "plaud-exporter/common/plaudTitles.js",
   "plaud-exporter/common/plaudSummaries.js",
+  "plaud-exporter/common/plaudRecordings.js",
 ];
 
 const SERVER_SRC = resolve(root, "server/src");

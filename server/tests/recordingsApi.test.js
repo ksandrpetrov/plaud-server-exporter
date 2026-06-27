@@ -70,10 +70,12 @@ test("listAllRecordings with mirror folders fans out per-folder queries", async 
   const { listAllRecordings } = await import("../src/plaud/recordingsApi.js");
   const session = makeSession();
 
+  const requestedUrls = [];
   const folderTaggedUrls = [];
   const originalFetch = globalThis.fetch;
   globalThis.fetch = async (url) => {
     const href = String(url);
+    requestedUrls.push(href);
     if (href.includes("/filetag")) {
       return jsonResponse({
         data: [
@@ -106,6 +108,13 @@ test("listAllRecordings with mirror folders fans out per-folder queries", async 
     assert.ok(queriedFolderIds.has("dev"), "expected dev folder fan-out");
     assert.ok(queriedFolderIds.has("cap"), "expected cap folder fan-out");
     assert.ok(queriedFolderIds.has("unf"), "expected unfiled folder fan-out");
+    assert.ok(
+      requestedUrls.every((href) => {
+        const u = new URL(href);
+        return u.searchParams.get("is_trash") !== "1";
+      }),
+      "includeTrash=false should skip explicit trash listing"
+    );
   } finally {
     globalThis.fetch = originalFetch;
     process.env.PLAUD_MIRROR_FOLDERS = "false";

@@ -36,7 +36,7 @@ plaud-server-exporter/
 
 ## Общий код (shared common)
 
-Шесть файлов — формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и оба набора
+Семь файлов — формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и оба набора
 тестов. Список зафиксирован в [`scripts/verify-submodule.js`](../scripts/verify-submodule.js) (
 `REQUIRED_SUBMODULE_FILES`).
 
@@ -48,6 +48,7 @@ plaud-server-exporter/
 | [`plaud-exporter/common/plaudRecordingIds.js`](../plaud-exporter/common/plaudRecordingIds.js) | `extractRawRecordingId`, `normalizeHexRecordingId`, `normalizePlaudRecordingId`                                          | `recordingsApi.js`                                                                                         |
 | [`plaud-exporter/common/plaudTitles.js`](../plaud-exporter/common/plaudTitles.js)             | `normalizeHumanTitle`, `TITLE_KEYS`, `pickRawTitleFromFile`                                                              | `recordingsApi.js`, `summariesApi.js`, `audioApi.js`                                                       |
 | [`plaud-exporter/common/plaudSummaries.js`](../plaud-exporter/common/plaudSummaries.js)       | `stripPlaudInlineAssets` — удаление битых Plaud CDN-картинок из markdown                                                 | `summariesApi.js` (re-export в `plaudApiClient.js` для тестов)                                             |
+| [`plaud-exporter/common/plaudRecordings.js`](../plaud-exporter/common/plaudRecordings.js)     | Парсинг `/file/simple/web`, нормализация записей, pagination stop, fan-out по папкам Plaud                               | `recordingsApi.js`                                                                                         |
 
 > Исторически каталог называется «submodule» в скриптах (`npm run verify`, `scripts/verify-submodule.js`), но это **не
 > git-submodule**. Это вендорный код в монорепо. Сценарий: импорты server'а резолвятся как
@@ -67,7 +68,7 @@ Service worker вынесен в `background/`: `chromeDownloadBridge.js` (`chro
 `plaudBrowserSession.js` (сессия из `localStorage`), `plaudRecordingIdScraper.js`, `plaudCollisionPaths.js` (имена и
 коллизии в sync-папке).
 
-Команда `npm run verify` из корня проверяет, что все шесть shared-файлов существуют и что относительные импорты из
+Команда `npm run verify` из корня проверяет, что все семь shared-файлов существуют и что относительные импорты из
 `server/src/` резолвятся. CI запускает её на каждом push/PR.
 
 ### Слои Telegram ↔ sync-index (read path)
@@ -186,6 +187,7 @@ Telegram-бот собственного exit code не использует —
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Новое поле в индексе sync               | [`syncCore.js`](../plaud-exporter/common/syncCore.js) (`determineSyncAction`, `refineSyncActionForDisk`, normalize), [`serverSyncIndex.js`](../server/src/sync/serverSyncIndex.js), тесты обоих пакетов                                                                                                                                                                                     |
 | Нормализация title Plaud                | [`plaudTitles.js`](../plaud-exporter/common/plaudTitles.js), тесты `plaudTitles` + `recordingsApi`                                                                                                                                                                                                                                                                                          |
+| Парсинг списка записей Plaud            | [`plaudRecordings.js`](../plaud-exporter/common/plaudRecordings.js), `plaudRecordings.test.js` + `recordingsApi.test.js`                                                                                                                                                                                                                                                                    |
 | Очистка markdown саммари                | [`plaudSummaries.js`](../plaud-exporter/common/plaudSummaries.js), `plaudSummaries.test.js` + `plaudApiClient.test.js`                                                                                                                                                                                                                                                                      |
 | Загрузка session snapshot               | [`auth/loadPlaudSession.js`](../server/src/auth/loadPlaudSession.js) — CLI, `syncRunBridge`, `liveTreeReadModel`, diagnostics                                                                                                                                                                                                                                                               |
 | Live tree (Plaud API → synthetic index) | [`plaud/liveTreeReadModel.js`](../server/src/plaud/liveTreeReadModel.js)                                                                                                                                                                                                                                                                                                                    |

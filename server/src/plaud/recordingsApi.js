@@ -13,9 +13,13 @@ import {
   validateOfficialSession,
 } from "./officialPlaudApi.js";
 import {
-  extractRawRecordingId,
-  normalizePlaudRecordingId,
-} from "../../../plaud-exporter/common/plaudRecordingIds.js";
+  buildPlaudRecordingFanoutPlan,
+  collectPlaudRecordingArrays,
+  extractPlaudRecordingTotal,
+  isPlaudRecordingPageDone,
+  mergeRawPlaudRecordings,
+  normalizePlaudRecording,
+} from "../../../plaud-exporter/common/plaudRecordings.js";
 import {
   extractFiletagIdsFromRaw,
   mergeFiletagIds,
@@ -24,10 +28,6 @@ import {
   resolveFileFolderSegment,
 } from "./plaudFolders.js";
 import { buildFolderResolutionContext } from "./folderResolution.js";
-import {
-  normalizeHumanTitle,
-  pickRawTitleFromFile,
-} from "../../../plaud-exporter/common/plaudTitles.js";
 
 export {
   TITLE_KEYS,
@@ -35,103 +35,7 @@ export {
 } from "../../../plaud-exporter/common/plaudTitles.js";
 
 export function normalizePlaudFile(rawFile) {
-  const id = normalizePlaudRecordingId(rawFile);
-  if (!id) return null;
-  const title =
-    normalizeHumanTitle(pickRawTitleFromFile(rawFile)) || String(id);
-  const folderIds = extractFiletagIdsFromRaw(rawFile);
-  return { id, title, raw: rawFile, folderIds, folderSegment: "" };
-}
-
-function isFileLikeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
-  return extractRawRecordingId(value).length > 0;
-}
-
-function listRecordingsArrayCandidates(payload) {
-  return [
-    payload?.data?.data_file_list,
-    payload?.data_file_list,
-    payload?.data?.file_list,
-    payload?.data?.files,
-    payload?.data?.list,
-    payload?.data?.items,
-    payload?.data?.records,
-    payload?.file_list,
-    payload?.files,
-    payload?.list,
-    payload?.items,
-    payload?.data,
-    payload?.data?.data,
-  ];
-}
-
-function collectQualifyingFileArrays(payload) {
-  const collected = [];
-
-  function pushIfQualifies(candidate) {
-    if (!Array.isArray(candidate) || candidate.length === 0) return;
-    if (!candidate.some(isFileLikeObject)) return;
-    collected.push(candidate);
-  }
-
-  for (const candidate of listRecordingsArrayCandidates(payload)) {
-    pushIfQualifies(candidate);
-  }
-
-  const seen = new Set();
-
-  function walk(value) {
-    if (!value || typeof value !== "object" || seen.has(value)) return;
-    seen.add(value);
-    if (Array.isArray(value)) {
-      pushIfQualifies(value);
-      value.forEach(walk);
-      return;
-    }
-    Object.values(value).forEach(walk);
-  }
-
-  walk(payload);
-
-  const dedup = [];
-  const seenArr = new Set();
-  for (const arr of collected) {
-    if (seenArr.has(arr)) continue;
-    seenArr.add(arr);
-    dedup.push(arr);
-  }
-  return dedup;
-}
-
-function extractServerListTotal(payload) {
-  if (!payload || typeof payload !== "object") return null;
-  const candidates = [
-    payload?.data?.total,
-    payload?.data?.total_count,
-    payload?.data?.count,
-    payload?.data?.file_total,
-    payload?.data?.total_num,
-    payload?.total,
-  ];
-  for (const c of candidates) {
-    const n = Number(c);
-    if (Number.isFinite(n) && n >= 0) return n;
-  }
-  return null;
-}
-
-function mergeRawFilesFromArrays(arrays) {
-  const byId = new Map();
-  for (const arr of arrays) {
-    for (const raw of arr) {
-      if (!isFileLikeObject(raw)) continue;
-      const id = extractRawRecordingId(raw);
-      if (!id || byId.has(id)) continue;
-      byId.set(id, raw);
-    }
-  }
-  return [...byId.values()];
+  return normalizePlaudRecording(rawFile);
 }
 
 async function fetchPlaudFiletagListWithAuth(session, authHeader) {
@@ -199,13 +103,13 @@ async function fetchRecordingsVariant(session, fixedParams, opts = {}) {
       session,
       `/file/simple/web?${query.toString()}`
     );
-    const arrays = collectQualifyingFileArrays(payload);
+    const arrays = collectPlaudRecordingArrays(payload);
     if (requireArrayOnFirstPage && skip === 0 && !arrays.length) {
       findFileArray(payload, { requireArray: true });
     }
     const rawLen = arrays.length ? Math.max(...arrays.map((a) => a.length)) : 0;
-    const mergedRaw = mergeRawFilesFromArrays(arrays);
-    const serverTotal = extractServerListTotal(payload);
+    const mergedRaw = mergeRawPlaudRecordings(arrays);
+    const serverTotal = extractPlaudRecordingTotal(payload);
 
     const pageFiles = mergedRaw
       .map(normalizePlaudFile)
@@ -220,11 +124,9 @@ async function fetchRecordingsVariant(session, fixedParams, opts = {}) {
     pagesFetched++;
     if (pagesFetched >= maxPages) break;
 
-    const done =
-      serverTotal != null
-        ? rawLen === 0 || (skip + rawLen >= serverTotal && rawLen < pageLimit)
-        : rawLen === 0 || rawLen < pageLimit;
-    if (done) break;
+    if (isPlaudRecordingPageDone({ serverTotal, rawLen, skip, pageLimit })) {
+      break;
+    }
   }
 
   return files;
@@ -368,63 +270,14 @@ export async function listAllRecordings(session, options = {}) {
     }
   }
 
-  async function tryIngestFolder(folderId, opts) {
-    await tryIngest({ is_trash: "2", filetag_id: folderId }, opts, folderId);
-    if (unfiledIds.has(folderId)) {
-      await tryIngest({ filetag_id: folderId }, opts, folderId);
-    }
+  for (const step of buildPlaudRecordingFanoutPlan({
+    tags,
+    unfiledIds,
+    includeTrash,
+    maxFiles: config.apiMaxFiles,
+  })) {
+    await tryIngest(step.params, step.opts, step.contextFolderId);
   }
-
-  await tryIngest(
-    { is_trash: "0" },
-    { maxPages: 1, limitOverride: config.apiMaxFiles }
-  );
-  await tryIngest(
-    { is_trash: "2" },
-    { maxPages: 1, limitOverride: config.apiMaxFiles }
-  );
-
-  for (const params of [{ is_trash: "0" }, { is_trash: "2" }, {}]) {
-    await tryIngest(params);
-  }
-
-  if (includeTrash) {
-    await tryIngest({ is_trash: "1" });
-  }
-
-  for (const uid of unfiledIds) {
-    await tryIngest({ is_trash: "2", filetag_id: uid });
-    await tryIngest({ is_trash: "2", file_tag_id: uid });
-    await tryIngest({ is_trash: "0", filetag_id: uid });
-    await tryIngest({ is_trash: "0", file_tag_id: uid });
-    await tryIngest({ filetag_id: uid });
-    await tryIngest({ file_tag_id: uid });
-  }
-
-  await tryIngest({ is_trash: "2", filetag_id: "0" }, { maxPages: 20 });
-  await tryIngest({ is_trash: "2", filetag_id: "-2" }, { maxPages: 20 });
-
-  for (const sid of ["0", "-1", "-2"]) {
-    await tryIngest({ is_trash: "2", tag_id: sid }, { maxPages: 20 });
-    await tryIngest({ is_trash: "2", folder_id: sid }, { maxPages: 20 });
-  }
-
-  const folderIds = new Set(unfiledIds);
-  for (const tag of tags) {
-    const id = tag?.id ?? tag?.filetag_id ?? tag?.tag_id ?? tag?.folder_id;
-    if (id != null && String(id).trim()) folderIds.add(String(id).trim());
-  }
-
-  const maxFolderPulls = 400;
-  let pulls = 0;
-  for (const fid of folderIds) {
-    if (pulls >= maxFolderPulls) break;
-    pulls++;
-    await tryIngestFolder(fid, { maxPages: 80 });
-  }
-
-  await tryIngest({ is_trash: "2", filetag_id: "-1" }, { maxPages: 15 });
-  await tryIngest({ filetag_id: "-1" }, { maxPages: 15 });
 
   return attachFolderSegments(
     [...byId.values()],
@@ -435,7 +288,7 @@ export async function listAllRecordings(session, options = {}) {
 }
 
 function findFileArray(payload, { requireArray = false } = {}) {
-  const found = listRecordingsArrayCandidates(payload).find(Array.isArray);
+  const found = collectPlaudRecordingArrays(payload)[0];
   if (found) return found;
   if (requireArray && payload && typeof payload === "object") {
     throw new PlaudChangedError(

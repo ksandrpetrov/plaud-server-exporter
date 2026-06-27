@@ -39,11 +39,11 @@
 | `server/src/plaud/`                          | Plaud HTTP, folders, live tree               | точечно                     | `recordingsApi.js` (~500 LOC)        | `npm test` (`recordingsApi.test.js`, `plaudLiveTree.test.js`)      |
 | `server/src/telegram/`                       | бот: handlers/messages/scheduler             | `handlers/*` и `messages/*` | `syncOrchestrator.js`, `streaming/*` | `telegram*.test.js`, `syncOrchestrator.test.js`                    |
 | `server/src/{auth,errors,config,security}/`  | сессия, классификация ошибок, env            | по задаче                   | контракт session/status.json         | `npm test`                                                         |
-| `plaud-exporter/common/` (6 shared)          | контракт server ↔ extension                  | только с двойными тестами   | любой из 6 файлов                    | `npm run verify` + оба набора тестов                               |
+| `plaud-exporter/common/` (7 shared)          | контракт server ↔ extension                  | только с двойными тестами   | любой из 7 файлов                    | `npm run verify` + оба набора тестов                               |
 | `plaud-exporter/{popup,background,features}` | UI попапа и service worker                   | точечно                     | god modules (см. ниже)               | `npm run test:extension`, `npm run verify:extension`               |
 | `deploy/`, `scripts/`, `.github/`            | инфраструктура и CI                          | по задаче                   | CI/deploy, ordering-тесты            | `infra-lint` + ручной smoke по PR-шаблону                          |
 
-### Shared контракт (6 файлов)
+### Shared контракт (7 файлов)
 
 Формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и **оба** набора тестов.
 
@@ -55,6 +55,7 @@
 | [`plaud-exporter/common/plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js) | `plaud-exporter/tests/plaudRecordingIds.test.js` + `server/tests/plaudRecordingIds.test.js`; consumers: `recordingsApi.js`, `plaudRecordingIdScraper.js` |
 | [`plaud-exporter/common/plaudTitles.js`](plaud-exporter/common/plaudTitles.js)             | `plaud-exporter/tests/plaudTitles.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js`, `summariesApi.js`    |
 | [`plaud-exporter/common/plaudSummaries.js`](plaud-exporter/common/plaudSummaries.js)       | `plaud-exporter/tests/plaudSummaries.test.js` + `server/tests/plaudApiClient.test.js`; consumers: `summariesApi.js`, `audioExport.js`                    |
+| [`plaud-exporter/common/plaudRecordings.js`](plaud-exporter/common/plaudRecordings.js)     | `plaud-exporter/tests/plaudRecordings.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js`                   |
 
 Список захардкожен в [`scripts/verify-submodule.js`](scripts/verify-submodule.js). `npm run verify` проверяет
 существование файлов и что все относительные импорты `server/src/...` резолвятся.
@@ -101,29 +102,29 @@ Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](se
 
 ### Где живёт что
 
-| Хочешь поменять                                                             | Иди сюда                                                                                                                                               |
-| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Решение sync (new / unchanged / metadata-only / re-download / disk restore) | [`syncCore.js`](plaud-exporter/common/syncCore.js) (`determineSyncAction`, `refineSyncActionForDisk`) + `serverSyncIndex.js`                           |
-| Имя файла, длина пути, санитизация                                          | [`exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) + `filenamePlanner.js`                                                                |
-| Папки Plaud / Unfiled / Trash                                               | [`plaudFolders.js`](plaud-exporter/common/plaudFolders.js)                                                                                             |
-| Context резолва папок для API/live tree                                     | [`plaud/folderResolution.js`](server/src/plaud/folderResolution.js) — `buildFolderResolutionContext` (не инлайнить три вызова заново)                  |
-| `action` popup ↔ SW ↔ content                                               | [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js) + `tests/runtimeMessages.test.js`; литералы в `popup.js` / `content.js`               |
-| Live tree stableId / merge с sync-index                                     | [`liveTreeReadModel.js`](server/src/plaud/liveTreeReadModel.js) + `syncCore.buildStableId`                                                             |
-| Plaud list parsing / mirror fan-out                                         | [`recordingsApi.js`](server/src/plaud/recordingsApi.js) + `recordingsApi.test.js`                                                                      |
-| ID записи Plaud (extract/normalize hex)                                     | [`plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js)                                                                                   |
-| Telegram HTML clip                                                          | [`messages/format.js`](server/src/telegram/messages/format.js) — `clipTelegramText`                                                                    |
-| Tree browse / read sync-index                                               | [`syncIndexRead.js`](server/src/sync/syncIndexRead.js) + [`treeBrowse.js`](server/src/telegram/treeBrowse.js) (тесты: `treeBrowse.test.js`)            |
-| Sync UX в боте                                                              | [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js) → `telegram/sync/syncRunBridge.js`, `syncProgressPresenter.js`                        |
-| Telegram callback + copy                                                    | [`handlers/callbacks.js`](server/src/telegram/handlers/callbacks.js) + [`messages/`](server/src/telegram/messages/) + `keyboards.js`                   |
-| Новая CLI команда                                                           | [`server/src/cli/index.js`](server/src/cli/index.js)                                                                                                   |
-| Новая env переменная                                                        | [`server/src/config/config.js`](server/src/config/config.js) + `.env.example` + `server/README.md`                                                     |
-| Классификация ошибки sync                                                   | [`errors/errorClassifier.js`](server/src/errors/errorClassifier.js) + `errorReporter.js` + exit codes в README                                         |
-| Один источник для CLI и бота при ошибках sync                               | [`sync/syncFailureMapper.js`](server/src/sync/syncFailureMapper.js) — `classifySyncFailure`, `mapSyncFailureToBotOutcome`, `recordAuthFailureIfNeeded` |
-| Загрузка Plaud session из snapshot                                          | [`auth/loadPlaudSession.js`](server/src/auth/loadPlaudSession.js) — CLI, bot, live tree                                                                |
-| Запись `status.json`                                                        | [`sync/syncStatusWriter.js`](server/src/sync/syncStatusWriter.js) — `lastAuthError` всегда `{ message, at }`                                           |
-| Чтение `status.json`                                                        | [`sync/statusReader.js`](server/src/sync/statusReader.js) — CLI, бот, scheduler; schema — [`sync/statusSchema.js`](server/src/sync/statusSchema.js)    |
-| Timestamp полей записи Plaud                                                | [`plaud/recordingTimestamps.js`](server/src/plaud/recordingTimestamps.js) — sync runner + live tree                                                    |
-| Список `.data/` JSON-файлов                                                 | [`config/config.js`](server/src/config/config.js) — `DATA_STATE_FILE_NAMES`; diagnostics — `persistenceDiagnostics.js`                                 |
+| Хочешь поменять                                                             | Иди сюда                                                                                                                                                      |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Решение sync (new / unchanged / metadata-only / re-download / disk restore) | [`syncCore.js`](plaud-exporter/common/syncCore.js) (`determineSyncAction`, `refineSyncActionForDisk`) + `serverSyncIndex.js`                                  |
+| Имя файла, длина пути, санитизация                                          | [`exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js) + `filenamePlanner.js`                                                                       |
+| Папки Plaud / Unfiled / Trash                                               | [`plaudFolders.js`](plaud-exporter/common/plaudFolders.js)                                                                                                    |
+| Context резолва папок для API/live tree                                     | [`plaud/folderResolution.js`](server/src/plaud/folderResolution.js) — `buildFolderResolutionContext` (не инлайнить три вызова заново)                         |
+| `action` popup ↔ SW ↔ content                                               | [`runtimeMessages.js`](plaud-exporter/common/runtimeMessages.js) + `tests/runtimeMessages.test.js`; литералы в `popup.js` / `content.js`                      |
+| Live tree stableId / merge с sync-index                                     | [`liveTreeReadModel.js`](server/src/plaud/liveTreeReadModel.js) + `syncCore.buildStableId`                                                                    |
+| Plaud list parsing / mirror fan-out                                         | [`plaudRecordings.js`](plaud-exporter/common/plaudRecordings.js) + runtime HTTP in [`recordingsApi.js`](server/src/plaud/recordingsApi.js) / `audioExport.js` |
+| ID записи Plaud (extract/normalize hex)                                     | [`plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js)                                                                                          |
+| Telegram HTML clip                                                          | [`messages/format.js`](server/src/telegram/messages/format.js) — `clipTelegramText`                                                                           |
+| Tree browse / read sync-index                                               | [`syncIndexRead.js`](server/src/sync/syncIndexRead.js) + [`treeBrowse.js`](server/src/telegram/treeBrowse.js) (тесты: `treeBrowse.test.js`)                   |
+| Sync UX в боте                                                              | [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js) → `telegram/sync/syncRunBridge.js`, `syncProgressPresenter.js`                               |
+| Telegram callback + copy                                                    | [`handlers/callbacks.js`](server/src/telegram/handlers/callbacks.js) + [`messages/`](server/src/telegram/messages/) + `keyboards.js`                          |
+| Новая CLI команда                                                           | [`server/src/cli/index.js`](server/src/cli/index.js)                                                                                                          |
+| Новая env переменная                                                        | [`server/src/config/config.js`](server/src/config/config.js) + `.env.example` + `server/README.md`                                                            |
+| Классификация ошибки sync                                                   | [`errors/errorClassifier.js`](server/src/errors/errorClassifier.js) + `errorReporter.js` + exit codes в README                                                |
+| Один источник для CLI и бота при ошибках sync                               | [`sync/syncFailureMapper.js`](server/src/sync/syncFailureMapper.js) — `classifySyncFailure`, `mapSyncFailureToBotOutcome`, `recordAuthFailureIfNeeded`        |
+| Загрузка Plaud session из snapshot                                          | [`auth/loadPlaudSession.js`](server/src/auth/loadPlaudSession.js) — CLI, bot, live tree                                                                       |
+| Запись `status.json`                                                        | [`sync/syncStatusWriter.js`](server/src/sync/syncStatusWriter.js) — `lastAuthError` всегда `{ message, at }`                                                  |
+| Чтение `status.json`                                                        | [`sync/statusReader.js`](server/src/sync/statusReader.js) — CLI, бот, scheduler; schema — [`sync/statusSchema.js`](server/src/sync/statusSchema.js)           |
+| Timestamp полей записи Plaud                                                | [`plaud/recordingTimestamps.js`](server/src/plaud/recordingTimestamps.js) — sync runner + live tree                                                           |
+| Список `.data/` JSON-файлов                                                 | [`config/config.js`](server/src/config/config.js) — `DATA_STATE_FILE_NAMES`; diagnostics — `persistenceDiagnostics.js`                                        |
 
 ### Состояние на диске
 

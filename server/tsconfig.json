@@ -21,6 +21,7 @@
     "../plaud-exporter/common/exportPathUtils.js",
     "../plaud-exporter/common/plaudFolders.js",
     "../plaud-exporter/common/plaudRecordingIds.js",
-    "../plaud-exporter/common/plaudTitles.js"
+    "../plaud-exporter/common/plaudTitles.js",
+    "../plaud-exporter/common/plaudRecordings.js"
   ]
 }
