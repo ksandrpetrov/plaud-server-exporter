@@ -56,12 +56,19 @@ if (window.__plaudExporterContentLoaded) {
    */
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "plaudExportPing") {
+      let currentRecording;
+      try {
+        currentRecording = resolveCurrentRecording?.() ?? null;
+      } catch {
+        currentRecording = null;
+      }
       sendResponse({
         alive: true,
         backgroundExporting: isBackgroundExporting,
         exportRunLock,
         libraryStatsLock,
         smartSyncLock,
+        currentRecording,
       });
       return false;
     }
@@ -216,8 +223,7 @@ if (window.__plaudExporterContentLoaded) {
           if (!file?.id) {
             sendResponse({
               success: false,
-              error:
-                "Не удалось определить запись на странице. Откройте карточку записи на Plaud Web (нужен идентификатор файла в адресе или на странице).",
+              errorKey: "currentRecordingNotFound",
             });
             return;
           }

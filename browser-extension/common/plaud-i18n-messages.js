@@ -10,7 +10,21 @@
   var MESSAGES = {
     ru: {
       page: { title: "Экспорт Plaud" },
-      brand: { title: "Экспорт Plaud" },
+      brand: { title: "Plaud" },
+      main: {
+        download: "Скачать саммари",
+        subtitle: "AI-саммари · Markdown",
+        noRecording: "Откройте саммари записи на Plaud Web",
+        downloading: "Скачиваем…",
+      },
+      sheet: {
+        title: "Ещё",
+        open: "Настройки и расширенные действия",
+        summaries: "Все саммари",
+        archive: "Архив",
+        advanced: "Расширенный экспорт",
+        preferences: "Настройки",
+      },
       hero: {
         title: "Саммари",
         lead: "Скачайте AI-саммари в Markdown",
@@ -155,6 +169,8 @@
         connectPage:
           "Не удалось связаться со страницей{hint}. Откройте {url}, обновите вкладку (F5) и повторите.",
         couldNotStartCurrent: "Не удалось начать экспорт текущей записи.",
+        currentRecordingNotFound:
+          "Не удалось определить запись. Откройте отдельное саммари записи на Plaud Web — в адресе должен быть идентификатор файла.",
         statsTab: "Не удалось определить вкладку для статистики.",
         waitExport: "Дождитесь окончания экспорта перед обновлением статистики.",
         bgExportFailed: "Не удалось запустить фоновый экспорт: {msg}",
@@ -223,7 +239,21 @@
     },
     en: {
       page: { title: "Plaud Export" },
-      brand: { title: "Plaud Export" },
+      brand: { title: "Plaud" },
+      main: {
+        download: "Download summary",
+        subtitle: "AI summary · Markdown",
+        noRecording: "Open a recording's summary on Plaud Web",
+        downloading: "Downloading…",
+      },
+      sheet: {
+        title: "More",
+        open: "Settings and advanced actions",
+        summaries: "All summaries",
+        archive: "Archive",
+        advanced: "Advanced export",
+        preferences: "Preferences",
+      },
       hero: {
         title: "Summaries",
         lead: "Download AI summaries as Markdown",
@@ -368,6 +398,8 @@
         connectPage:
           "Could not reach the page{hint}. Open {url}, refresh (F5), and try again.",
         couldNotStartCurrent: "Could not start exporting the current recording.",
+        currentRecordingNotFound:
+          "Could not detect the recording. Open the recording's summary page on Plaud Web — the file ID must be in the URL.",
         statsTab: "Could not determine the tab for statistics.",
         waitExport: "Wait for export to finish before refreshing statistics.",
         bgExportFailed: "Could not start background export: {msg}",

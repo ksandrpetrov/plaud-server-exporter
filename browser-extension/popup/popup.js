@@ -21,45 +21,42 @@ document.addEventListener("DOMContentLoaded", async function () {
   /** @type {"system" | "light" | "dark"} */
   let themePref = await PlaudI18n.getEffectiveThemePreference();
   const prefersDarkMq = window.matchMedia("(prefers-color-scheme: dark)");
+
   function resolveThemeEffectiveDark() {
     if (themePref === "dark") return true;
     if (themePref === "light") return false;
     return prefersDarkMq.matches;
   }
+
   function applyDocumentTheme() {
     document.documentElement.dataset.themeEffective =
       resolveThemeEffectiveDark() ? "dark" : "light";
   }
+
   function updateThemeToggleUi() {
     const themeSystemBtn = document.getElementById("themeSystemBtn");
     const themeLightBtn = document.getElementById("themeLightBtn");
     const themeDarkBtn = document.getElementById("themeDarkBtn");
     const sys = themePref === "system";
-    if (themeSystemBtn) {
-      themeSystemBtn.classList.toggle("lang-toggle-btn--active", sys);
-      themeSystemBtn.setAttribute("aria-pressed", sys ? "true" : "false");
+    [themeSystemBtn, themeLightBtn, themeDarkBtn].forEach(function (btn) {
+      if (!btn) return;
+      btn.classList.remove("toggle-group__item--active");
+      btn.setAttribute("aria-pressed", "false");
+    });
+    if (themeSystemBtn && sys) {
+      themeSystemBtn.classList.add("toggle-group__item--active");
+      themeSystemBtn.setAttribute("aria-pressed", "true");
     }
-    if (themeLightBtn) {
-      themeLightBtn.classList.toggle(
-        "lang-toggle-btn--active",
-        themePref === "light"
-      );
-      themeLightBtn.setAttribute(
-        "aria-pressed",
-        themePref === "light" ? "true" : "false"
-      );
+    if (themeLightBtn && themePref === "light") {
+      themeLightBtn.classList.add("toggle-group__item--active");
+      themeLightBtn.setAttribute("aria-pressed", "true");
     }
-    if (themeDarkBtn) {
-      themeDarkBtn.classList.toggle(
-        "lang-toggle-btn--active",
-        themePref === "dark"
-      );
-      themeDarkBtn.setAttribute(
-        "aria-pressed",
-        themePref === "dark" ? "true" : "false"
-      );
+    if (themeDarkBtn && themePref === "dark") {
+      themeDarkBtn.classList.add("toggle-group__item--active");
+      themeDarkBtn.setAttribute("aria-pressed", "true");
     }
   }
+
   applyDocumentTheme();
   prefersDarkMq.addEventListener("change", function () {
     if (themePref === "system") applyDocumentTheme();
@@ -69,26 +66,30 @@ document.addEventListener("DOMContentLoaded", async function () {
     return PlaudI18n.t(uiLocale, key, params);
   }
 
-  /** Один кадр отложенной отрисовки (двойной rAF даёт лишнее мигание при открытии popup). */
+  function contentErrorMessage(response, fallbackKey) {
+    if (response?.errorKey) {
+      return tr("error." + response.errorKey);
+    }
+    return response?.error || tr(fallbackKey);
+  }
+
   function runAfterNextPaint(fn) {
     requestAnimationFrame(fn);
   }
 
-  const heroExportAllSummaryBtn = document.getElementById(
-    "heroExportAllSummaryBtn"
+  const downloadBtn = document.getElementById("downloadBtn");
+  const downloadBtnLabel = document.getElementById("downloadBtnLabel");
+  const downloadBtnSpinner = document.getElementById("downloadBtnSpinner");
+  const exportAllSummariesBtn = document.getElementById(
+    "exportAllSummariesBtn"
   );
-  const heroExportCurrentSummaryBtn = document.getElementById(
-    "heroExportCurrentSummaryBtn"
-  );
-  const heroPanel = document.getElementById("heroPanel");
   const exportAllBtn = document.getElementById("exportAllBtn");
   const exportCurrentBtn = document.getElementById("exportCurrentBtn");
   const exportBgBtn = document.getElementById("exportBgBtn");
   const stopExportBtn = document.getElementById("stopExportBtn");
   const exportModeBothBtn = document.getElementById("exportModeBothBtn");
   const exportModeAudioBtn = document.getElementById("exportModeAudioBtn");
-  const exportPanel = document.getElementById("exportPanel");
-  const syncPanel = document.getElementById("syncPanel");
+  const readyPanel = document.getElementById("readyPanel");
   const offlinePanel = document.getElementById("offlinePanel");
   const offlineOpenPlaudBtn = document.getElementById("offlineOpenPlaudBtn");
   const smartSyncBtn = document.getElementById("smartSyncBtn");
@@ -99,23 +100,12 @@ document.addEventListener("DOMContentLoaded", async function () {
   const syncStatusEl = document.getElementById("syncStatus");
   const syncIcloudCmdEl = document.getElementById("syncIcloudCmd");
   const syncIcloudCopyBtn = document.getElementById("syncIcloudCopyBtn");
-  let syncIcloudCopyResetTimer = null;
-  let syncFolderSaveTimer = null;
-  /** Linking the whole iCloud Drive root keeps the field flexible: user picks any subpath. */
-  const ICLOUD_SYMLINK_COMMAND =
-    'ln -s "$HOME/Library/Mobile Documents/com~apple~CloudDocs" "$HOME/Downloads/iCloud"';
   const statusEl = document.getElementById("status");
   const copyStatusBtn = document.getElementById("copyStatusBtn");
-  let copyStatusBtnDefault = "";
   const exportStatusContainer = document.getElementById("exportStatus");
-  /** @type {ReturnType<typeof setInterval> | null} */
-  let statusPollingInterval = null;
-  /** @type {ReturnType<typeof setInterval> | null} */
-  let smartSyncPollingInterval = null;
-  let exportPollTransientErrors = 0;
   const tabStateBadge = document.getElementById("tabStateBadge");
-  const exportSubtitle = document.getElementById("exportSubtitle");
-  const headerSubtitle = document.getElementById("headerSubtitle");
+  const recordingTitle = document.getElementById("recordingTitle");
+  const recordingSubtitle = document.getElementById("recordingSubtitle");
   const archiveStrip = document.getElementById("archiveStrip");
   const archiveLine = document.getElementById("archiveLine");
   const statsRefreshBtn = document.getElementById("statsRefreshBtn");
@@ -124,7 +114,23 @@ document.addEventListener("DOMContentLoaded", async function () {
   const themeSystemBtn = document.getElementById("themeSystemBtn");
   const themeLightBtn = document.getElementById("themeLightBtn");
   const themeDarkBtn = document.getElementById("themeDarkBtn");
+  const settingsBtn = document.getElementById("settingsBtn");
+  const closeSheetBtn = document.getElementById("closeSheetBtn");
+  const settingsSheet = document.getElementById("settingsSheet");
+  const sheetBackdrop = document.getElementById("sheetBackdrop");
+  const settingsActivityDot = document.getElementById("settingsActivityDot");
+  const mainExportHint = document.getElementById("mainExportHint");
 
+  let syncIcloudCopyResetTimer = null;
+  let syncFolderSaveTimer = null;
+  const ICLOUD_SYMLINK_COMMAND =
+    'ln -s "$HOME/Library/Mobile Documents/com~apple~CloudDocs" "$HOME/Downloads/iCloud"';
+  let copyStatusBtnDefault = "";
+  /** @type {ReturnType<typeof setInterval> | null} */
+  let statusPollingInterval = null;
+  /** @type {ReturnType<typeof setInterval> | null} */
+  let smartSyncPollingInterval = null;
+  let exportPollTransientErrors = 0;
   const LIBRARY_STATS_STORAGE_KEY = "plaudExporterLibraryStats";
   let statsFetchInFlight = false;
   let statsWatchdogTimer = null;
@@ -135,6 +141,8 @@ document.addEventListener("DOMContentLoaded", async function () {
   const DEFAULT_SYNC_SUBDIRECTORY = "PlaudExports/Sync";
   /** @type {{ recordings: number; summaries: number; updatedAt: number } | null} */
   let warmStatsDuringFetch = null;
+  let sheetOpen = false;
+  let sheetInitialized = false;
 
   function applyI18nToDocument() {
     document.documentElement.lang = uiLocale;
@@ -158,34 +166,34 @@ document.addEventListener("DOMContentLoaded", async function () {
       copyStatusBtn.textContent = copyStatusBtnDefault;
     }
     if (langRuBtn) {
-      langRuBtn.classList.toggle("lang-toggle-btn--active", uiLocale === "ru");
+      langRuBtn.classList.toggle(
+        "toggle-group__item--active",
+        uiLocale === "ru"
+      );
       langRuBtn.setAttribute(
         "aria-pressed",
         uiLocale === "ru" ? "true" : "false"
       );
     }
     if (langEnBtn) {
-      langEnBtn.classList.toggle("lang-toggle-btn--active", uiLocale === "en");
+      langEnBtn.classList.toggle(
+        "toggle-group__item--active",
+        uiLocale === "en"
+      );
       langEnBtn.setAttribute(
         "aria-pressed",
         uiLocale === "en" ? "true" : "false"
       );
     }
     updateThemeToggleUi();
+    if (settingsBtn) {
+      settingsBtn.setAttribute("title", tr("sheet.open"));
+    }
   }
 
   applyI18nToDocument();
 
-  function setPairSubtitles(exportText, headerText) {
-    if (exportSubtitle) exportSubtitle.textContent = exportText;
-    if (headerSubtitle) {
-      headerSubtitle.textContent =
-        headerText !== undefined ? headerText : exportText;
-    }
-  }
-
   let exportActive = false;
-  /** Foreground export (content script) running; buttons stay disabled until content signals done. */
   let foregroundExportBusy = false;
   let activeTabIsPlaud = false;
   let currentExportTabId = null;
@@ -202,8 +210,8 @@ document.addEventListener("DOMContentLoaded", async function () {
   /** @type {"both" | "audio"} */
   let selectedAdvancedExportMode = EXPORT_MODE_BOTH;
   const exportActionButtons = [
-    heroExportAllSummaryBtn,
-    heroExportCurrentSummaryBtn,
+    downloadBtn,
+    exportAllSummariesBtn,
     exportAllBtn,
     exportCurrentBtn,
     exportBgBtn,
@@ -219,16 +227,11 @@ document.addEventListener("DOMContentLoaded", async function () {
     chrome.runtime &&
     chrome.scripting;
 
-  /**
-   * Реально активная вкладка в последнем сфокусированном окне браузера.
-   * Не подменяется фоновой вкладкой Plaud — для бейджа и экспорта смотрим именно её.
-   */
   function getFocusedTab(callback) {
     if (!hasChromeExtensionApi) {
       callback(new Error(tr("error.apiUnavailable")), null);
       return;
     }
-
     chrome.tabs.query(
       { active: true, lastFocusedWindow: true },
       function (tabs) {
@@ -250,10 +253,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     );
   }
 
-  /**
-   * С разрешением activeTab без "tabs" в chrome.tabs.query часто отсутствует url —
-   * без него {@link isPlaudTab} ложный и автопересчёт архива не запускается.
-   */
   function ensureActiveTabHasUrl(tab, callback) {
     if (
       !tab ||
@@ -307,7 +306,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   function updateTabBadgeOpenPlaudAction() {
     if (!tabStateBadge) return;
-    const clickable = tabStateBadge.classList.contains("badge-tab--offline");
+    const clickable = tabStateBadge.classList.contains("badge--offline");
     if (clickable) {
       tabStateBadge.setAttribute("role", "button");
       tabStateBadge.setAttribute("tabindex", "0");
@@ -319,26 +318,145 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
   }
 
+  function setRecordingPreview(recording) {
+    if (!recordingTitle) return;
+    if (recording?.title) {
+      recordingTitle.textContent = recording.title;
+      recordingTitle.classList.remove("recording-title--placeholder");
+    } else if (recording?.id) {
+      recordingTitle.textContent = tr("hero.downloadCurrent");
+      recordingTitle.classList.add("recording-title--placeholder");
+    } else {
+      recordingTitle.textContent = tr("main.noRecording");
+      recordingTitle.classList.add("recording-title--placeholder");
+    }
+    if (recordingSubtitle) {
+      recordingSubtitle.textContent = tr("main.subtitle");
+    }
+  }
+
+  function refreshRecordingPreview(tab) {
+    if (!tab || !isPlaudTab(tab)) {
+      setRecordingPreview(null);
+      return;
+    }
+    pingContentBusyState(tab, function (ping) {
+      if (ping?.currentRecording) {
+        setRecordingPreview(ping.currentRecording);
+      } else {
+        setRecordingPreview(null);
+      }
+    });
+  }
+
   function setPlaudTabState(tab) {
     activeTabIsPlaud = isPlaudTab(tab);
-    if (heroPanel) heroPanel.hidden = !activeTabIsPlaud;
-    if (exportPanel) exportPanel.hidden = !activeTabIsPlaud;
-    if (syncPanel) syncPanel.hidden = !activeTabIsPlaud;
-    if (archiveStrip) archiveStrip.hidden = !activeTabIsPlaud;
+    if (readyPanel) readyPanel.hidden = !activeTabIsPlaud;
     if (offlinePanel) offlinePanel.hidden = activeTabIsPlaud;
-    tabStateBadge.textContent = activeTabIsPlaud
-      ? tr("badge.onPlaudWeb")
-      : tr("badge.openPlaudWeb");
-    tabStateBadge.className = activeTabIsPlaud
-      ? "badge badge-tab badge-tab--ready"
-      : "badge badge-tab badge-tab--offline";
-    if (activeTabIsPlaud) {
-      if (headerSubtitle) headerSubtitle.textContent = tr("hero.lead");
-    } else {
-      setPairSubtitles(tr("subtitles.switchPlaudWeb"));
+    if (tabStateBadge) {
+      tabStateBadge.textContent = activeTabIsPlaud
+        ? tr("badge.onPlaudWeb")
+        : tr("badge.openPlaudWeb");
+      tabStateBadge.className = activeTabIsPlaud
+        ? "badge badge--ready"
+        : "badge badge--offline";
     }
     updateTabBadgeOpenPlaudAction();
+    if (activeTabIsPlaud) {
+      refreshRecordingPreview(tab);
+    } else {
+      setRecordingPreview(null);
+    }
     updateExportControls();
+    updateActivityIndicators();
+  }
+
+  function openSettingsSheet() {
+    if (!settingsSheet || !sheetBackdrop) return;
+    sheetOpen = true;
+    settingsSheet.hidden = false;
+    sheetBackdrop.hidden = false;
+    requestAnimationFrame(function () {
+      settingsSheet.classList.add("sheet--open");
+      settingsSheet.setAttribute("aria-hidden", "false");
+      sheetBackdrop.setAttribute("aria-hidden", "false");
+    });
+    if (settingsBtn) {
+      settingsBtn.setAttribute("aria-expanded", "true");
+    }
+    lazyInitSheet();
+  }
+
+  function closeSettingsSheet() {
+    if (!settingsSheet || !sheetBackdrop) return;
+    sheetOpen = false;
+    settingsSheet.classList.remove("sheet--open");
+    settingsSheet.setAttribute("aria-hidden", "true");
+    sheetBackdrop.setAttribute("aria-hidden", "true");
+    sheetBackdrop.hidden = true;
+    if (settingsBtn) {
+      settingsBtn.setAttribute("aria-expanded", "false");
+    }
+    setTimeout(function () {
+      if (!sheetOpen) settingsSheet.hidden = true;
+    }, 260);
+  }
+
+  function lazyInitSheet() {
+    if (sheetInitialized) return;
+    sheetInitialized = true;
+    loadSyncSettings();
+    loadCachedLibraryStats(function (cached) {
+      if (
+        cached &&
+        Number.isFinite(Number(cached.recordings)) &&
+        Number.isFinite(Number(cached.summaries))
+      ) {
+        renderArchiveStrip(cached.recordings, cached.summaries, {
+          cachedAt: cached.updatedAt,
+        });
+      } else {
+        renderArchiveStrip(0, 0, {
+          offline: true,
+          phaseMessage: tr("stats.waitLogin"),
+        });
+      }
+    });
+  }
+
+  function updateActivityIndicators() {
+    const busy = exportActive || smartSyncActive;
+    if (settingsActivityDot) {
+      settingsActivityDot.hidden = !busy;
+    }
+    if (mainExportHint) {
+      if (exportActive && !sheetOpen) {
+        mainExportHint.hidden = false;
+        mainExportHint.textContent = tr("status.exportRunning");
+      } else if (smartSyncActive && !sheetOpen) {
+        mainExportHint.hidden = false;
+        mainExportHint.textContent = formatSyncLine(
+          lastSmartSyncData || { status: "running" }
+        );
+      } else {
+        mainExportHint.hidden = true;
+        mainExportHint.textContent = "";
+      }
+    }
+  }
+
+  function updateDownloadBusyUi() {
+    const busy = foregroundExportBusy && activeTabIsPlaud;
+    if (downloadBtn) {
+      downloadBtn.setAttribute("aria-busy", busy ? "true" : "false");
+    }
+    if (downloadBtnLabel) {
+      downloadBtnLabel.hidden = busy;
+      if (!busy) downloadBtnLabel.textContent = tr("main.download");
+    }
+    if (downloadBtnSpinner) {
+      downloadBtnSpinner.hidden = !busy;
+    }
   }
 
   function injectContentScript(tabId, callback) {
@@ -346,12 +464,8 @@ document.addEventListener("DOMContentLoaded", async function () {
       callback(new Error(tr("error.apiUnavailable")));
       return;
     }
-
     chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        files: ["content.js"],
-      },
+      { target: { tabId }, files: ["content.js"] },
       () => {
         if (chrome.runtime.lastError) {
           callback(new Error(chrome.runtime.lastError.message));
@@ -367,7 +481,6 @@ document.addEventListener("DOMContentLoaded", async function () {
       callback(new Error(tr("error.apiUnavailable")), null);
       return;
     }
-
     chrome.tabs.sendMessage(tabId, payload, (response) => {
       if (chrome.runtime.lastError) {
         callback(new Error(chrome.runtime.lastError.message), null);
@@ -382,7 +495,6 @@ document.addEventListener("DOMContentLoaded", async function () {
       callback(new Error(tr("error.apiUnavailable")), null);
       return;
     }
-
     chrome.runtime.sendMessage(payload, (response) => {
       if (chrome.runtime.lastError) {
         callback(new Error(chrome.runtime.lastError.message), null);
@@ -410,7 +522,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         callback(sendError, response);
         return;
       }
-
       setTimeout(() => {
         retrySendMessageToTab(tabId, payload, attemptsRemaining - 1, callback);
       }, 250);
@@ -423,18 +534,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         callback(null, response);
         return;
       }
-
       if (!isMissingReceivingEndError(sendError)) {
         callback(sendError, null);
         return;
       }
-
       injectContentScript(tab.id, (injectError) => {
         if (injectError) {
           callback(injectError, null);
           return;
         }
-
         retrySendMessageToTab(tab.id, payload, 5, callback);
       });
     });
@@ -442,40 +550,32 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   function renderArchiveStrip(recordings, summaries, opts = {}) {
     if (!archiveLine || !archiveStrip) return;
-
     const r = Number(recordings) || 0;
     const summariesUnknown =
       summaries === null ||
       summaries === undefined ||
       Number.isNaN(Number(summaries));
     const s = summariesUnknown ? "—" : String(Number(summaries) || 0);
-
     let line = tr("archive.line", { recordings: r, summaries: s });
-
     if (opts.cachedAt && !opts.loading) {
       line += ` · ${formatShortRelative(opts.cachedAt)}`;
     }
-    if (opts.loading) {
-      line = tr("archive.loading");
-    }
+    if (opts.loading) line = tr("archive.loading");
     if (opts.offline && !opts.loading) {
-      line = tr("archive.offline", {
-        recordings: r,
-        summaries: s,
-        time: opts.cachedAt ? formatShortRelative(opts.cachedAt) : "—",
-      });
+      line = opts.phaseMessage
+        ? opts.phaseMessage
+        : tr("archive.offline", {
+            recordings: r,
+            summaries: s,
+            time: opts.cachedAt ? formatShortRelative(opts.cachedAt) : "—",
+          });
     }
-    if (opts.phaseMessage) {
+    if (opts.phaseMessage && opts.loading) {
       line = opts.phaseMessage;
     }
-
     archiveLine.textContent = line;
     archiveStrip.classList.toggle("archive-strip--loading", !!opts.loading);
     archiveStrip.classList.toggle("archive-strip--offline", !!opts.offline);
-  }
-
-  function showArchiveLoading() {
-    renderArchiveStrip(0, 0, { loading: true });
   }
 
   function formatShortRelative(ts) {
@@ -536,6 +636,10 @@ document.addEventListener("DOMContentLoaded", async function () {
       foregroundExportBusy = !!ping.exportRunLock;
       smartSyncActive = !!ping.smartSyncLock;
       updateExportControls();
+      updateActivityIndicators();
+    }
+    if (ping.currentRecording) {
+      setRecordingPreview(ping.currentRecording);
     }
   }
 
@@ -594,18 +698,13 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   function persistLibraryStatsMerge(recordings, summariesUpdate) {
     if (!hasChromeExtensionApi || !chrome.storage?.local) return;
-
     chrome.storage.local.get([LIBRARY_STATS_STORAGE_KEY], (result) => {
-      if (chrome.runtime.lastError) {
-        return;
-      }
-
+      if (chrome.runtime.lastError) return;
       const prev = result[LIBRARY_STATS_STORAGE_KEY] || {};
       const nextSummaries =
         summariesUpdate === null || summariesUpdate === undefined
           ? Number(prev.summaries) || 0
           : Number(summariesUpdate) || 0;
-
       chrome.storage.local.set({
         [LIBRARY_STATS_STORAGE_KEY]: {
           recordings: Number(recordings) || 0,
@@ -652,10 +751,7 @@ document.addEventListener("DOMContentLoaded", async function () {
       }
       updateSyncModeToggleUi();
       if (response.summary) {
-        renderSmartSyncStatus({
-          status: "idle",
-          ...response.summary,
-        });
+        renderSmartSyncStatus({ status: "idle", ...response.summary });
       }
     });
   }
@@ -711,6 +807,7 @@ document.addEventListener("DOMContentLoaded", async function () {
       syncStatusEl.appendChild(document.createElement("br"));
       syncStatusEl.appendChild(document.createTextNode(detail));
     }
+    updateActivityIndicators();
   }
 
   function stopSmartSyncPolling() {
@@ -725,6 +822,7 @@ document.addEventListener("DOMContentLoaded", async function () {
       smartSyncActive = false;
       currentSmartSyncTabId = null;
       stopSmartSyncPolling();
+      updateActivityIndicators();
       return;
     }
     sendRuntimeMessage(
@@ -736,6 +834,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (response.syncData) renderSmartSyncStatus(response.syncData);
         if (smartSyncActive) startSmartSyncPolling();
         updateExportControls();
+        updateActivityIndicators();
       }
     );
   }
@@ -758,6 +857,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             currentSmartSyncTabId = null;
             stopSmartSyncPolling();
             updateExportControls();
+            updateActivityIndicators();
           }
         }
       );
@@ -804,13 +904,11 @@ document.addEventListener("DOMContentLoaded", async function () {
       updateStatus(tr("error.waitExport"), "info");
       return;
     }
-
     const hasWarm =
       warmCache &&
       Number.isFinite(Number(warmCache.recordings)) &&
       Number.isFinite(Number(warmCache.summaries)) &&
       Number.isFinite(Number(warmCache.updatedAt));
-
     warmStatsDuringFetch = hasWarm
       ? {
           recordings: Number(warmCache.recordings) || 0,
@@ -818,7 +916,6 @@ document.addEventListener("DOMContentLoaded", async function () {
           updatedAt: Number(warmCache.updatedAt),
         }
       : null;
-
     statsFetchInFlight = true;
     clearStatsWatchdog();
     const watchdogMs = includeSummaries ? 195000 : 90000;
@@ -841,7 +938,6 @@ document.addEventListener("DOMContentLoaded", async function () {
       }
       updateExportControls();
     }, watchdogMs);
-
     if (hasWarm) {
       renderArchiveStrip(
         Number(warmCache.recordings) || 0,
@@ -857,7 +953,6 @@ document.addEventListener("DOMContentLoaded", async function () {
       });
     }
     updateExportControls();
-
     sendMessageToTabWithRecovery(
       tab,
       { action: "runLibraryStats", includeSummaries },
@@ -865,7 +960,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         clearStatsWatchdog();
         statsFetchInFlight = false;
         warmStatsDuringFetch = null;
-
         if (sendError || !response?.success) {
           const msg =
             sendError?.message || response?.error || tr("stats.statsError");
@@ -884,10 +978,8 @@ document.addEventListener("DOMContentLoaded", async function () {
           updateExportControls();
           return;
         }
-
         const rec = Number(response.recordings) || 0;
         const rawSummaries = response.summaries;
-
         loadCachedLibraryStats((cached) => {
           persistLibraryStatsMerge(
             rec,
@@ -895,68 +987,17 @@ document.addEventListener("DOMContentLoaded", async function () {
               ? Number(rawSummaries) || 0
               : null
           );
-
           const renderSummaries =
             rawSummaries !== null && rawSummaries !== undefined
               ? Number(rawSummaries) || 0
               : cached && Number.isFinite(Number(cached.summaries))
                 ? Number(cached.summaries)
                 : null;
-
           renderArchiveStrip(rec, renderSummaries, { cachedAt: Date.now() });
           updateExportControls();
         });
       }
     );
-  }
-
-  function tryScheduleLibraryStats(tab) {
-    loadCachedLibraryStats((cached) => {
-      const hasCache =
-        cached &&
-        Number.isFinite(Number(cached.recordings)) &&
-        Number.isFinite(Number(cached.summaries));
-
-      if (!tab || !isPlaudTab(tab)) {
-        if (hasCache) {
-          renderArchiveStrip(cached.recordings, cached.summaries, {
-            cachedAt: cached.updatedAt,
-            offline: true,
-          });
-        } else {
-          renderArchiveStrip(0, 0, {
-            offline: true,
-            phaseMessage: tr("stats.waitLogin"),
-          });
-        }
-        updateExportControls();
-        return;
-      }
-
-      if (hasCache) {
-        renderArchiveStrip(cached.recordings, cached.summaries, {
-          cachedAt: cached.updatedAt,
-          loading: true,
-        });
-      }
-
-      if (exportActive || foregroundExportBusy) {
-        updateExportControls();
-        return;
-      }
-
-      refreshLibraryStatsFromTab(
-        tab,
-        false,
-        hasCache
-          ? {
-              recordings: cached.recordings,
-              summaries: cached.summaries,
-              updatedAt: cached.updatedAt,
-            }
-          : null
-      );
-    });
   }
 
   function startForegroundExport(exportMode) {
@@ -978,9 +1019,8 @@ document.addEventListener("DOMContentLoaded", async function () {
           );
           return;
         }
-
         exportActionButtons.forEach((button) => {
-          button.disabled = true;
+          if (button) button.disabled = true;
         });
         sendMessageToTabWithRecovery(
           resolved,
@@ -994,7 +1034,6 @@ document.addEventListener("DOMContentLoaded", async function () {
               updateExportControls();
               return;
             }
-
             if (response && response.success) {
               foregroundExportBusy = true;
               updateStatus(
@@ -1039,9 +1078,8 @@ document.addEventListener("DOMContentLoaded", async function () {
           );
           return;
         }
-
         exportActionButtons.forEach((button) => {
-          button.disabled = true;
+          if (button) button.disabled = true;
         });
         sendMessageToTabWithRecovery(
           resolved,
@@ -1061,7 +1099,6 @@ document.addEventListener("DOMContentLoaded", async function () {
               updateExportControls();
               return;
             }
-
             if (response && response.success) {
               foregroundExportBusy = true;
               updateStatus(
@@ -1072,7 +1109,7 @@ document.addEventListener("DOMContentLoaded", async function () {
               );
             } else {
               updateStatus(
-                response?.error || tr("error.couldNotStartCurrent"),
+                contentErrorMessage(response, "error.couldNotStartCurrent"),
                 "error"
               );
             }
@@ -1088,24 +1125,21 @@ document.addEventListener("DOMContentLoaded", async function () {
     getFocusedTab((tabError, tab) => {
       if (tabError) {
         activeTabIsPlaud = false;
-        if (heroPanel) heroPanel.hidden = true;
-        if (exportPanel) exportPanel.hidden = true;
-        if (syncPanel) syncPanel.hidden = true;
-        if (archiveStrip) archiveStrip.hidden = true;
+        if (readyPanel) readyPanel.hidden = true;
         if (offlinePanel) offlinePanel.hidden = false;
-        tabStateBadge.textContent = tr("badge.noTab");
-        tabStateBadge.className = "badge badge-tab badge-tab--offline";
+        if (tabStateBadge) {
+          tabStateBadge.textContent = tr("badge.noTab");
+          tabStateBadge.className = "badge badge--offline";
+        }
         updateTabBadgeOpenPlaudAction();
-        setPairSubtitles(tr("subtitles.openPlaudTab"));
+        setRecordingPreview(null);
         updateExportControls();
-        tryScheduleLibraryStats(null);
         return;
       }
       ensureActiveTabHasUrl(tab, function (resolved) {
         setPlaudTabState(resolved);
         refreshSmartSyncStatus(resolved);
         pingContentBusyState(resolved, applyContentBusyFromPing);
-        tryScheduleLibraryStats(isPlaudTab(resolved) ? resolved : null);
         if (lastExportStatusData) {
           updateExportStatus(lastExportStatusData);
         }
@@ -1113,6 +1147,19 @@ document.addEventListener("DOMContentLoaded", async function () {
       });
     });
   }
+
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", openSettingsSheet);
+  }
+  if (closeSheetBtn) {
+    closeSheetBtn.addEventListener("click", closeSettingsSheet);
+  }
+  if (sheetBackdrop) {
+    sheetBackdrop.addEventListener("click", closeSettingsSheet);
+  }
+  document.addEventListener("keydown", function (ev) {
+    if (ev.key === "Escape" && sheetOpen) closeSettingsSheet();
+  });
 
   if (langRuBtn) {
     langRuBtn.addEventListener("click", function () {
@@ -1162,11 +1209,11 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   if (tabStateBadge) {
     tabStateBadge.addEventListener("click", function () {
-      if (tabStateBadge.classList.contains("badge-tab--offline"))
+      if (tabStateBadge.classList.contains("badge--offline"))
         openPlaudWebSite();
     });
     tabStateBadge.addEventListener("keydown", function (ev) {
-      if (!tabStateBadge.classList.contains("badge-tab--offline")) return;
+      if (!tabStateBadge.classList.contains("badge--offline")) return;
       if (ev.key !== "Enter" && ev.key !== " ") return;
       ev.preventDefault();
       openPlaudWebSite();
@@ -1175,6 +1222,12 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   if (offlineOpenPlaudBtn) {
     offlineOpenPlaudBtn.addEventListener("click", openPlaudWebSite);
+  }
+
+  if (downloadBtn) {
+    downloadBtn.addEventListener("click", function () {
+      startCurrentPageExport(EXPORT_MODE_SUMMARY);
+    });
   }
 
   if (statsRefreshBtn) {
@@ -1294,7 +1347,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             updateStatus(tr("sync.busy"), "info");
             return;
           }
-
           const syncSubdirectory =
             syncFolderInput?.value?.trim() || DEFAULT_SYNC_SUBDIRECTORY;
           smartSyncBtn.disabled = true;
@@ -1348,15 +1400,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  if (heroExportAllSummaryBtn) {
-    heroExportAllSummaryBtn.addEventListener("click", function () {
+  if (exportAllSummariesBtn) {
+    exportAllSummariesBtn.addEventListener("click", function () {
       startForegroundExport(EXPORT_MODE_SUMMARY);
-    });
-  }
-
-  if (heroExportCurrentSummaryBtn) {
-    heroExportCurrentSummaryBtn.addEventListener("click", function () {
-      startCurrentPageExport(EXPORT_MODE_SUMMARY);
     });
   }
 
@@ -1387,7 +1433,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             updateStatus(getPlaudTabHelpText(tr("actions.bgExport")), "error");
             return;
           }
-
           exportBgBtn.disabled = true;
           sendRuntimeMessage(
             {
@@ -1406,6 +1451,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 exportActive = true;
                 currentExportTabId = resolved.id;
                 updateExportControls();
+                updateActivityIndicators();
                 startStatusPolling();
               } else {
                 updateStatus(
@@ -1439,12 +1485,8 @@ document.addEventListener("DOMContentLoaded", async function () {
           updateStatus(tr("error.stopNoTab"), "error");
           return;
         }
-
         sendRuntimeMessage(
-          {
-            action: "stopExport",
-            tabId,
-          },
+          { action: "stopExport", tabId },
           (sendError, response) => {
             if (sendError) {
               updateStatus(
@@ -1460,6 +1502,7 @@ document.addEventListener("DOMContentLoaded", async function () {
               currentExportTabId = null;
               updateExportStatus(null);
               updateExportControls();
+              updateActivityIndicators();
             } else {
               updateStatus(
                 tr("error.stopFailedGeneric", {
@@ -1523,21 +1566,18 @@ document.addEventListener("DOMContentLoaded", async function () {
       statusClearTimer = null;
     }
     statusEl.textContent = message;
-    const alertVariant = type === "error" ? "destructive" : type;
-    statusEl.className = "alert alert-" + alertVariant;
+    statusEl.className = "status-line status-line--" + type;
 
     if (copyStatusBtn) {
       copyStatusBtn.hidden = type !== "error" || !message;
       copyStatusBtn.textContent = copyStatusBtnDefault;
     }
 
-    if (type === "error" && message) {
-      return;
-    }
+    if (type === "error" && message) return;
 
     statusClearTimer = setTimeout(function () {
       statusEl.textContent = "";
-      statusEl.className = "alert";
+      statusEl.className = "status-line";
       statusClearTimer = null;
       if (copyStatusBtn) copyStatusBtn.hidden = true;
     }, 5000);
@@ -1554,17 +1594,15 @@ document.addEventListener("DOMContentLoaded", async function () {
     getFocusedTab((tabError, tab) => {
       if (tabError) {
         activeTabIsPlaud = false;
-        if (heroPanel) heroPanel.hidden = true;
-        if (exportPanel) exportPanel.hidden = true;
-        if (syncPanel) syncPanel.hidden = true;
-        if (archiveStrip) archiveStrip.hidden = true;
+        if (readyPanel) readyPanel.hidden = true;
         if (offlinePanel) offlinePanel.hidden = false;
-        tabStateBadge.textContent = tr("badge.noTab");
-        tabStateBadge.className = "badge badge-tab badge-tab--offline";
+        if (tabStateBadge) {
+          tabStateBadge.textContent = tr("badge.noTab");
+          tabStateBadge.className = "badge badge--offline";
+        }
         updateTabBadgeOpenPlaudAction();
-        setPairSubtitles(tr("subtitles.openPlaudTab"));
+        setRecordingPreview(null);
         updateExportControls();
-        tryScheduleLibraryStats(null);
         return;
       }
 
@@ -1573,8 +1611,6 @@ document.addEventListener("DOMContentLoaded", async function () {
           setPlaudTabState(focusedResolved);
           refreshSmartSyncStatus(focusedResolved);
           pingContentBusyState(focusedResolved, applyContentBusyFromPing);
-
-          const statsTab = isPlaudTab(focusedResolved) ? focusedResolved : null;
 
           const statusTabId =
             exportActive && currentExportTabId != null
@@ -1600,15 +1636,16 @@ document.addEventListener("DOMContentLoaded", async function () {
                     updateExportStatus(anyResp.exportData);
                     startStatusPolling();
                   }
+                  updateActivityIndicators();
                 } else {
                   stopStatusPolling();
                   exportActive = false;
                   currentExportTabId = null;
                   exportPollTransientErrors = 0;
                   updateExportStatus(null);
+                  updateActivityIndicators();
                 }
                 updateExportControls();
-                tryScheduleLibraryStats(statsTab);
               }
             );
             return;
@@ -1624,16 +1661,13 @@ document.addEventListener("DOMContentLoaded", async function () {
               clearTimeout(exportStatusFallbackTimer);
               exportStatusFallbackTimer = null;
             }
-
             if (sendError) {
               updateExportControls();
-              tryScheduleLibraryStats(statsTab);
               return;
             }
             if (response && response.success) {
               exportActive = response.isRunning;
               currentExportTabId = exportActive ? statusTabId : null;
-
               if (exportActive && response.exportData) {
                 updateExportStatus(response.exportData);
                 startStatusPolling();
@@ -1642,13 +1676,11 @@ document.addEventListener("DOMContentLoaded", async function () {
                 exportPollTransientErrors = 0;
                 updateExportStatus(null);
               }
-
+              updateActivityIndicators();
               updateExportControls();
             } else {
               updateExportControls();
             }
-
-            tryScheduleLibraryStats(statsTab);
           }
 
           exportStatusFallbackTimer = setTimeout(function () {
@@ -1656,10 +1688,7 @@ document.addEventListener("DOMContentLoaded", async function () {
           }, 1200);
 
           sendRuntimeMessage(
-            {
-              action: "getExportStatus",
-              tabId: statusTabId,
-            },
+            { action: "getExportStatus", tabId: statusTabId },
             function (sendError, response) {
               finalizeExportStatus(sendError, response);
             }
@@ -1671,17 +1700,17 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   function updateExportStatus(data) {
     if (!exportStatusContainer) return;
-
     if (!data || data.status === "stopped") {
       lastExportStatusData = null;
       exportStatusContainer.innerHTML = "";
       delete exportStatusContainer.dataset.exportUiBuilt;
       exportStatusContainer.classList.remove("active");
+      updateActivityIndicators();
       return;
     }
-
     lastExportStatusData = data;
     exportStatusContainer.classList.add("active");
+    updateActivityIndicators();
 
     const startedAt = Number(data.startTime) || Date.now();
     const elapsedSeconds = Math.max(
@@ -1791,15 +1820,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         if (button) button.disabled = !activeTabIsPlaud;
       });
     }
-
-    if (exportActive) {
-      stopExportBtn.disabled = false;
-      stopExportBtn.hidden = false;
-    } else {
-      stopExportBtn.disabled = true;
-      stopExportBtn.hidden = true;
+    if (stopExportBtn) {
+      if (exportActive) {
+        stopExportBtn.disabled = false;
+        stopExportBtn.hidden = false;
+      } else {
+        stopExportBtn.disabled = true;
+        stopExportBtn.hidden = true;
+      }
     }
-
     if (statsRefreshBtn) {
       statsRefreshBtn.disabled =
         statsFetchInFlight ||
@@ -1814,6 +1843,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (openDownloadsBtn) {
       openDownloadsBtn.disabled = false;
     }
+    updateDownloadBusyUi();
+    updateActivityIndicators();
   }
 
   function startStatusPolling() {
@@ -1821,19 +1852,12 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (statusPollingInterval) {
       clearInterval(statusPollingInterval);
     }
-
     statusPollingInterval = setInterval(() => {
       getFocusedTab((tabError, tab) => {
         const tabId = currentExportTabId != null ? currentExportTabId : tab?.id;
-        if (tabError && !tabId) {
-          return;
-        }
-
+        if (tabError && !tabId) return;
         sendRuntimeMessage(
-          {
-            action: "getExportStatus",
-            tabId,
-          },
+          { action: "getExportStatus", tabId },
           (sendError, response) => {
             if (sendError) {
               exportPollTransientErrors += 1;
@@ -1850,7 +1874,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             exportPollTransientErrors = 0;
             if (response && response.success) {
               exportActive = response.isRunning;
-
               if (exportActive && response.exportData) {
                 updateExportStatus(response.exportData);
               } else {
@@ -1900,23 +1923,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  showArchiveLoading();
   updateAdvancedExportModeUi();
   updateSyncModeToggleUi();
-  loadCachedLibraryStats(function (cached) {
-    const hasBootstrapCache =
-      cached &&
-      Number.isFinite(Number(cached.recordings)) &&
-      Number.isFinite(Number(cached.summaries));
-    if (!hasBootstrapCache) {
-      return;
-    }
-    renderArchiveStrip(cached.recordings, cached.summaries, {
-      cachedAt: cached.updatedAt,
-      loading: true,
-    });
-  });
-
   checkExportStatus();
-  loadSyncSettings();
 });
