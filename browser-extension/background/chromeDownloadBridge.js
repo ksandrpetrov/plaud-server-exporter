@@ -13,18 +13,40 @@ import { plaudT } from "./bgLocale.js";
 
 const VALID_CONFLICT_ACTIONS = ["uniquify", "overwrite", "prompt"];
 
+function getUrlSchemeForLog(value) {
+  if (typeof value !== "string") return "";
+  return value.match(/^([a-z0-9+.-]+):/i)?.[1] || "";
+}
+
 /** Kicks off a `chrome.downloads.download`; rejects on error or empty id. */
 function startChromeDownload(options) {
   return new Promise((resolve, reject) => {
+    console.info("[Plaud Export BG] chrome.downloads.download:start", {
+      filename: options.filename,
+      conflictAction: options.conflictAction,
+      saveAs: options.saveAs,
+      urlScheme: getUrlSchemeForLog(options.url),
+    });
     chrome.downloads.download(options, (downloadId) => {
       if (chrome.runtime.lastError) {
+        console.warn("[Plaud Export BG] chrome.downloads.download:error", {
+          filename: options.filename,
+          message: chrome.runtime.lastError.message,
+        });
         reject(new Error(chrome.runtime.lastError.message));
         return;
       }
       if (!downloadId) {
+        console.warn("[Plaud Export BG] chrome.downloads.download:no-id", {
+          filename: options.filename,
+        });
         reject(new Error(plaudT("bg.noDownloadId")));
         return;
       }
+      console.info("[Plaud Export BG] chrome.downloads.download:started", {
+        filename: options.filename,
+        downloadId,
+      });
       resolve(downloadId);
     });
   });
@@ -66,8 +88,8 @@ function waitForChromeDownload(downloadId, timeoutMs = 600000) {
 
 /**
  * MV3 service workers have no URL.createObjectURL, so inline text is turned
- * into a `data:` URL instead. Summaries are small enough for that; large
- * binaries reach the SW as blob object URLs created by the content script.
+ * into a `data:` URL instead. Larger payloads should reach the SW as blob
+ * object URLs created by the content script.
  */
 function bytesToDataUrl(bytes, mimeType) {
   let binary = "";
@@ -105,6 +127,14 @@ export async function downloadPlaudFile(message) {
     throw new Error(plaudT("bg.noUrl"));
   }
 
+  console.info("[Plaud Export BG] downloadPlaudFile:start", {
+    filename,
+    conflictAction,
+    urlScheme: getUrlSchemeForLog(url),
+    hasInlineText: message.textContent != null,
+    inlineTextChars:
+      message.textContent == null ? 0 : String(message.textContent).length,
+  });
   const downloadId = await startChromeDownload({
     url,
     filename,
@@ -113,5 +143,10 @@ export async function downloadPlaudFile(message) {
   });
 
   await waitForChromeDownload(downloadId, Number(message.timeoutMs) || 600000);
+  console.info("[Plaud Export BG] downloadPlaudFile:complete", {
+    filename,
+    downloadId,
+    conflictAction,
+  });
   return { success: true, downloadId, filename, conflictAction };
 }

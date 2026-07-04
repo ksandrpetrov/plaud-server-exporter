@@ -70,6 +70,7 @@ import {
 } from "../../common/runtimeMessages.js";
 import {
   buildPlaudHeaders,
+  describePlaudSessionStorage,
   getPlaudSession,
   normalizeApiBase,
 } from "./plaudBrowserSession.js";
@@ -97,6 +98,61 @@ function getExportModeLabel(mode) {
 
 const PLAUD_FETCH_TIMEOUT_MS = 45000;
 const PLAUD_FETCH_MAX_RETRIES = 3;
+
+function isPlaudExportDebugEnabled() {
+  try {
+    return globalThis.localStorage?.getItem("plaudExporterDebug") !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function plaudExportDebug(event, details = {}) {
+  if (!isPlaudExportDebugEnabled()) return;
+  console.info(`[Plaud Export] ${event}`, details);
+}
+
+function redactUrlForLog(value) {
+  if (typeof value !== "string" || !value) return "";
+  try {
+    const url = new URL(value);
+    const pathParts = url.pathname.split("/").filter(Boolean).slice(0, 3);
+    const path = pathParts.length ? `/${pathParts.join("/")}` : "";
+    const hasQuery = url.search ? "?…" : "";
+    return `${url.origin}${path}${hasQuery}`;
+  } catch {
+    return "[invalid-url]";
+  }
+}
+
+function describePayloadShape(payload) {
+  if (payload == null || typeof payload !== "object") {
+    return { type: payload == null ? "null" : typeof payload };
+  }
+  const data = /** @type {any} */ (payload).data;
+  const status = /** @type {any} */ (payload).status;
+  const message = /** @type {any} */ (payload).message;
+  const shape = {
+    type: Array.isArray(payload) ? "array" : "object",
+    topKeys: Object.keys(payload).slice(0, 20),
+    status,
+    message: typeof message === "string" ? message.slice(0, 200) : "",
+  };
+  if (Array.isArray(payload)) {
+    return { ...shape, length: payload.length };
+  }
+  if (Array.isArray(data)) {
+    return { ...shape, dataType: "array", dataLength: data.length };
+  }
+  if (data && typeof data === "object") {
+    return {
+      ...shape,
+      dataType: "object",
+      dataKeys: Object.keys(data).slice(0, 20),
+    };
+  }
+  return { ...shape, dataType: data == null ? "null" : typeof data };
+}
 
 function sleepMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -224,7 +280,17 @@ async function fetchUrlTextWithRetries(url) {
       await sleepMs(Math.min(8000, 500 * 2 ** (attempt - 1)));
     }
     try {
+      plaudExportDebug("summary:data-link:fetch:start", {
+        attempt: attempt + 1,
+        url: redactUrlForLog(url),
+      });
       const response = await fetchWithTimeout(url, {}, PLAUD_FETCH_TIMEOUT_MS);
+      plaudExportDebug("summary:data-link:fetch:response", {
+        attempt: attempt + 1,
+        status: response.status,
+        ok: response.ok,
+        url: redactUrlForLog(url),
+      });
       if (!response.ok) {
         const err = new Error(
           `Не удалось загрузить саммари: HTTP ${response.status}`
@@ -238,9 +304,20 @@ async function fetchUrlTextWithRetries(url) {
         lastError = err;
         continue;
       }
-      return response.text();
+      const text = await response.text();
+      plaudExportDebug("summary:data-link:fetch:done", {
+        attempt: attempt + 1,
+        chars: text.length,
+        url: redactUrlForLog(url),
+      });
+      return text;
     } catch (error) {
       lastError = error;
+      plaudExportDebug("summary:data-link:fetch:error", {
+        attempt: attempt + 1,
+        message: error?.message || String(error),
+        url: redactUrlForLog(url),
+      });
       if (!shouldRetryPlaudFetchAttempt(error, NaN)) {
         throw error;
       }
@@ -551,19 +628,80 @@ async function tryFetchRecordingTitleHint(session, fileId) {
 }
 
 async function fetchPlaudSummaryExports(session, file) {
-  const payload = await fetchPlaudApi(session, "/ai/query_note", {
-    headers: { "file-id": file.id },
+  plaudExportDebug("summary:query-note:start", {
+    fileId: file.id,
+    title: file.title,
+  });
+  let payload;
+  try {
+    payload = await fetchPlaudApi(session, "/ai/query_note", {
+      headers: { "file-id": file.id },
+    });
+  } catch (error) {
+    console.warn("[Plaud Export] summary:query-note:error", {
+      fileId: file.id,
+      title: file.title,
+      message: error?.message || String(error),
+      error,
+    });
+    throw error;
+  }
+  plaudExportDebug("summary:query-note:payload", {
+    fileId: file.id,
+    title: file.title,
+    shape: describePayloadShape(payload),
   });
   const notes = findSummaryNotes(payload);
+  plaudExportDebug("summary:notes:found", {
+    fileId: file.id,
+    title: file.title,
+    count: notes.length,
+    notes: notes.map((note, index) => {
+      const raw = /** @type {any} */ (note);
+      const inline = getNoteInlineContent(note);
+      const dataLink = getNoteDataLink(note);
+      return {
+        index,
+        type: raw.data_type || raw.note_type || raw.type || "",
+        title: getSummaryNoteTitle(note, ""),
+        hasInline: !!inline,
+        inlineChars: inline.length,
+        dataLink: redactUrlForLog(dataLink),
+        topKeys: Object.keys(raw).slice(0, 20),
+      };
+    }),
+  });
   const summaries = [];
 
   for (const note of notes) {
     const inline = getNoteInlineContent(note);
     const dataLink = getNoteDataLink(note);
+    plaudExportDebug("summary:note:read:start", {
+      fileId: file.id,
+      title: file.title,
+      noteTitle: getSummaryNoteTitle(note, ""),
+      hasInline: !!inline,
+      inlineChars: inline.length,
+      dataLink: redactUrlForLog(dataLink),
+    });
     const rawContent =
       inline || (dataLink ? await fetchUrlTextWithRetries(dataLink) : "");
     const content = stripPlaudInlineAssets(parseSummaryContent(rawContent));
-    if (!content) continue;
+    plaudExportDebug("summary:note:parsed", {
+      fileId: file.id,
+      title: file.title,
+      noteTitle: getSummaryNoteTitle(note, ""),
+      rawChars: String(rawContent || "").length,
+      contentChars: content.length,
+    });
+    if (!content) {
+      plaudExportDebug("summary:note:skip-empty", {
+        fileId: file.id,
+        title: file.title,
+        noteTitle: getSummaryNoteTitle(note, ""),
+      });
+      continue;
+    }
 
     const title =
       normalizeHumanTitle(getSummaryNoteTitle(note, "Саммари")) || "Саммари";
@@ -573,6 +711,12 @@ async function fetchPlaudSummaryExports(session, file) {
     });
   }
 
+  plaudExportDebug("summary:exports:ready", {
+    fileId: file.id,
+    title: file.title,
+    count: summaries.length,
+    markdownChars: summaries.map((summary) => summary.markdown.length),
+  });
   return summaries;
 }
 
@@ -628,7 +772,7 @@ export async function runLibraryStats(options = {}) {
       : 180000;
 
   async function compute() {
-    const session = getPlaudSession();
+    const session = await getPlaudSession();
 
     onProgress?.({ phase: "list", current: 0, total: 1 });
     let files = await fetchPlaudFilesFromApi(session);
@@ -720,6 +864,19 @@ function buildSummaryFilenameForFile(
 
 function requestDownloadViaBackground(payload) {
   return new Promise((resolve, reject) => {
+    const urlSchemeMatch =
+      typeof payload.url === "string"
+        ? payload.url.match(/^([a-z0-9+.-]+):/i)
+        : null;
+    plaudExportDebug("download:background:request", {
+      filename: payload.filename,
+      conflictAction: payload.conflictAction,
+      hasUrl: typeof payload.url === "string" && !!payload.url,
+      urlScheme: urlSchemeMatch?.[1] || "",
+      hasTextContent: payload.textContent != null,
+      textChars:
+        payload.textContent == null ? 0 : String(payload.textContent).length,
+    });
     chrome.runtime.sendMessage(
       {
         action: ACTION_DOWNLOAD_PLAUD_FILE,
@@ -727,26 +884,53 @@ function requestDownloadViaBackground(payload) {
       },
       (response) => {
         if (chrome.runtime.lastError) {
+          plaudExportDebug("download:background:last-error", {
+            filename: payload.filename,
+            message: chrome.runtime.lastError.message,
+          });
           reject(new Error(chrome.runtime.lastError.message));
           return;
         }
         if (!response?.success) {
+          plaudExportDebug("download:background:rejected", {
+            filename: payload.filename,
+            response,
+          });
           reject(new Error(response?.error || "Ошибка загрузки."));
           return;
         }
+        plaudExportDebug("download:background:success", {
+          filename: response.filename || payload.filename,
+          downloadId: response.downloadId,
+          conflictAction: response.conflictAction,
+        });
         resolve(response);
       }
     );
   });
 }
 
-function downloadTextViaBackground(content, filename, options = {}) {
-  return requestDownloadViaBackground({
-    textContent: withUtf8Bom(content),
-    mimeType: "text/markdown;charset=utf-8",
+async function downloadTextViaBackground(content, filename, options = {}) {
+  const text = withUtf8Bom(content);
+  plaudExportDebug("summary:download:start", {
     filename,
-    conflictAction: options.conflictAction,
+    markdownChars: String(content ?? "").length,
+    bytes: new TextEncoder().encode(text).byteLength,
   });
+  const blob = new Blob([text], {
+    type: "text/markdown;charset=utf-8",
+  });
+  const blobUrl = URL.createObjectURL(blob);
+  try {
+    return await requestDownloadViaBackground({
+      url: blobUrl,
+      filename,
+      conflictAction: options.conflictAction,
+    });
+  } finally {
+    URL.revokeObjectURL(blobUrl);
+    plaudExportDebug("summary:download:blob-revoked", { filename });
+  }
 }
 
 /**
@@ -920,7 +1104,7 @@ export async function runSmartSync(options = {}) {
     onProgress?.({ ...stats });
   }
 
-  const session = getPlaudSession();
+  const session = await getPlaudSession();
   let files = await fetchPlaudFilesFromApi(session);
   mergeDomRecordingIdsIntoFiles(files, { unfiledLabel: PLAUD_FOLDER_UNFILED });
   mergeLocalStorageRecordingIdsIntoFiles(files);
@@ -1239,15 +1423,31 @@ export async function runExportAll(backgroundMode = false, options = {}) {
   let fileCount = 0;
   let errorCount = 0;
   const maxErrors = 3;
+  let directApiUnavailableError = null;
 
   async function tryDirectApiExport() {
     let session;
     try {
-      session = getPlaudSession();
+      session = await getPlaudSession();
     } catch (error) {
-      console.warn("Direct API export unavailable:", error.message);
+      directApiUnavailableError = error;
+      console.warn("[Plaud Export] api-session:unavailable", {
+        message: error?.message || String(error),
+        storage: describePlaudSessionStorage(),
+        error,
+      });
       return false;
     }
+    plaudExportDebug("api-session:ready", {
+      apiBase: session.apiBase,
+      hasAuthHeader: !!session.authHeader,
+      hasUserAuthHeader: !!session.userAuthHeader,
+      hasWorkspaceAuthHeader: !!session.workspaceAuthHeader,
+      hasWorkspaceId: !!session.workspaceId,
+      sortBy: session.sortBy,
+      tokenSource: session.tokenSource || "",
+      storage: describePlaudSessionStorage(),
+    });
 
     let files;
     if (options.singleFile?.id) {
@@ -1320,7 +1520,7 @@ export async function runExportAll(backgroundMode = false, options = {}) {
       let fileHadAnySuccess = false;
 
       try {
-        session = getPlaudSession();
+        session = await getPlaudSession();
       } catch (sessionError) {
         throw new Error(
           sessionError?.message ||
@@ -1411,17 +1611,24 @@ export async function runExportAll(backgroundMode = false, options = {}) {
             }
           }
         } catch (summaryError) {
+          const summaryErrorMessage =
+            summaryError?.message || String(summaryError);
           stats.summaryErrors++;
           if (exportMode === EXPORT_MODE_SUMMARY) {
             fileHadFatalError = true;
           }
-          console.warn(
-            `Summary export failed for "${file.title}":`,
-            summaryError.message
-          );
+          console.warn("[Plaud Export] summary:export:error", {
+            fileId: file.id,
+            title: file.title,
+            fileIndex: fileCount,
+            totalFiles: files.length,
+            message: summaryErrorMessage,
+            stack: summaryError?.stack || "",
+            error: summaryError,
+          });
           updateIndicator(
             indicator,
-            `Ошибка загрузки саммари №${fileCount}: ${summaryError.message.substring(
+            `Ошибка загрузки саммари №${fileCount}: ${summaryErrorMessage.substring(
               0,
               50
             )}…`,
@@ -1457,8 +1664,14 @@ export async function runExportAll(backgroundMode = false, options = {}) {
     }
 
     if (options.singleFile?.id) {
+      const reason = directApiUnavailableError
+        ? ` Причина: ${
+            directApiUnavailableError?.message ||
+            String(directApiUnavailableError)
+          }`
+        : "";
       throw new Error(
-        "Не удалось экспортировать эту запись через API. Войдите в аккаунт на Plaud Web."
+        `Не удалось экспортировать эту запись через API.${reason}`
       );
     }
     if (shouldExportSummaries) {
