@@ -35,7 +35,7 @@ function syncProgressStepDone(stats) {
 }
 
 /**
- * @param {object} [_stats]
+ * @param {object} [stats]
  * @returns {string}
  */
 export function syncProgressChecklistMarkdown(stats) {

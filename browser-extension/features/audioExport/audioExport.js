@@ -478,7 +478,33 @@ function looksLikeDownloadUrl(value) {
   );
 }
 
+function extractKnownDownloadUrlFromPayload(payload) {
+  if (!payload || typeof payload !== "object") return "";
+  const data = /** @type {any} */ (payload).data;
+  const candidates = [
+    /** @type {any} */ (payload).presigned_url,
+    /** @type {any} */ (payload).presignedUrl,
+    /** @type {any} */ (payload).url,
+    data?.presigned_url,
+    data?.presignedUrl,
+    data?.url,
+    data?.download_url,
+    data?.downloadUrl,
+    data?.temp_url,
+    data?.tempUrl,
+  ];
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && /^https?:\/\//i.test(candidate)) {
+      return candidate;
+    }
+  }
+  return "";
+}
+
 function extractDownloadUrl(payload) {
+  const direct = extractKnownDownloadUrlFromPayload(payload);
+  if (direct) return direct;
+
   const urls = [];
   const seen = new Set();
 
@@ -692,15 +718,12 @@ function buildSummaryFilenameForFile(
   );
 }
 
-function downloadTextViaBackground(content, filename, options = {}) {
+function requestDownloadViaBackground(payload) {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
       {
         action: ACTION_DOWNLOAD_PLAUD_FILE,
-        textContent: withUtf8Bom(content),
-        mimeType: "text/markdown;charset=utf-8",
-        filename,
-        conflictAction: options.conflictAction,
+        ...payload,
       },
       (response) => {
         if (chrome.runtime.lastError) {
@@ -717,28 +740,54 @@ function downloadTextViaBackground(content, filename, options = {}) {
   });
 }
 
-function downloadViaBackground(url, filename, options = {}) {
-  return new Promise((resolve, reject) => {
-    chrome.runtime.sendMessage(
-      {
-        action: ACTION_DOWNLOAD_PLAUD_FILE,
-        url,
-        filename,
-        conflictAction: options.conflictAction,
-      },
-      (response) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        if (!response?.success) {
-          reject(new Error(response?.error || "Ошибка загрузки."));
-          return;
-        }
-        resolve(response);
-      }
-    );
+function downloadTextViaBackground(content, filename, options = {}) {
+  return requestDownloadViaBackground({
+    textContent: withUtf8Bom(content),
+    mimeType: "text/markdown;charset=utf-8",
+    filename,
+    conflictAction: options.conflictAction,
   });
+}
+
+/**
+ * URL download via chrome.downloads; on failure fetches the file in the page
+ * context (presigned URLs / cookies) and hands the service worker a blob
+ * object URL. Raw bytes must not be relayed through chrome.runtime.sendMessage:
+ * messages are JSON-serialized, so an ArrayBuffer arrives as `{}`. The object
+ * URL is created here because MV3 service workers have no URL.createObjectURL.
+ */
+async function downloadViaBackground(url, filename, options = {}) {
+  const basePayload = {
+    filename,
+    conflictAction: options.conflictAction,
+  };
+  try {
+    return await requestDownloadViaBackground({ ...basePayload, url });
+  } catch (directError) {
+    let response;
+    try {
+      response = await fetchWithTimeout(url, {}, PLAUD_FETCH_TIMEOUT_MS);
+    } catch {
+      throw directError;
+    }
+    if (!response.ok) {
+      throw new Error(
+        `${directError.message} (повтор через fetch: HTTP ${response.status})`,
+        { cause: directError }
+      );
+    }
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    try {
+      // The bridge waits for download completion, so revoking afterwards is safe.
+      return await requestDownloadViaBackground({
+        ...basePayload,
+        url: blobUrl,
+      });
+    } finally {
+      URL.revokeObjectURL(blobUrl);
+    }
+  }
 }
 
 function getCurrentPlaudSourceUrl() {

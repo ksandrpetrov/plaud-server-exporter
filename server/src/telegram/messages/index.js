@@ -59,11 +59,8 @@ export {
 export { settingsScreenHtml, settingsScreenRichMarkdown } from "./settings.js";
 
 export {
-  FILES_MENU_HEADER,
   FILES_TREE_EMPTY,
   FILES_STATS_EMPTY,
-  filesMenuHtml,
-  filesMenuRichMarkdown,
   filesTreeRootHtml,
   filesTreeRootRichMarkdown,
   filesTreeFolderHtml,

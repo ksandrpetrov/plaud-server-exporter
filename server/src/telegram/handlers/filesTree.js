@@ -1,27 +1,8 @@
-import { config, effectiveVaultRoot } from "../../config/config.js";
-import {
-  buildBackToFilesKeyboard,
-  buildFilesMenuKeyboard,
-} from "../keyboards.js";
 import { parseFilesTreeFolderCallback } from "../callbackData.js";
-import {
-  filesMenuHtml,
-  filesMenuRichMarkdown,
-  filesStatsHtml,
-  filesStatsRichMarkdown,
-} from "../messages.js";
-import { safeCallbackRichScreen } from "../botMessageUtils.js";
 import { showFilesTreeFolder, showFilesTreeRoot } from "../treeBrowse.js";
-import { scanVaultSummary } from "../vaultTree.js";
 
 export async function handleFilesCallback({ ctx, chatId, messageId }) {
-  await safeCallbackRichScreen(ctx, {
-    chatId,
-    messageId,
-    richMarkdown: filesMenuRichMarkdown(),
-    fallbackHtml: filesMenuHtml(),
-    keyboard: buildFilesMenuKeyboard(),
-  });
+  await showFilesTreeRoot(ctx, { chatId, messageId });
   return false;
 }
 
@@ -30,18 +11,9 @@ export async function handleFilesTreeCallback({ ctx, chatId, messageId }) {
   return false;
 }
 
+/** Legacy inline button from older bot menus — open tree instead of disk stats. */
 export async function handleFilesStatsCallback({ ctx, chatId, messageId }) {
-  const stats = await scanVaultSummary({
-    vaultRoot: effectiveVaultRoot(),
-    subfolder: config.obsidianSubfolder,
-  });
-  await safeCallbackRichScreen(ctx, {
-    chatId,
-    messageId,
-    richMarkdown: filesStatsRichMarkdown(stats),
-    fallbackHtml: filesStatsHtml(stats),
-    keyboard: buildBackToFilesKeyboard(),
-  });
+  await showFilesTreeRoot(ctx, { chatId, messageId });
   return false;
 }
 

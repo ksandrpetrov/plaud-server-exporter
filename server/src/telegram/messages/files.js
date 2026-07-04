@@ -31,22 +31,10 @@ export {
   treeFilePickOutOfRangeHtml,
 };
 
-export const FILES_MENU_HEADER = `${EMOJI_FILES} <b>Файлы</b>\n\nЧто показать?`;
 export const FILES_TREE_EMPTY =
   `${EMOJI_TREE} <b>Дерево записей</b>\n\n` +
   "Записей пока нет. Нажми 🔄 Синхронизировать.";
 export const FILES_STATS_EMPTY = `${EMOJI_STATS} <b>На диске</b>\n\nПапка Plaud ещё не создана.`;
-
-export function filesMenuHtml() {
-  return FILES_MENU_HEADER;
-}
-
-/**
- * @returns {string}
- */
-export function filesMenuRichMarkdown() {
-  return clipRichMarkdown(`# ${EMOJI_FILES} Файлы\n\nЧто показать?`);
-}
 
 export function filesTreeRootHtml(root) {
   if (!root?.total) {

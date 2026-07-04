@@ -65,10 +65,23 @@ function waitForChromeDownload(downloadId, timeoutMs = 600000) {
 }
 
 /**
+ * MV3 service workers have no URL.createObjectURL, so inline text is turned
+ * into a `data:` URL instead. Summaries are small enough for that; large
+ * binaries reach the SW as blob object URLs created by the content script.
+ */
+function bytesToDataUrl(bytes, mimeType) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return `data:${mimeType};base64,${btoa(binary)}`;
+}
+
+/**
  * Top-level entry point invoked by the SW when content / audioExport asks
  * the SW to perform a download via `ACTION_DOWNLOAD_PLAUD_FILE`. Handles
- * both URL downloads and inline-text downloads (the latter via a transient
- * blob object URL).
+ * both URL downloads and inline-text downloads (the latter via a `data:` URL).
  */
 export async function downloadPlaudFile(message) {
   const requestedConflictAction = String(message.conflictAction || "uniquify");
@@ -82,35 +95,23 @@ export async function downloadPlaudFile(message) {
   );
 
   let url = message.url;
-  let revokeObjectUrl = null;
   if (message.textContent != null) {
     const bytes = new TextEncoder().encode(String(message.textContent));
     const mimeType = String(message.mimeType || "text/plain;charset=utf-8");
-    const blob = new Blob([bytes], { type: mimeType });
-    url = URL.createObjectURL(blob);
-    revokeObjectUrl = url;
+    url = bytesToDataUrl(bytes, mimeType);
   }
 
   if (!url) {
     throw new Error(plaudT("bg.noUrl"));
   }
 
-  try {
-    const downloadId = await startChromeDownload({
-      url,
-      filename,
-      conflictAction,
-      saveAs: false,
-    });
+  const downloadId = await startChromeDownload({
+    url,
+    filename,
+    conflictAction,
+    saveAs: false,
+  });
 
-    await waitForChromeDownload(
-      downloadId,
-      Number(message.timeoutMs) || 600000
-    );
-    return { success: true, downloadId, filename, conflictAction };
-  } finally {
-    if (revokeObjectUrl) {
-      URL.revokeObjectURL(revokeObjectUrl);
-    }
-  }
+  await waitForChromeDownload(downloadId, Number(message.timeoutMs) || 600000);
+  return { success: true, downloadId, filename, conflictAction };
 }

@@ -10,7 +10,6 @@ import {
   CB_BACK,
   CB_BACK_FILES,
   CB_FILES,
-  CB_FILES_STATS,
   CB_FILES_TREE,
   CB_HELP,
   CB_RUN_SYNC,
@@ -54,18 +53,6 @@ export function buildBackToFilesKeyboard() {
   return {
     inline_keyboard: [
       [{ text: "⬅️ К файлам", callback_data: CB_BACK_FILES }],
-      [{ text: "⬅️ В меню", callback_data: CB_BACK }],
-    ],
-  };
-}
-
-export function buildFilesMenuKeyboard() {
-  return {
-    inline_keyboard: [
-      [
-        { text: "🌳 Дерево записей", callback_data: CB_FILES_TREE },
-        { text: "📊 На диске", callback_data: CB_FILES_STATS },
-      ],
       [{ text: "⬅️ В меню", callback_data: CB_BACK }],
     ],
   };
