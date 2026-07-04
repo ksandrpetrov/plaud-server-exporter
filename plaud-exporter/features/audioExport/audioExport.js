@@ -8,7 +8,6 @@ import {
 import {
   RAW_FILE_ID_RE,
   normalizeHexRecordingId,
-  normalizePlaudRecordingId,
 } from "../../common/plaudRecordingIds.js";
 import {
   DEFAULT_SYNC_SUBDIRECTORY,
@@ -22,7 +21,6 @@ import {
 } from "../../common/exportPathUtils.js";
 import {
   normalizeHumanTitle,
-  pickRawTitleFromFile,
   PLAUD_TITLE_KEYS,
 } from "../../common/plaudTitles.js";
 import {
@@ -56,14 +54,15 @@ import {
 import { loadSyncIndex, saveSyncIndex } from "../../common/storageUtils.js";
 import {
   attachFolderSegmentsToFiles,
-  collectUnfiledFiletagIds,
-  extractFiletagIdsFromRaw,
-  isTrashSidebarTag,
-  mergeFiletagIds,
   mergeFiletagsById,
   parseFiletagListPayload,
   PLAUD_FOLDER_UNFILED,
 } from "../../common/plaudFolders.js";
+import {
+  buildPlaudRecordingFanoutPlan,
+  paginatePlaudRecordingVariant,
+  runPlaudRecordingFanout,
+} from "../../common/plaudRecordings.js";
 import {
   ACTION_CHECK_SHOULD_STOP,
   ACTION_DOWNLOAD_PLAUD_FILE,
@@ -75,7 +74,6 @@ import {
   normalizeApiBase,
 } from "./plaudBrowserSession.js";
 import {
-  extractRawRecordingId,
   mergeDomRecordingIdsIntoFiles,
   mergeLocalStorageRecordingIdsIntoFiles,
 } from "./plaudRecordingIdScraper.js";
@@ -254,98 +252,6 @@ async function fetchUrlTextWithRetries(url) {
   throw lastError;
 }
 
-/** Единый идентификатор записи из объекта ответа `/file/simple/web`. */
-function isFileLikeObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-  const id = extractRawRecordingId(value);
-  return id.length > 0;
-}
-
-function collectQualifyingFileArrays(payload) {
-  const collected = [];
-
-  function pushIfQualifies(candidate) {
-    if (!Array.isArray(candidate) || candidate.length === 0) return;
-    if (!candidate.some(isFileLikeObject)) return;
-    collected.push(candidate);
-  }
-
-  const directCandidates = [
-    payload?.data?.data_file_list,
-    payload?.data_file_list,
-    payload?.data?.file_list,
-    payload?.data?.files,
-    payload?.data?.list,
-    payload?.data?.items,
-    payload?.data?.records,
-    payload?.file_list,
-    payload?.files,
-    payload?.list,
-    payload?.items,
-    payload?.data,
-  ];
-
-  for (const candidate of directCandidates) {
-    pushIfQualifies(candidate);
-  }
-
-  const seen = new Set();
-  function walk(value) {
-    if (!value || typeof value !== "object" || seen.has(value)) return;
-    seen.add(value);
-    if (Array.isArray(value)) {
-      pushIfQualifies(value);
-      value.forEach(walk);
-      return;
-    }
-    Object.values(value).forEach(walk);
-  }
-  walk(payload);
-
-  const dedup = [];
-  const seenArr = new Set();
-  for (const arr of collected) {
-    if (seenArr.has(arr)) continue;
-    seenArr.add(arr);
-    dedup.push(arr);
-  }
-  return dedup;
-}
-
-function extractServerListTotal(payload) {
-  if (!payload || typeof payload !== "object") return null;
-  const candidates = [
-    payload?.data?.total,
-    payload?.data?.total_count,
-    payload?.data?.count,
-    payload?.data?.file_total,
-    payload?.data?.total_num,
-    payload?.total,
-  ];
-  for (const c of candidates) {
-    const n = Number(c);
-    if (Number.isFinite(n) && n >= 0) return n;
-  }
-  return null;
-}
-
-function mergeRawFilesFromArrays(arrays) {
-  const byId = new Map();
-  for (const arr of arrays) {
-    for (const raw of arr) {
-      if (!isFileLikeObject(raw)) continue;
-      const extracted = extractRawRecordingId(raw);
-      let id = normalizeHexRecordingId(extracted);
-      if (!id && extracted) id = String(extracted).trim();
-      if (!id || byId.has(id)) continue;
-      byId.set(id, raw);
-    }
-  }
-  return [...byId.values()];
-}
-
 async function fetchPlaudFiletagListWithAuth(session, authHeader) {
   const h = authHeader || session.authHeader;
   const reqHeaders = { Authorization: h };
@@ -460,21 +366,6 @@ function preferApiTitle(file, titleHint) {
   return file;
 }
 
-function normalizePlaudFile(rawFile) {
-  const id = normalizePlaudRecordingId(rawFile);
-  if (!id) return null;
-  const title =
-    normalizeHumanTitle(pickRawTitleFromFile(rawFile)) || String(id);
-
-  return {
-    id,
-    title: title || String(id),
-    raw: rawFile,
-    folderIds: extractFiletagIdsFromRaw(rawFile),
-    folderSegment: "",
-  };
-}
-
 /** @returns {{ trashy: number; likelyLive: number; unclear: number }} */
 function countRecordingTrashSignals(files) {
   let trashy = 0;
@@ -537,58 +428,17 @@ async function fetchPlaudFilesOneListVariant(session, fixedParams, opts = {}) {
       ? Math.floor(limitOverride)
       : PLAUD_API_PAGE_LIMIT;
 
-  const files = [];
-  const seenIds = new Set();
-  let pagesFetched = 0;
-
-  for (let skip = 0; skip < PLAUD_API_MAX_FILES; skip += pageLimit) {
-    const query = new URLSearchParams({
-      skip: String(skip),
-      limit: String(pageLimit),
-      sort_by: session.sortBy,
-      is_desc: "true",
-      r: String(Math.random()),
-      ...fixedParams,
-    });
-    const payload = await fetchPlaudApi(
-      session,
-      `/file/simple/web?${query.toString()}`
-    );
-    const arrays = collectQualifyingFileArrays(payload);
-    const rawLen = arrays.length ? Math.max(...arrays.map((a) => a.length)) : 0;
-    const mergedRaw = mergeRawFilesFromArrays(arrays);
-
-    const serverTotal = extractServerListTotal(payload);
-
-    const pageFiles = mergedRaw
-      .map(normalizePlaudFile)
-      .filter(Boolean)
-      .filter((file) => {
-        if (seenIds.has(file.id)) return false;
-        seenIds.add(file.id);
-        return true;
-      });
-
-    files.push(...pageFiles);
-
-    pagesFetched++;
-    if (pagesFetched >= maxPages) {
-      break;
-    }
-
-    // Не завершаем по serverTotal при полной странице: часть ответов Plaud даёт total,
-    // совпадающий с размером первой страницы — из‑за этого обрывалась пагинация и терялись
-    // хвосты списков (в т.ч. «невидимые» для глобального запроса записи).
-    const done =
-      serverTotal != null
-        ? rawLen === 0 || (skip + rawLen >= serverTotal && rawLen < pageLimit)
-        : rawLen === 0 || rawLen < pageLimit;
-    if (done) {
-      break;
-    }
-  }
-
-  return files;
+  return paginatePlaudRecordingVariant({
+    fetchPage: async (query) => {
+      const qs = new URLSearchParams(query).toString();
+      return fetchPlaudApi(session, `/file/simple/web?${qs}`);
+    },
+    fixedParams,
+    sortBy: session.sortBy,
+    pageLimit,
+    maxFiles: PLAUD_API_MAX_FILES,
+    maxPages,
+  });
 }
 
 /**
@@ -596,53 +446,6 @@ async function fetchPlaudFilesOneListVariant(session, fixedParams, opts = {}) {
  * На странице Plaud Web prefetch вызывает `/file/simple/web` с **is_trash=2** (не 0 и не пустой query).
  */
 async function fetchPlaudFilesFromApi(session) {
-  const byId = new Map();
-
-  function ingest(list, contextFolderId = "") {
-    for (const file of list) {
-      const k =
-        normalizeHexRecordingId(file?.id) ||
-        String(file?.id || "")
-          .trim()
-          .toLowerCase();
-      if (!k) continue;
-
-      const fromRaw = extractFiletagIdsFromRaw(file.raw);
-      const folderIds = mergeFiletagIds(
-        file.folderIds,
-        fromRaw,
-        contextFolderId ? [contextFolderId] : []
-      );
-      const merged = { ...file, folderIds };
-      const existing = byId.get(k);
-      if (existing) {
-        merged.folderIds = mergeFiletagIds(existing.folderIds, folderIds);
-        merged.title = existing.title || merged.title;
-        byId.set(k, { ...existing, ...merged });
-      } else {
-        byId.set(k, merged);
-      }
-    }
-  }
-
-  async function tryIngest(params, opts, contextFolderId = "") {
-    try {
-      ingest(
-        await fetchPlaudFilesOneListVariant(session, params, opts || {}),
-        contextFolderId
-      );
-    } catch {
-      // часть параметров может быть недоступна на части сборок API
-    }
-  }
-
-  async function tryIngestFolder(folderId, opts) {
-    await tryIngest({ is_trash: "2", filetag_id: folderId }, opts, folderId);
-    if (unfiledIdSet.has(folderId)) {
-      await tryIngest({ filetag_id: folderId }, opts, folderId);
-    }
-  }
-
   let tags;
   try {
     tags = await fetchPlaudFiletagList(session);
@@ -650,64 +453,20 @@ async function fetchPlaudFilesFromApi(session) {
     tags = [];
   }
 
-  const unfiledIds = collectUnfiledFiletagIds(tags);
-  const unfiledIdSet = new Set(unfiledIds);
+  const files = await runPlaudRecordingFanout({
+    fetchVariant: (params, variantOpts) =>
+      fetchPlaudFilesOneListVariant(session, params, variantOpts || {}),
+    plan: buildPlaudRecordingFanoutPlan({
+      tags,
+      includeTrash: true,
+      maxFiles: PLAUD_API_MAX_FILES,
+    }),
+    onVariantError: () => {
+      // часть параметров может быть недоступна на части сборок API
+    },
+  });
 
-  /** Как неофициальный клиент Plaud: один запрос с большим limit + is_trash=0 (см. arbuzmell/plaud-api). */
-  async function tryMegaPull(params) {
-    await tryIngest(params, {
-      maxPages: 1,
-      limitOverride: PLAUD_API_MAX_FILES,
-    });
-  }
-  await tryMegaPull({ is_trash: "0" });
-  await tryMegaPull({ is_trash: "2" });
-
-  const liveVariants = [{ is_trash: "0" }, { is_trash: "2" }, {}];
-  for (const params of liveVariants) {
-    await tryIngest(params);
-  }
-
-  await tryIngest({ is_trash: "1" });
-
-  for (const uid of unfiledIds) {
-    await tryIngest({ is_trash: "2", filetag_id: uid });
-    await tryIngest({ is_trash: "2", file_tag_id: uid });
-    await tryIngest({ is_trash: "0", filetag_id: uid });
-    await tryIngest({ is_trash: "0", file_tag_id: uid });
-    await tryIngest({ filetag_id: uid });
-    await tryIngest({ file_tag_id: uid });
-  }
-
-  await tryIngest({ is_trash: "2", filetag_id: "0" }, { maxPages: 20 });
-  await tryIngest({ is_trash: "2", filetag_id: "-2" }, { maxPages: 20 });
-
-  for (const s of ["0", "-1", "-2"]) {
-    await tryIngest({ is_trash: "2", tag_id: s }, { maxPages: 20 });
-    await tryIngest({ is_trash: "2", folder_id: s }, { maxPages: 20 });
-  }
-
-  const folderIds = new Set(unfiledIds);
-  for (const t of tags) {
-    if (!t || typeof t !== "object") continue;
-    if (isTrashSidebarTag(t)) continue;
-    const tid = t.id ?? t.filetag_id ?? t.tag_id ?? t.folder_id;
-    if (tid == null || !String(tid).trim()) continue;
-    folderIds.add(String(tid).trim());
-  }
-
-  const MAX_FOLDER_PULLS = 400;
-  let pulls = 0;
-  for (const fid of folderIds) {
-    if (pulls >= MAX_FOLDER_PULLS) break;
-    pulls++;
-    await tryIngestFolder(fid, { maxPages: 80 });
-  }
-
-  await tryIngest({ is_trash: "2", filetag_id: "-1" }, { maxPages: 15 });
-  await tryIngest({ filetag_id: "-1" }, { maxPages: 15 });
-
-  return attachFolderSegmentsToFiles(Array.from(byId.values()), tags);
+  return attachFolderSegmentsToFiles(files, tags);
 }
 
 function looksLikeDownloadUrl(value) {

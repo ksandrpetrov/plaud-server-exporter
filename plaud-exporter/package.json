@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Chrome extension for Plaud.ai exports",
   "scripts": {
-    "verify": "node scripts/verify-extension-imports.js",
+    "verify": "node scripts/verify-extension-imports.js && node scripts/verify-manifest.js",
     "lint": "eslint .",
     "test": "node --test $(find tests -name '*.test.js' | sort)",
     "test:coverage": "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=../coverage/extension.lcov.info $(find tests -name '*.test.js' | sort)"
