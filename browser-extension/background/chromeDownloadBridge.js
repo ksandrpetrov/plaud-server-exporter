@@ -55,6 +55,8 @@ function startChromeDownload(options) {
 /** Resolves when the download completes; rejects on interruption / timeout. */
 function waitForChromeDownload(downloadId, timeoutMs = 600000) {
   return new Promise((resolve, reject) => {
+    let settled = false;
+    let pollIntervalId = null;
     const timeoutId = setTimeout(() => {
       cleanup();
       reject(new Error(plaudT("bg.downloadTimeout", { id: downloadId })));
@@ -62,27 +64,64 @@ function waitForChromeDownload(downloadId, timeoutMs = 600000) {
 
     function cleanup() {
       clearTimeout(timeoutId);
+      if (pollIntervalId != null) {
+        clearInterval(pollIntervalId);
+        pollIntervalId = null;
+      }
       chrome.downloads.onChanged.removeListener(onChanged);
     }
 
+    function finishComplete() {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    }
+
+    function finishInterrupted(reasonSuffix = "") {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(
+        new Error(
+          plaudT("bg.downloadInterrupted", { id: downloadId }) + reasonSuffix
+        )
+      );
+    }
+
+    function inspectDownloadState(items) {
+      const item = items?.[0];
+      if (!item?.state) return;
+      if (item.state === "complete") {
+        finishComplete();
+      } else if (item.state === "interrupted") {
+        finishInterrupted(item.error ? ` (${item.error})` : "");
+      }
+    }
+
+    function pollDownloadState() {
+      if (!chrome.downloads?.search) return;
+      chrome.downloads.search({ id: downloadId }, (items) => {
+        if (chrome.runtime.lastError || settled) return;
+        inspectDownloadState(items);
+      });
+    }
+
     function onChanged(delta) {
-      if (delta.id !== downloadId || !delta.state) return;
+      if (delta.id !== downloadId || !delta.state || settled) return;
 
       if (delta.state.current === "complete") {
-        cleanup();
-        resolve();
+        finishComplete();
       } else if (delta.state.current === "interrupted") {
-        cleanup();
         const reason = delta.error?.current ? ` (${delta.error.current})` : "";
-        reject(
-          new Error(
-            plaudT("bg.downloadInterrupted", { id: downloadId }) + reason
-          )
-        );
+        finishInterrupted(reason);
       }
     }
 
     chrome.downloads.onChanged.addListener(onChanged);
+    // Safari often skips onChanged for data:/blob downloads; poll as backup.
+    pollDownloadState();
+    pollIntervalId = setInterval(pollDownloadState, 400);
   });
 }
 

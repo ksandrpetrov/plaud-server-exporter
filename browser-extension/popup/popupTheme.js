@@ -88,6 +88,7 @@
       syncIcloudCopyResetTimer: null,
       syncFolderSaveTimer: null,
       statusPollingInterval: null,
+      foregroundBusyPollInterval: null,
       smartSyncPollingInterval: null,
       statusClearTimer: null,
       statsWatchdogTimer: null,

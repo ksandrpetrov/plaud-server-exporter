@@ -174,12 +174,10 @@
 
     ctx.applyContentBusyFromPing = function applyContentBusyFromPing(ping) {
       if (!ping) return;
-      if (ping.exportRunLock || ping.smartSyncLock) {
-        ctx.foregroundExportBusy = !!ping.exportRunLock;
-        ctx.smartSyncActive = !!ping.smartSyncLock;
-        ctx.updateExportControls();
-        ctx.updateActivityIndicators();
-      }
+      ctx.foregroundExportBusy = !!ping.exportRunLock;
+      ctx.smartSyncActive = !!ping.smartSyncLock;
+      ctx.updateExportControls();
+      ctx.updateActivityIndicators();
       if (ping.currentRecording) {
         ctx.setRecordingPreview(ping.currentRecording);
       }

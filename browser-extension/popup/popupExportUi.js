@@ -240,6 +240,28 @@
       }
     };
 
+    ctx.stopForegroundBusyPolling = function stopForegroundBusyPolling() {
+      if (ctx.foregroundBusyPollInterval) {
+        clearInterval(ctx.foregroundBusyPollInterval);
+        ctx.foregroundBusyPollInterval = null;
+      }
+    };
+
+    ctx.syncForegroundBusyPolling = function syncForegroundBusyPolling() {
+      const shouldPoll = ctx.foregroundExportBusy && ctx.activeTabIsPlaud;
+      if (!shouldPoll) {
+        ctx.stopForegroundBusyPolling();
+        return;
+      }
+      if (ctx.foregroundBusyPollInterval) return;
+      ctx.foregroundBusyPollInterval = setInterval(function () {
+        ctx.getFocusedTab(function (tabError, tab) {
+          if (tabError || !tab || !ctx.isPlaudTab(tab)) return;
+          ctx.pingContentBusyState(tab, ctx.applyContentBusyFromPing);
+        });
+      }, 2000);
+    };
+
     ctx.updateExportControls = function updateExportControls() {
       const {
         stopExportBtn,
@@ -283,6 +305,7 @@
       }
       ctx.updateDownloadBusyUi();
       ctx.updateActivityIndicators();
+      ctx.syncForegroundBusyPolling();
     };
 
     ctx.startStatusPolling = function startStatusPolling() {
