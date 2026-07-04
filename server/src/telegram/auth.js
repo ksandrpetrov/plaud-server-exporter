@@ -92,20 +92,6 @@ export function isAllowedSender({ from, allowedUserId, allowedUsername }) {
 }
 
 /**
- * Legacy helper kept for tests that pin down username normalization
- * semantics independently of the chat-type / user-id gate.
- *
- * @param {string | null | undefined} actualUsername
- * @param {string | null | undefined} allowedUsername
- */
-export function isAllowedUsername(actualUsername, allowedUsername) {
-  if (!allowedUsername) return false;
-  const actual = normalizeUsername(actualUsername);
-  if (!actual) return false;
-  return actual === normalizeUsername(allowedUsername);
-}
-
-/**
  * Combined private-chat + allowed-sender gate used by message and callback dispatch.
  *
  * @param {{

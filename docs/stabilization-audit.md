@@ -44,8 +44,7 @@ No database, queue, or HTTP server — CLI and files only.
 
 - **Server exporter: summary-only only.** No `--audio-too`, no `PLAUD_EXPORT_AUDIO` env, no audio download in `runSync`.
 - `runSync` never calls `/file/temp-url` (covered by `syncAudioDefault.test.js`).
-- Helpers `writeAudioFile`, `planAudioPath`, `fetchAudioUrl` remain in codebase but are **not wired** to sync —
-  intentional simplification; user requirement is no audio by default.
+- Helpers for server audio download were removed; `runSync` stays summary-only (see `syncAudioDefault.test.js`).
 - **Chrome extension** (`plaud-exporter/`) still has its own audio export; unchanged and tested via
   `npm run test:submodule`.
 

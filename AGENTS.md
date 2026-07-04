@@ -193,9 +193,6 @@ Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](se
 - Не оставляй закомментированный код — это git history.
 - `TODO` допустим только с причиной и понятным следующим действием; без владельца/причины — не добавлять.
 - Если код выглядит мёртвым, но есть сомнение — **не удалять молча**, а отметить в финальном отчёте.
-- Известное исключение: `writeAudioFile` / `planAudioPath` / `fetchAudioUrl` в server намеренно **не подключены** к
-  `runSync` (см. [docs/stabilization-audit.md](docs/stabilization-audit.md)). Это сознательное упрощение, не мёртвый
-  код — не удалять без отдельного решения.
 
 ## Критичные бизнес-сценарии
 

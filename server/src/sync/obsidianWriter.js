@@ -1,33 +1,7 @@
 import { mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
-import { config, effectiveVaultRoot } from "../config/config.js";
-import {
-  normalizeFilename,
-  withUtf8Bom,
-} from "../../../plaud-exporter/common/exportPathUtils.js";
+import { dirname } from "node:path";
+import { withUtf8Bom } from "../../../plaud-exporter/common/exportPathUtils.js";
 import { resolveMeetingTitle } from "./filenamePlanner.js";
-
-/**
- * @deprecated Summary-only server exporter; not wired into `runSync`.
- *   Kept for path-planning tests only. See `syncAudioDefault.test.js`.
- */
-export function planAudioPath({ title, extension, folderSegment = "" }) {
-  const vault = effectiveVaultRoot();
-  const plaudRoot = resolve(vault, config.obsidianSubfolder || "Plaud");
-  const withFolder = folderSegment ? join(plaudRoot, folderSegment) : plaudRoot;
-  const baseDir = join(withFolder, "_attachments");
-  const ext = (extension || "mp3").replace(/^\./, "");
-  const filename = normalizeFilename(title || "plaud-audio", {
-    extension: `.${ext}`,
-    fallbackBase: "plaud-audio",
-    maxBaseLength: 132,
-  });
-  const absolutePath = join(baseDir, filename);
-  const relativePath = absolutePath
-    .substring(vault.length)
-    .replace(/^[/\\]+/, "");
-  return { absolutePath, relativePath, filename };
-}
 
 function stripDuplicateLeadingTitle(markdown, title) {
   const text = String(markdown || "")
@@ -104,27 +78,4 @@ export async function writeMarkdownFile({
   const tmpPath = `${absolutePath}.tmp-${process.pid}-${Date.now()}`;
   await writeFile(tmpPath, withUtf8Bom(contents), "utf8");
   await rename(tmpPath, absolutePath);
-}
-
-/**
- * @deprecated Summary-only server exporter; not wired into `runSync`.
- *   See `server/tests/syncAudioDefault.test.js`.
- */
-export async function writeAudioFile({ absolutePath, url }) {
-  const { createWriteStream } = await import("node:fs");
-  const { pipeline } = await import("node:stream/promises");
-  const { Readable } = await import("node:stream");
-
-  await mkdir(dirname(absolutePath), { recursive: true });
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Audio download failed: HTTP ${response.status}`);
-  }
-  if (!response.body) {
-    throw new Error("Audio download returned no body");
-  }
-  await pipeline(
-    Readable.fromWeb(response.body),
-    createWriteStream(absolutePath)
-  );
 }

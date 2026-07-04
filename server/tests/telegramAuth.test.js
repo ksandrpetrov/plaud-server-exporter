@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   isAllowedSender,
-  isAllowedUsername,
   isAuthorizedPrivateUpdate,
   isPrivateChat,
   normalizeUserId,
@@ -51,14 +50,55 @@ test("isPrivateChat only allows chat.type === 'private'", () => {
   assert.equal(isPrivateChat(null), false);
 });
 
-test("isAllowedUsername compares case-insensitively without the leading @", () => {
-  assert.equal(isAllowedUsername("Alice", "alice"), true);
-  assert.equal(isAllowedUsername("@Alice", "alice"), true);
-  assert.equal(isAllowedUsername("alice", "@Alice"), true);
-  assert.equal(isAllowedUsername("Bob", "alice"), false);
-  assert.equal(isAllowedUsername("", "alice"), false);
-  assert.equal(isAllowedUsername("alice", ""), false);
-  assert.equal(isAllowedUsername(null, "alice"), false);
+test("isAllowedSender matches username case-insensitively without the leading @", () => {
+  assert.equal(
+    isAllowedSender({
+      from: { id: 1, username: "Alice" },
+      allowedUserId: null,
+      allowedUsername: "alice",
+    }),
+    true
+  );
+  assert.equal(
+    isAllowedSender({
+      from: { id: 1, username: "@Alice" },
+      allowedUserId: null,
+      allowedUsername: "alice",
+    }),
+    true
+  );
+  assert.equal(
+    isAllowedSender({
+      from: { id: 1, username: "alice" },
+      allowedUserId: null,
+      allowedUsername: "@Alice",
+    }),
+    true
+  );
+  assert.equal(
+    isAllowedSender({
+      from: { id: 1, username: "Bob" },
+      allowedUserId: null,
+      allowedUsername: "alice",
+    }),
+    false
+  );
+  assert.equal(
+    isAllowedSender({
+      from: { id: 1, username: "" },
+      allowedUserId: null,
+      allowedUsername: "alice",
+    }),
+    false
+  );
+  assert.equal(
+    isAllowedSender({
+      from: { id: 1, username: "alice" },
+      allowedUserId: null,
+      allowedUsername: "",
+    }),
+    false
+  );
 });
 
 test("isAllowedSender refuses when neither expected id nor username is set", () => {

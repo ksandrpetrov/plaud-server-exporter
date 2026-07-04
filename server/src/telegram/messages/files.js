@@ -99,54 +99,6 @@ export function filesTreeFolderHtml(folderPage) {
   return clipTelegramText(lines.join("\n"));
 }
 
-/**
- * @param {import("../vaultTree.js").SyncIndexTreeRoot} root
- * @returns {string}
- */
-export function filesTreeRootRichMarkdown(root) {
-  if (!root?.total) {
-    return clipRichMarkdown(
-      "# 🌳 Дерево синка\n\nПока пусто. Запусти синк через 🔄."
-    );
-  }
-  const rows = (root.folders || []).map(
-    (f) => `| ${f.folder || ""} | ${f.count} |`
-  );
-  const table = ["| Папка | Записей |", "| --- | --- |", ...rows].join("\n");
-  return clipRichMarkdown(
-    `# 🌳 Дерево синка\n\n**${root.total}** файлов в **${(root.folders || []).length}** папках.\n\n${table}\n\nВыбери папку, чтобы открыть список файлов.`
-  );
-}
-
-/**
- * @param {object} folderPage
- * @returns {string}
- */
-export function filesTreeFolderRichMarkdown(folderPage) {
-  const folderLabel = folderPage?.folder || "Папка";
-  if (!folderPage?.exists) {
-    return clipRichMarkdown(
-      `# 📁 ${folderLabel}\n\nВ этой папке пока нет файлов.`
-    );
-  }
-  const totalPages = Math.max(1, Number(folderPage.totalPages) || 1);
-  const curPage = Math.min(
-    Math.max(1, Number(folderPage.page) || 1),
-    totalPages
-  );
-  const pageSuffix =
-    totalPages > 1 ? ` — стр. ${curPage} из ${totalPages}` : "";
-  const lines = [`# 📁 ${folderLabel} (${folderPage.total})${pageSuffix}`, ""];
-  let lineNum = 0;
-  for (const item of folderPage.items || []) {
-    lineNum += 1;
-    const title = stripLeadingDateFromTreeTitle(item.date, item.title || "");
-    const date = item.date ? ` _${item.date}_` : "";
-    lines.push(`${lineNum}. **${title}**${date}`);
-  }
-  return clipRichMarkdown(lines.join("\n"));
-}
-
 export function filesStatsHtml(stats) {
   if (!stats?.exists) {
     return FILES_STATS_EMPTY;

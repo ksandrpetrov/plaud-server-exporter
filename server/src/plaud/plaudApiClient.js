@@ -8,11 +8,9 @@
  *  - `httpTransport.js`  — fetch, retries, region redirect, headers
  *  - `recordingsApi.js`  — list recordings, filetags, session validation
  *  - `summariesApi.js`   — `/ai/query_note` + markdown extraction
- *  - `audioApi.js`       — `/file/temp-url/<id>` presigned download URL
  *
- * `audioApi.fetchAudioUrl` is intentionally NOT re-exported here: the server
- * sync path is summary-only (see `syncAudioDefault.test.js`). Import it
- * directly from `./audioApi.js` if you genuinely need audio.
+ * Server sync is summary-only; it never calls `/file/temp-url` (see
+ * `syncAudioDefault.test.js`).
  */
 export { PlaudAuthError, PlaudChangedError } from "./errors.js";
 export { fetchPlaudApi, fetchUrlTextWithRetries } from "./httpTransport.js";

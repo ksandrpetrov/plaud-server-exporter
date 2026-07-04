@@ -6,7 +6,7 @@ import { join, resolve } from "node:path";
 
 process.env.PLAUD_TIMEZONE = "UTC";
 
-const { planAudioPath, buildMarkdownDocument, writeMarkdownFile } =
+const { buildMarkdownDocument, writeMarkdownFile } =
   await import("../src/sync/obsidianWriter.js");
 const { planSummaryPath } = await import("../src/sync/filenamePlanner.js");
 const { config } = await import("../src/config/config.js");
@@ -26,15 +26,6 @@ test("planSummaryPath places file under {vault}/Plaud/", () => {
   assert.equal(
     planned.relativePath,
     join("Plaud", "2026-05-17 - Weekly review.md")
-  );
-});
-
-test("planAudioPath uses _attachments folder and given extension", () => {
-  const planned = planAudioPath({ title: "Customer call", extension: "m4a" });
-  const vault = effectiveVaultRoot();
-  assert.equal(
-    planned.absolutePath,
-    resolve(vault, "Plaud", "_attachments", "Customer call.m4a")
   );
 });
 

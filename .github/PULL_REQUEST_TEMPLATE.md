@@ -8,7 +8,7 @@
 
 ## Risk / Scope
 
-- [ ] Shared `plaud-exporter/common/*` (см. AGENTS.md — список 6 файлов): затронул?
+- [ ] Shared `plaud-exporter/common/*` (см. AGENTS.md — список 7 файлов): затронул?
 - [ ] Поведение sync (`syncCore.js` / `syncRunner.js` / `audioExport.js`): изменилось?
 - [ ] Plaud HTTP контракт (`recordingsApi.js`, `summariesApi.js`): новые endpoints/поля?
 - [ ] Telegram UX (handlers/messages/keyboards): меняется ли UI копия?

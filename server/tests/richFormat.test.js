@@ -3,7 +3,6 @@ import test from "node:test";
 import {
   clipRichMarkdown,
   isRichMessageUnavailable,
-  prepareSummaryRichMarkdown,
   RICH_MARKDOWN_MAX_LEN,
   stripUtf8Bom,
 } from "../src/telegram/richFormat.js";
@@ -24,15 +23,6 @@ test("clipRichMarkdown trims without newline when boundary is too early", () => 
   const clipped = clipRichMarkdown(text);
   assert.ok(clipped.length <= RICH_MARKDOWN_MAX_LEN);
   assert.ok(!clipped.includes("\n"));
-});
-
-test("prepareSummaryRichMarkdown adds title heading and strips BOM", () => {
-  const md = prepareSummaryRichMarkdown({
-    markdown: "\uFEFF## Section\n\nBody",
-    title: "Meeting notes",
-  });
-  assert.match(md, /^# Meeting notes/);
-  assert.match(md, /## Section/);
 });
 
 test("isRichMessageUnavailable detects missing API markers", () => {

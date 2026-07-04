@@ -62,17 +62,3 @@ export function clipRichMarkdown(text, maxLen = RICH_MARKDOWN_MAX_LEN) {
   }
   return slice.trimEnd();
 }
-
-/**
- * @param {{ markdown?: string; title?: string }} params
- * @returns {string}
- */
-export function prepareSummaryRichMarkdown({ markdown, title }) {
-  let body = stripUtf8Bom(String(markdown ?? "")).trim();
-  const heading = String(title ?? "").trim();
-  const hasTopHeading = /^#\s[^#]/.test(body);
-  if (heading && !hasTopHeading) {
-    body = `# ${heading}\n\n${body}`;
-  }
-  return clipRichMarkdown(body);
-}

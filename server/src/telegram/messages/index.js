@@ -53,8 +53,6 @@ export {
   filesMenuHtml,
   filesTreeRootHtml,
   filesTreeFolderHtml,
-  filesTreeRootRichMarkdown,
-  filesTreeFolderRichMarkdown,
   filesStatsHtml,
   filesStatsRichMarkdown,
   formatNumberEmoji,
@@ -67,11 +65,8 @@ export {
 
 export {
   TREE_FILE_PICK_NO_CONTEXT_HTML,
-  TREE_FILE_PICK_AUTO_SYNC_STARTED_HTML,
   ERR_TREE_AUTO_SYNC_FAILED_HTML,
-  TREE_FILE_PICK_AUTO_SYNC_FAILED_HTML,
   ERR_TREE_FILE_STILL_MISSING_HTML,
-  TREE_FILE_PICK_STILL_MISSING_HTML,
   ERR_TREE_SEND_DOCUMENT_HTML,
   ERR_TREE_LOAD_HTML,
 } from "./errors.js";
