@@ -50,10 +50,10 @@ macOS (например, в iCloud).
 
 ## Установка (режим разработчика)
 
-1. Клонируйте репозиторий или скопируйте каталог `plaud-exporter/`.
+1. Клонируйте репозиторий или скопируйте каталог `browser-extension/`.
 2. Откройте `chrome://extensions/`.
 3. Включите **Режим разработчика**.
-4. **Загрузить распакованное расширение** — папка **`plaud-exporter/`** (где лежит
+4. **Загрузить распакованное расширение** — папка **`browser-extension/`** (где лежит
    `manifest.json`), не корень всего монорепозитория.
 
 ## Пользование попапом
@@ -93,7 +93,7 @@ macOS (например, в iCloud).
 ## Структура проекта
 
 ```text
-plaud-exporter/                 # эта папка — «Load unpacked» в Chrome
+browser-extension/                 # эта папка — «Load unpacked» в Chrome
 ├── manifest.json
 ├── background.js              # MV3 service worker: оркестрация, onMessage, сессии export/sync
 ├── background/                # Модули SW (импортируются из background.js)
@@ -121,7 +121,6 @@ plaud-exporter/                 # эта папка — «Load unpacked» в Chr
 │   │   ├── plaudRecordingIdScraper.js # Сбор id записей (API + fallback)
 │   │   ├── plaudCollisionPaths.js   # Имена файлов и коллизии в sync-папке
 │   │   └── domExportFallback.js     # DOM-fallback при сбое list API
-│   └── elementSelector/       # Селекторы DOM Plaud
 ├── _locales/                  # Имя/описание расширения (en, ru)
 ├── tests/                     # в т.ч. runtimeMessages.test.js (протокол сообщений)
 └── scripts/verify-extension-imports.js
@@ -147,5 +146,4 @@ plaud-exporter/                 # эта папка — «Load unpacked» в Chr
 ## Дисклеймер
 
 Интерфейс и API Plaud Web могут меняться. После крупных обновлений сайта может
-понадобиться правка DOM-fallback (`features/audioExport/domExportFallback.js`,
-`elementSelector/`).
+понадобиться правка DOM-fallback (`features/audioExport/domExportFallback.js`).

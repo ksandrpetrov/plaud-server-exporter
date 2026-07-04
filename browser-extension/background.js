@@ -18,6 +18,10 @@ import {
   sendTabMessageWithRecovery,
 } from "./background/tabMessaging.js";
 import { downloadPlaudFile } from "./background/chromeDownloadBridge.js";
+import {
+  createSyncNotification,
+  refreshSyncNotificationSetting,
+} from "./background/syncNotifications.js";
 import { loadSyncIndex, patchSyncSettings } from "./common/storageUtils.js";
 import { sanitizeSyncSubdirectory } from "./common/syncCore.js";
 import {
@@ -84,7 +88,9 @@ let sessionRestorePromise = null;
 function ensureSessionRestored() {
   if (!sessionRestorePromise) {
     sessionRestorePromise = new Promise((resolve) => {
-      restoreExportStateFromSession(resolve);
+      restoreExportStateFromSession(() => {
+        refreshSyncNotificationSetting().finally(resolve);
+      });
     });
   }
   return sessionRestorePromise;
@@ -241,7 +247,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         );
 
         // Notify the user via Chrome notifications about the stopped export
-        chrome.notifications.create({
+        createSyncNotification({
           type: "basic",
           iconUrl: "assets/icons/icon128.png", // Use relative path from manifest
           title: plaudT("bg.stopTitle"),
@@ -340,7 +346,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             tabId,
           })
           .catch(() => {});
-        chrome.notifications.create({
+        createSyncNotification({
           type: "basic",
           iconUrl: "assets/icons/icon128.png",
           title: isError
@@ -424,6 +430,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         syncSubdirectory,
       })
         .then((index) => {
+          refreshSyncNotificationSetting().catch(() => {});
           sendResponse({
             success: true,
             settings: index.settings,
@@ -473,7 +480,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           processed > 0 &&
           processed !== previousNotified
         ) {
-          chrome.notifications.create({
+          createSyncNotification({
             type: "basic",
             iconUrl: "assets/icons/icon128.png", // Use relative path from manifest
             title: plaudT("bg.progressTitle"),
@@ -525,7 +532,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         clearStallNotifyState(tabId);
 
         // Notify the user of export completion with statistics
-        chrome.notifications.create({
+        createSyncNotification({
           type: "basic",
           iconUrl: "assets/icons/icon128.png", // Use relative path from manifest
           title: plaudT("bg.completeTitle", {
@@ -748,7 +755,7 @@ async function startBackgroundExport(tabId, requestedExportMode) {
 
   persistExportStateToSession();
 
-  chrome.notifications.create({
+  createSyncNotification({
     type: "basic",
     iconUrl: "assets/icons/icon128.png",
     title: plaudT("bg.startedTitle", { mode: getExportModeLabel(exportMode) }),
@@ -812,7 +819,7 @@ async function startSmartSync(tabId, requestedSubdirectory) {
     throw error;
   }
 
-  chrome.notifications.create({
+  createSyncNotification({
     type: "basic",
     iconUrl: "assets/icons/icon128.png",
     title: plaudT("sync.notifyStartedTitle"),
@@ -885,7 +892,7 @@ async function keepTabAlive(tabId, fromChain = false) {
               timeSinceLastUpdate / 1000
             )}s ago.`
           );
-          chrome.notifications.create({
+          createSyncNotification({
             type: "basic",
             iconUrl: "assets/icons/icon128.png", // Use relative path from manifest
             title: plaudT("bg.stallTitle"),
@@ -946,7 +953,7 @@ chrome.tabs.onRemoved.addListener((tabId, _removeInfo) => {
     clearStallNotifyState(tabId);
     persistExportStateToSession();
     // Optionally notify the user that closing the tab stopped the export
-    chrome.notifications.create({
+    createSyncNotification({
       type: "basic",
       iconUrl: "assets/icons/icon128.png",
       title: plaudT("bg.tabClosedTitle"),
@@ -964,7 +971,7 @@ chrome.tabs.onRemoved.addListener((tabId, _removeInfo) => {
       lastUpdateTime: Date.now(),
     };
     persistSmartSyncStateToSession();
-    chrome.notifications.create({
+    createSyncNotification({
       type: "basic",
       iconUrl: "assets/icons/icon128.png",
       title: plaudT("sync.notifyErrorTitle"),

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Validates plaud-exporter/manifest.json invariants:
+ * Validates browser-extension/manifest.json invariants:
  *   - manifest_version === 3
  *   - version is SemVer-compatible (Chrome accepts "x", "x.y", "x.y.z", "x.y.z.w")
  *   - referenced files (background, popup, content scripts, icons, locales, WAR)

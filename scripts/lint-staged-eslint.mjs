@@ -44,10 +44,14 @@ const relFiles = filesArgs.map((f) =>
   path.relative(workspaceAbs, path.resolve(ROOT, f))
 );
 
-const child = spawn(eslintBin, ["--max-warnings", "0", "--fix", ...relFiles], {
-  cwd: workspaceAbs,
-  stdio: "inherit",
-});
+const child = spawn(
+  eslintBin,
+  ["--max-warnings", "0", "--no-warn-ignored", "--fix", ...relFiles],
+  {
+    cwd: workspaceAbs,
+    stdio: "inherit",
+  }
+);
 
 child.on("error", (err) => {
   console.error(`lint-staged-eslint: ${err.message}`);

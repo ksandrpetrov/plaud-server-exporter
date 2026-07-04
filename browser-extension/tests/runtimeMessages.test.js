@@ -1,7 +1,6 @@
 /**
  * Drift guard: ensures every classic-script call site that pre-dates the
- * `runtimeMessages.js` ES module (popup.js, content.js, element selector)
- * still references the same wire strings.
+ * `runtimeMessages.js` ES module (popup.js, content.js) still references the same wire strings.
  *
  * Background.js and audioExport.js import from the registry directly; if
  * those drift, normal lint/tests catch it. This file specifically protects
@@ -16,12 +15,7 @@ import { RUNTIME_MESSAGE_ACTIONS } from "../common/runtimeMessages.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const CLASSIC_SCRIPT_FILES = [
-  "popup/popup.js",
-  "content.js",
-  "features/elementSelector/elementSelector.js",
-  "features/elementSelector/selectorUtils.js",
-];
+const CLASSIC_SCRIPT_FILES = ["popup/popup.js", "content.js"];
 
 /**
  * Actions that classic scripts are allowed NOT to reference. (They're sent or

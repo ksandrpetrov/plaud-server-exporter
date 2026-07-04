@@ -74,10 +74,6 @@ export const ACTION_EXPORT_PROGRESS_UPDATE = "exportProgressUpdate";
 /** background -> popup (broadcast smart-sync state changes) */
 export const ACTION_SMART_SYNC_STATUS_UPDATE = "smartSyncStatusUpdate";
 
-/** element selector (devtool-style helper). */
-export const ACTION_ELEMENT_SELECTED = "elementSelected";
-export const ACTION_SELECTOR_MODE_STATUS = "selectorModeStatus";
-
 /**
  * Frozen map of all known action values. Used by `runtimeMessages.test.js`
  * to assert that classic-script files (`popup.js`, `content.js`) still
@@ -108,6 +104,4 @@ export const RUNTIME_MESSAGE_ACTIONS = Object.freeze({
   ACTION_SMART_SYNC_COMPLETE,
   ACTION_EXPORT_PROGRESS_UPDATE,
   ACTION_SMART_SYNC_STATUS_UPDATE,
-  ACTION_ELEMENT_SELECTED,
-  ACTION_SELECTOR_MODE_STATUS,
 });

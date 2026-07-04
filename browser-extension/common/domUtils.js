@@ -159,39 +159,6 @@ export async function clickElement(element, postClickWaitMs = 500) {
 }
 
 /**
- * Simulates a right-click (context menu click) on a given element.
- * Waits for the context menu to potentially appear afterwards.
- *
- * @param {Element} element - The DOM element to right-click.
- * @param {number} [postClickWaitMs=500] - Optional short delay after click for UI to react.
- * @returns {Promise<void>}
- */
-export async function rightClickElement(element, postClickWaitMs = 500) {
-  if (!element || typeof element.dispatchEvent !== "function") {
-    throw new Error("В rightClickElement передан некорректный элемент");
-  }
-  element.scrollIntoView({ behavior: "auto", block: "center" });
-  await delay(100);
-
-  // Create and dispatch a right-click (contextmenu) event
-  const evt = new MouseEvent("contextmenu", {
-    bubbles: true,
-    cancelable: true,
-    button: 2, // Indicates right mouse button
-    view: window,
-  });
-  element.dispatchEvent(evt);
-  console.log(
-    `Dispatched contextmenu event to: ${element.tagName}#${element.id}`
-  );
-
-  // Optional short wait after the click
-  if (postClickWaitMs > 0) {
-    await delay(postClickWaitMs);
-  }
-}
-
-/**
  * Enhanced right-click function with retry logic and dynamic wait for context menu.
  * Attempts to trigger the context menu on the element, retrying up to maxRetries times if needed.
  *

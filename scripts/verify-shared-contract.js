@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 /**
- * Verifies that shared `plaud-exporter/common/*` files exist and that all
- * server-side imports into plaud-exporter resolve. Run via `npm run verify`.
- *
- * Historical note: `plaud-exporter/` is NOT a git submodule, it is vendored
- * in-tree. The "submodule" name in this script and the npm task is kept for
- * backward compatibility.
+ * Verifies that shared `browser-extension/common/*` files exist and that all
+ * server-side imports into browser-extension resolve. Run via `npm run verify`.
  */
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -15,14 +11,14 @@ import { readdir } from "node:fs/promises";
 const __filename = fileURLToPath(import.meta.url);
 const root = resolve(dirname(__filename), "..");
 
-const REQUIRED_SUBMODULE_FILES = [
-  "plaud-exporter/common/syncCore.js",
-  "plaud-exporter/common/exportPathUtils.js",
-  "plaud-exporter/common/plaudFolders.js",
-  "plaud-exporter/common/plaudRecordingIds.js",
-  "plaud-exporter/common/plaudTitles.js",
-  "plaud-exporter/common/plaudSummaries.js",
-  "plaud-exporter/common/plaudRecordings.js",
+const SHARED_CONTRACT_FILES = [
+  "browser-extension/common/syncCore.js",
+  "browser-extension/common/exportPathUtils.js",
+  "browser-extension/common/plaudFolders.js",
+  "browser-extension/common/plaudRecordingIds.js",
+  "browser-extension/common/plaudTitles.js",
+  "browser-extension/common/plaudSummaries.js",
+  "browser-extension/common/plaudRecordings.js",
 ];
 
 const SERVER_SRC = resolve(root, "server/src");
@@ -42,16 +38,16 @@ async function walkJsFiles(dir) {
 }
 
 function fail(message) {
-  console.error(`verify-submodule: ${message}`);
+  console.error(`verify-shared-contract: ${message}`);
   process.exitCode = 1;
 }
 
 function checkRequiredFiles() {
   let ok = true;
-  for (const rel of REQUIRED_SUBMODULE_FILES) {
+  for (const rel of SHARED_CONTRACT_FILES) {
     const full = resolve(root, rel);
     if (!existsSync(full)) {
-      fail(`missing required plaud-exporter file: ${rel}`);
+      fail(`missing required shared contract file: ${rel}`);
       ok = false;
     }
   }
@@ -59,13 +55,11 @@ function checkRequiredFiles() {
 }
 
 const IMPORT_RE = /(?:from|import)\s*(?:\(\s*)?["']([^"']+)["']/g;
-const SHARED_COMMON_PREFIX = "plaud-exporter/common/";
+const SHARED_COMMON_PREFIX = "browser-extension/common/";
 
 function sharedCommonBasenames() {
   return new Set(
-    REQUIRED_SUBMODULE_FILES.map((rel) =>
-      rel.slice(SHARED_COMMON_PREFIX.length)
-    )
+    SHARED_CONTRACT_FILES.map((rel) => rel.slice(SHARED_COMMON_PREFIX.length))
   );
 }
 
@@ -76,7 +70,7 @@ async function walkAndCheckCommonImports(dir, allowed) {
     const text = readFileSync(file, "utf8");
     for (const match of text.matchAll(IMPORT_RE)) {
       const spec = match[1];
-      const marker = "plaud-exporter/common/";
+      const marker = "browser-extension/common/";
       const idx = spec.indexOf(marker);
       if (idx === -1) continue;
       const basename = spec.slice(idx + marker.length);
@@ -119,5 +113,5 @@ const commonBoundaryOk = await walkAndCheckCommonImports(
 );
 
 if (filesOk && importsOk && commonBoundaryOk) {
-  console.log("verify-submodule: OK");
+  console.log("verify-shared-contract: OK");
 }

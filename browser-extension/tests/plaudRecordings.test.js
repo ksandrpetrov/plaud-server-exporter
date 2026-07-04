@@ -9,6 +9,7 @@ import {
   mergeRawPlaudRecordings,
   normalizePlaudRecording,
   paginatePlaudRecordingVariant,
+  runPlaudRecordingFanout,
 } from "../common/plaudRecordings.js";
 
 test("normalizePlaudRecording resolves id, title and folder ids", () => {
@@ -195,4 +196,48 @@ test("buildPlaudRecordingFanoutPlan covers global, trash, unfiled and folders", 
     false,
     "Trash sidebar tag should not create a folder pull"
   );
+});
+
+test("runPlaudRecordingFanout rethrows variant errors without onVariantError", async () => {
+  const plan = buildPlaudRecordingFanoutPlan({ maxFiles: 5, tags: [] });
+  await assert.rejects(
+    () =>
+      runPlaudRecordingFanout({
+        plan,
+        fetchVariant: async () => {
+          throw new Error("network down");
+        },
+      }),
+    /network down/
+  );
+});
+
+test("runPlaudRecordingFanout continues after onVariantError and merges successes", async () => {
+  const plan = buildPlaudRecordingFanoutPlan({ maxFiles: 5, tags: [] });
+  const errors = [];
+  const files = await runPlaudRecordingFanout({
+    plan,
+    fetchVariant: async (params) => {
+      if (params.is_trash === "0") {
+        return [
+          {
+            id: "rec-ok",
+            title: "Ok",
+            raw: {},
+            folderIds: [],
+            folderSegment: "",
+          },
+        ];
+      }
+      throw new Error("variant failed");
+    },
+    onVariantError: (err, step) => {
+      errors.push({ message: String(err), step: step.params });
+    },
+  });
+
+  assert.equal(files.length, 1);
+  assert.equal(files[0].id, "rec-ok");
+  assert.ok(errors.length > 0);
+  assert.equal(errors[0].message, "Error: variant failed");
 });
