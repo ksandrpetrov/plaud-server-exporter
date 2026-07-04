@@ -218,7 +218,7 @@ export async function listAllRecordings(session, options = {}) {
       logger.warn("recordingsApi: recordings list variant failed", {
         params: step.params,
         contextFolderId: step.contextFolderId || undefined,
-        error: String(err?.message || err),
+        error: String(err instanceof Error ? err.message : err),
       });
     },
   });
