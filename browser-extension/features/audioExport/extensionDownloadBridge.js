@@ -10,7 +10,95 @@ import {
   PLAUD_FETCH_TIMEOUT_MS,
   plaudExportDebug,
 } from "./plaudBrowserApi.js";
-import { buildSummaryFilename } from "./plaudCollisionPaths.js";
+import {
+  basenameFromDownloadPath,
+  buildSummaryFilename,
+} from "./plaudCollisionPaths.js";
+
+/** Safari Web Extensions do not implement chrome.downloads (MDN: Safari — No). */
+export function isSafariUserAgent(userAgent = navigator.userAgent) {
+  const ua = String(userAgent || "");
+  return (
+    /Safari\//i.test(ua) &&
+    !/Chrom(e|ium)\//i.test(ua) &&
+    !/Edg\//i.test(ua) &&
+    !/Firefox\//i.test(ua)
+  );
+}
+
+const SAFARI_DOWNLOAD_GAP_MS = 150;
+let safariDownloadChain = Promise.resolve();
+
+function scheduleSafariPageDownload(task) {
+  const run = safariDownloadChain.then(task);
+  safariDownloadChain = run.catch(() => {});
+  return run;
+}
+
+function triggerBlobDownloadInPage(blob, filename) {
+  const downloadName = basenameFromDownloadPath(filename) || "download";
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = downloadName;
+  anchor.rel = "noopener";
+  anchor.style.display = "none";
+  document.documentElement.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+}
+
+async function downloadTextViaPage(content, filename, options = {}) {
+  const text = withUtf8Bom(content);
+  plaudExportDebug("summary:download:start", {
+    filename,
+    markdownChars: String(content ?? "").length,
+    bytes: new TextEncoder().encode(text).byteLength,
+    transport: "page-anchor",
+  });
+  await scheduleSafariPageDownload(async () => {
+    const blob = new Blob([text], {
+      type: "text/markdown;charset=utf-8",
+    });
+    triggerBlobDownloadInPage(blob, filename);
+    await new Promise((resolve) =>
+      window.setTimeout(resolve, SAFARI_DOWNLOAD_GAP_MS)
+    );
+  });
+  plaudExportDebug("download:page-anchor:success", { filename });
+  return {
+    success: true,
+    filename,
+    conflictAction: options.conflictAction,
+    transport: "page-anchor",
+  };
+}
+
+async function downloadUrlViaPage(url, filename, options = {}) {
+  plaudExportDebug("download:page-anchor:request", {
+    filename,
+    urlScheme: String(url).match(/^([a-z0-9+.-]+):/i)?.[1] || "",
+  });
+  const response = await fetchWithTimeout(url, {}, PLAUD_FETCH_TIMEOUT_MS);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  const blob = await response.blob();
+  await scheduleSafariPageDownload(async () => {
+    triggerBlobDownloadInPage(blob, filename);
+    await new Promise((resolve) =>
+      window.setTimeout(resolve, SAFARI_DOWNLOAD_GAP_MS)
+    );
+  });
+  plaudExportDebug("download:page-anchor:success", { filename });
+  return {
+    success: true,
+    filename,
+    conflictAction: options.conflictAction,
+    transport: "page-anchor",
+  };
+}
 
 export function buildSummaryFilenameForFile(
   markdown,
@@ -80,6 +168,9 @@ export async function downloadTextViaBackground(
   filename,
   options = {}
 ) {
+  if (isSafariUserAgent()) {
+    return await downloadTextViaPage(content, filename, options);
+  }
   const text = withUtf8Bom(content);
   plaudExportDebug("summary:download:start", {
     filename,
@@ -105,6 +196,9 @@ export async function downloadTextViaBackground(
  * URL is created here because MV3 service workers have no URL.createObjectURL.
  */
 export async function downloadViaBackground(url, filename, options = {}) {
+  if (isSafariUserAgent()) {
+    return await downloadUrlViaPage(url, filename, options);
+  }
   const basePayload = {
     filename,
     conflictAction: options.conflictAction,

@@ -209,6 +209,8 @@
         noDownloadId: "Chrome не вернул идентификатор загрузки.",
         downloadTimeout: "Загрузка {id} превысила время ожидания.",
         downloadInterrupted: "Загрузка {id} прервана.",
+        downloadsUnsupported:
+          "API chrome.downloads недоступен (например, Safari). Скачивание выполняется на странице Plaud.",
         noUrl: "Не указан URL для загрузки.",
         stallTitle: "Экспорт, возможно, завис",
         stallMessage:
@@ -421,6 +423,8 @@
         noDownloadId: "Chrome did not return a download id.",
         downloadTimeout: "Download {id} timed out.",
         downloadInterrupted: "Download {id} was interrupted.",
+        downloadsUnsupported:
+          "chrome.downloads is unavailable (e.g. Safari). Download from the Plaud page instead.",
         noUrl: "No URL specified for download.",
         stallTitle: "Export may be stuck",
         stallMessage:

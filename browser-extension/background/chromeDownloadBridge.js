@@ -145,6 +145,10 @@ function bytesToDataUrl(bytes, mimeType) {
  * both URL downloads and inline-text downloads (the latter via a `data:` URL).
  */
 export async function downloadPlaudFile(message) {
+  if (typeof chrome.downloads?.download !== "function") {
+    throw new Error(plaudT("bg.downloadsUnsupported"));
+  }
+
   const requestedConflictAction = String(message.conflictAction || "uniquify");
   const conflictAction = VALID_CONFLICT_ACTIONS.includes(
     requestedConflictAction
