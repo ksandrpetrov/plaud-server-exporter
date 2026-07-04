@@ -12,8 +12,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/chrome": "^0.1.42",
-    "eslint": "^10.4.0",
-    "globals": "^17.6.0"
+    "@types/chrome": "^0.2.2",
+    "eslint": "^10.6.0",
+    "globals": "^17.7.0"
   }
 }
