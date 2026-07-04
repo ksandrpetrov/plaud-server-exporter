@@ -132,10 +132,10 @@ test("showFilesTreeRoot edits menu with folder list from tree source", async () 
   const ctx = fakeCtx();
   await showFilesTreeRoot(ctx, { chatId: 42, messageId: 99 });
 
-  assert.equal(ctx.edits.length, 1);
-  assert.equal(ctx.edits[0].messageId, 99);
-  assert.match(ctx.edits[0].text, /Work/);
-  assert.match(ctx.edits[0].text, /1 записей/);
+  assert.equal(ctx.deletes.length, 1);
+  assert.equal(ctx.richMessages.length, 1);
+  assert.match(ctx.richMessages[0].markdown, /Work/);
+  assert.match(ctx.richMessages[0].markdown, /1 записей/);
 });
 
 test("showFilesTreeRoot does not open a thinking draft (inline edit only)", async () => {
@@ -167,15 +167,11 @@ test("handleTreeFilePick sends document when summary file exists", async () => {
   const ctx = fakeCtx();
   await handleTreeFilePick(ctx, { chatId: 55, pick: 1 });
 
-  assert.equal(
-    ctx.richMessages.length,
-    0,
-    "delivery is document + caption only"
-  );
   assert.equal(ctx.documents.length, 1);
   assert.equal(ctx.documents[0].documentPath, mdPath);
   assert.match(ctx.documents[0].caption, /Note/);
-  assert.equal(ctx.sends.length, 0);
+  assert.equal(ctx.richMessages.length, 1);
+  assert.match(ctx.richMessages[0].markdown, /Отправил/);
 });
 
 test("handleTreeFilePick still sends document when rich preview fails", async () => {
@@ -240,6 +236,10 @@ test("handleTreeFilePick runs quiet sync when file is missing", async () => {
 
   assert.equal(syncRuns, 1);
   assert.ok(
+    ctx.sends.some((m) => /синхронизирую/i.test(m.text)),
+    "quiet sync should toast before streaming progress"
+  );
+  assert.ok(
     ctx.drafts.some((d) => /Идёт синк|Synced:/.test(d.text)),
     "quiet sync should stream progress in draft instead of a static toast"
   );
@@ -261,5 +261,5 @@ test("handleTreeFilePick reports out-of-range pick", async () => {
   const ctx = fakeCtx();
   await handleTreeFilePick(ctx, { chatId: 88, pick: 9 });
   assert.equal(ctx.documents.length, 0);
-  assert.ok(ctx.sends.some((m) => /Нет файла/i.test(m.text)));
+  assert.ok(ctx.richMessages.some((m) => /Нет файла/i.test(m.markdown)));
 });

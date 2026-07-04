@@ -42,7 +42,10 @@ export function parseTreeFilePickNumber(text) {
 }
 
 export function treeFilePickOutOfRangeHtml(pick, shown) {
-  return `🌳 Нет файла №${formatNumberEmoji(pick)} на этой странице (показано ${shown}).`;
+  return (
+    `🌳 Нет файла №${formatNumberEmoji(pick)} на этой странице (показано ${shown}).\n` +
+    "Повтори цифру из текущего списка."
+  );
 }
 
 const DIGIT_EMOJI = [

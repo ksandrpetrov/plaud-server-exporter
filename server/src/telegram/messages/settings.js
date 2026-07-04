@@ -1,7 +1,10 @@
 import { escapeHtml, formatDateTimeLocal } from "./format.js";
 import { clipRichMarkdown } from "../richFormat.js";
-
-export const SETTINGS_CLOSED_TEXT = "⚙️ Настройки закрыты.";
+import {
+  EMOJI_SCHEDULE,
+  EMOJI_SETTINGS,
+  humanIntervalLabel,
+} from "./copyStyle.js";
 
 /**
  * @param {{
@@ -31,11 +34,12 @@ export function settingsScreenHtml({
     }
   }
   const summaryLine = scheduledSummaryVisible
-    ? "🔔 Сообщения автосинка: <b>вкл</b> — пришлю сводку в чат."
-    : "🔕 Сообщения автосинка: <b>выкл</b> — автосинк работает тихо.";
+    ? "🔔 Уведомлять об автосинке: <b>да</b> — пришлю сводку в чат."
+    : "🔕 Уведомлять об автосинке: <b>нет</b> — автосинк работает тихо.";
+  const intervalHuman = humanIntervalLabel(intervalMin);
   return [
-    "⚙️ <b>Настройки расписания</b>",
-    `🕒 Интервал автозапуска: ${intervalMin} мин`,
+    `${EMOJI_SETTINGS} <b>Расписание</b>`,
+    `${EMOJI_SCHEDULE} Интервал: ${intervalHuman} (${intervalMin} мин)`,
     nextLine,
     summaryLine,
     "",
@@ -72,16 +76,17 @@ export function settingsScreenRichMarkdown({
     }
   }
   const summaryLine = scheduledSummaryVisible
-    ? "🔔 **вкл** — пришлю сводку в чат"
-    : "🔕 **выкл** — автосинк работает тихо";
+    ? "🔔 **да** — пришлю сводку в чат"
+    : "🔕 **нет** — автосинк работает тихо";
+  const intervalHuman = humanIntervalLabel(intervalMin);
   const md = [
-    "# ⚙️ Настройки расписания",
+    `# ${EMOJI_SETTINGS} Расписание`,
     "",
     `<details open>\n<summary>Расписание</summary>`,
     "",
-    `- Интервал: **${intervalMin} мин**`,
+    `- Интервал: **${intervalHuman}** (${intervalMin} мин)`,
     `- Следующий автозапуск: ${nextLine}`,
-    `- Сообщения автосинка: ${summaryLine}`,
+    `- Уведомлять об автосинке: ${summaryLine}`,
     "",
     "</details>",
     "",

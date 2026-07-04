@@ -6,7 +6,24 @@ export {
   TELEGRAM_HTML_MAX_LEN,
   formatBytes,
   describeRecordStatus,
+  describeStatusVerdict,
 } from "./format.js";
+
+export {
+  EMOJI_BRAND,
+  EMOJI_SYNC,
+  EMOJI_SUCCESS,
+  EMOJI_SCHEDULE,
+  EMOJI_PROGRESS,
+  EMOJI_FILES,
+  EMOJI_TREE,
+  EMOJI_WARNING,
+  EMOJI_STATS,
+  EMOJI_SETTINGS,
+  INTERVAL_HUMAN_LABELS,
+  humanIntervalLabel,
+  formatShortDateTimeLocal,
+} from "./copyStyle.js";
 
 export {
   BOT_WELCOME_HTML,
@@ -15,7 +32,6 @@ export {
   BOT_HELP_RICH_MARKDOWN,
   BOT_UNKNOWN_COMMAND,
   MENU_HEADER,
-  MENU_CLOSED_TEXT,
   lastSyncSummaryLine,
   buildMainMenuRichMarkdown,
 } from "./menu.js";
@@ -40,19 +56,18 @@ export {
   statusScreenRichMarkdown,
 } from "./sync.js";
 
-export {
-  SETTINGS_CLOSED_TEXT,
-  settingsScreenHtml,
-  settingsScreenRichMarkdown,
-} from "./settings.js";
+export { settingsScreenHtml, settingsScreenRichMarkdown } from "./settings.js";
 
 export {
   FILES_MENU_HEADER,
   FILES_TREE_EMPTY,
   FILES_STATS_EMPTY,
   filesMenuHtml,
+  filesMenuRichMarkdown,
   filesTreeRootHtml,
+  filesTreeRootRichMarkdown,
   filesTreeFolderHtml,
+  filesTreeFolderRichMarkdown,
   filesStatsHtml,
   filesStatsRichMarkdown,
   formatNumberEmoji,
@@ -65,8 +80,16 @@ export {
 
 export {
   TREE_FILE_PICK_NO_CONTEXT_HTML,
+  TREE_FILE_PICK_NO_CONTEXT_RICH,
   ERR_TREE_AUTO_SYNC_FAILED_HTML,
+  ERR_TREE_AUTO_SYNC_FAILED_RICH,
   ERR_TREE_FILE_STILL_MISSING_HTML,
+  ERR_TREE_FILE_STILL_MISSING_RICH,
   ERR_TREE_SEND_DOCUMENT_HTML,
+  ERR_TREE_SEND_DOCUMENT_RICH,
   ERR_TREE_LOAD_HTML,
+  ERR_TREE_LOAD_RICH,
+  TREE_QUIET_SYNC_TOAST,
+  treeDocumentSentHtml,
+  treeDocumentSentRich,
 } from "./errors.js";

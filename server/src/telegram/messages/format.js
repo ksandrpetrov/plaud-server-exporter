@@ -17,7 +17,7 @@ export function escapeHtml(input) {
 export function describeStatusVerdict(rawStatus) {
   switch (String(rawStatus || "")) {
     case "completed":
-      return "ok";
+      return "успешно";
     case "completed_with_errors":
       return "с ошибками";
     case "plaud_changed":
@@ -25,7 +25,7 @@ export function describeStatusVerdict(rawStatus) {
     case "failed":
       return "упал";
     case "running":
-      return "идёт сейчас";
+      return "идёт";
     default:
       return String(rawStatus || "неизвестно");
   }

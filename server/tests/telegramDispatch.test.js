@@ -331,7 +331,11 @@ test("dispatch: duplicate run_sync shows busy toast without second runManualSync
       (c) =>
         c.name === "sendMessage" && c.args?.[0]?.text === syncBusyText("manual")
     );
-    assert.ok(busySend, "duplicate sync should also post busy text in chat");
+    assert.equal(
+      busySend,
+      undefined,
+      "duplicate sync should alert only, without a second chat message"
+    );
     syncRunGuard.reset();
   });
 });
@@ -445,12 +449,12 @@ test("dispatch: settings screen shows the silent default for scheduled summaries
     const text = edit.args?.[0]?.text || "";
     assert.match(
       text,
-      /Сообщения автосинка/,
+      /Уведомлять об автосинке/,
       "settings screen must mention scheduled-sync visibility"
     );
     assert.match(
       text,
-      /выкл/,
+      /нет/,
       "default state must read as disabled (silent autosync)"
     );
   });
@@ -472,7 +476,7 @@ test("dispatch: toggling scheduled-summary flips persisted value and re-renders"
     );
     const edit = tg.calls.find((c) => c.name === "editMessageText");
     assert.ok(edit);
-    assert.match(edit.args[0].text, /вкл/);
+    assert.match(edit.args[0].text, /да/);
 
     tg.calls.length = 0;
     await dispatchUpdate(

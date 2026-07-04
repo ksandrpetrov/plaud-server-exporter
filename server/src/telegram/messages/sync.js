@@ -6,6 +6,13 @@ import {
   formatDateTimeLocal,
 } from "./format.js";
 import { clipRichMarkdown } from "../richFormat.js";
+import {
+  EMOJI_PROGRESS,
+  EMOJI_SCHEDULE,
+  EMOJI_SUCCESS,
+  EMOJI_SYNC,
+  EMOJI_WARNING,
+} from "./copyStyle.js";
 
 const SYNC_PROGRESS_STEPS = [
   "Подключение к Plaud",
@@ -14,31 +21,44 @@ const SYNC_PROGRESS_STEPS = [
 ];
 
 /**
+ * @param {object} [stats]
+ * @returns {boolean[]}
+ */
+function syncProgressStepDone(stats) {
+  const processed = Number(stats?.processed ?? 0);
+  const total = Number(stats?.total ?? 0);
+  return [
+    processed > 0 || total > 0,
+    total > 0,
+    total > 0 && processed >= total,
+  ];
+}
+
+/**
  * @param {object} [_stats]
  * @returns {string}
  */
-export function syncProgressChecklistMarkdown(_stats) {
+export function syncProgressChecklistMarkdown(stats) {
+  const done = syncProgressStepDone(stats);
   return SYNC_PROGRESS_STEPS.map((label, i) => {
-    const mark = i < 2 ? "x" : " ";
+    const mark = done[i] ? "x" : " ";
     return `- [${mark}] ${label}`;
   }).join("\n");
 }
 
-export const SYNC_LOADING_HTML =
-  "🛰 <b>Запускаю синк…</b>\nЭто может занять до минуты.";
-export const SYNC_LOADING_SCHEDULED_HTML =
-  "🕒 <b>Автозапуск синка по расписанию.</b>\nЭто может занять до минуты.";
+export const SYNC_LOADING_HTML = `${EMOJI_SYNC} <b>Запускаю синк…</b>\nЭто может занять до минуты.`;
+export const SYNC_LOADING_SCHEDULED_HTML = `${EMOJI_SCHEDULE} <b>Автозапуск синка по расписанию.</b>\nЭто может занять до минуты.`;
 
 export function syncBusyText(source = "manual") {
-  const prefix = source === "scheduled" ? "➡️" : "📅";
-  return `${prefix} Уже готовлю сводку или недавно прислала — подожди немного и попробуй снова.`;
+  void source;
+  return `${EMOJI_SYNC} Синк уже идёт или только что завершился — подожди ~30 сек и попробуй снова.`;
 }
 
 export function syncLoadingPulseFrames(source) {
   const header =
     source === "scheduled"
-      ? "➡️ <b>Автозапуск синка</b>"
-      : "📅 <b>Запускаю синк</b>";
+      ? `${EMOJI_SCHEDULE} <b>Автозапуск синка</b>`
+      : `${EMOJI_SYNC} <b>Запускаю синк</b>`;
   return [
     `${header}\n<i>Это может занять до минуты.</i>`,
     `${header} .\n<i>Подключаюсь к Plaud…</i>`,
@@ -55,7 +75,9 @@ export function syncLoadingPulseFrames(source) {
  */
 export function syncChecklistRichFrames(source) {
   const header =
-    source === "scheduled" ? "## ➡️ Автозапуск синка" : "## 📅 Запускаю синк";
+    source === "scheduled"
+      ? `## ${EMOJI_SCHEDULE} Автозапуск синка`
+      : `## ${EMOJI_SYNC} Запускаю синк`;
   const steps = [
     "Подключаюсь к Plaud…",
     "Получаю список записей…",
@@ -75,13 +97,22 @@ export function syncChecklistRichFrames(source) {
 
 export const SYNC_LOCK_BUSY_HTML =
   "🔒 Уже идёт другой синк. Попробуй через минуту.";
+
 export const SYNC_NO_SESSION_HTML =
-  "⚠️ Нет сохранённой сессии Plaud.\n" +
-  "Запусти <code>npm run server:auth</code> на маке и скопируй session.json на сервер.";
+  `${EMOJI_WARNING} <b>Сессия Plaud не найдена на сервере.</b>\n\n` +
+  "1. На Mac войди в Plaud через утилиту проекта.\n" +
+  "2. Скопируй файл сессии на сервер.\n\n" +
+  expandableBlockquote("Технически: npm run server:auth", { threshold: 1 });
+
 export const SYNC_AUTH_REJECTED_HTML =
-  "⚠️ Plaud отверг сессию. Перевыпусти её через <code>npm run server:auth</code>.";
+  `${EMOJI_WARNING} <b>Plaud отверг сессию.</b>\n\n` +
+  "1. На Mac перевыпусти сессию через утилиту проекта.\n" +
+  "2. Скопируй обновлённый файл сессии на сервер.\n\n" +
+  expandableBlockquote("Технически: npm run server:auth", { threshold: 1 });
+
 export const SYNC_GENERIC_ERROR_HTML =
-  "⚠️ Синк завершился с ошибкой.\nПодробности — в логах сервиса.";
+  `${EMOJI_WARNING} <b>Что-то пошло не так.</b>\n` +
+  "Проверь статус или запусти синк ещё раз.";
 
 export const STATUS_NEVER_RUN_HTML =
   "📊 <b>Статус</b>\n\nСинк ещё ни разу не запускался.";
@@ -89,8 +120,8 @@ export const STATUS_NEVER_RUN_HTML =
 export function syncSummaryHtml(stats, meta) {
   const header =
     meta.source === "scheduled"
-      ? "🕒 <b>Автозапуск синка по расписанию.</b>"
-      : "✅ <b>Синк завершён.</b>";
+      ? `${EMOJI_SCHEDULE} <b>Автозапуск синка по расписанию.</b>`
+      : `${EMOJI_SUCCESS} <b>Синк завершён.</b>`;
   const duration =
     typeof meta.durationSec === "number" && Number.isFinite(meta.durationSec)
       ? `\nЗатрачено ~${Math.max(1, Math.round(meta.durationSec))} с.`
@@ -105,7 +136,10 @@ export function syncSummaryHtml(stats, meta) {
     `⚠️ Ошибок: ${stats.errors ?? 0}`,
   ];
   if (stats.plaudChanged) {
-    lines.push("", "⚠️ Plaud, похоже, поменял API — нужна ручная проверка.");
+    lines.push(
+      "",
+      `${EMOJI_WARNING} Plaud, похоже, поменял API — нужна ручная проверка.`
+    );
   }
   return lines.join("\n");
 }
@@ -118,8 +152,8 @@ export function syncSummaryHtml(stats, meta) {
 export function syncSummaryRichMarkdown(stats, meta) {
   const header =
     meta.source === "scheduled"
-      ? "# 🕒 Автозапуск синка по расписанию"
-      : "# ✅ Синк завершён";
+      ? `# ${EMOJI_SCHEDULE} Автозапуск синка по расписанию`
+      : `# ${EMOJI_SUCCESS} Синк завершён`;
   const duration =
     typeof meta.durationSec === "number" && Number.isFinite(meta.durationSec)
       ? `\n\nЗатрачено ~${Math.max(1, Math.round(meta.durationSec))} с.`
@@ -134,16 +168,8 @@ export function syncSummaryRichMarkdown(stats, meta) {
     `| Ошибок | ${stats.errors ?? 0} |`,
   ].join("\n");
   let md = `${header}${duration}\n\n${table}`;
-  const skipped = Number(stats?.skipped ?? 0);
-  const errors = Number(stats?.errors ?? 0);
-  if (skipped > 0 || errors > 0) {
-    const lines = [];
-    if (skipped > 0) lines.push(`- Пропущено: ${skipped}`);
-    if (errors > 0) lines.push(`- Ошибок: ${errors}`);
-    md += `\n\n<details open>\n<summary>Детали</summary>\n\n${lines.join("\n")}\n\n</details>`;
-  }
   if (stats.plaudChanged) {
-    md += "\n\n> ⚠️ Plaud, похоже, поменял API — нужна ручная проверка.";
+    md += `\n\n> ${EMOJI_WARNING} Plaud, похоже, поменял API — нужна ручная проверка.`;
   }
   return clipRichMarkdown(md);
 }
@@ -156,7 +182,7 @@ export function syncProgressHtml(stats) {
     total <= 0
       ? `обработано ${processed}`
       : `обработано ${processed} из ${total}${pct}`;
-  const lines = [`⏳ <b>Идёт синк…</b>`, counter];
+  const lines = [`${EMOJI_PROGRESS} <b>Идёт синк…</b>`, counter];
   const lastMessage = String(stats?.lastMessage || "").trim();
   if (lastMessage) {
     lines.push(
@@ -178,7 +204,7 @@ export function syncProgressRichMarkdown(stats) {
   const counter =
     total <= 0 ? `**${processed}**` : `**${processed} / ${total}**${pct}`;
   const parts = [
-    "## ⏳ Идёт синк…",
+    `## ${EMOJI_PROGRESS} Идёт синк…`,
     "",
     counter,
     "",
@@ -197,7 +223,7 @@ export function statusScreenHtml(status) {
   }
   const stats = status.lastSyncStats;
   const lines = [
-    "📊 <b>Статус последнего синка</b>",
+    "📊 <b>Статус</b>",
     "",
     `🕘 Завершён: ${escapeHtml(formatDateTimeLocal(status.lastSyncAt))}`,
     `🏁 Итог: ${escapeHtml(describeStatusVerdict(stats.status))}`,
@@ -216,7 +242,7 @@ export function statusScreenHtml(status) {
   if (status.lastAuthError?.message) {
     lines.push(
       "",
-      `⚠️ Последняя ошибка авторизации: ${escapeHtml(status.lastAuthError.message)}`
+      `${EMOJI_WARNING} Последняя ошибка авторизации: ${escapeHtml(status.lastAuthError.message)}`
     );
   }
   return lines.join("\n");
@@ -242,9 +268,9 @@ export function statusScreenRichMarkdown(status) {
     `| Пропущено | ${stats.skipped ?? 0} |`,
     `| Ошибок | ${stats.errors ?? 0} |`,
   ].join("\n");
-  let md = `# 📊 Статус последнего синка\n\n${table}`;
+  let md = `# 📊 Статус\n\n${table}`;
   if (status.lastAuthError?.message) {
-    md += `\n\n> ⚠️ Последняя ошибка авторизации: ${status.lastAuthError.message}`;
+    md += `\n\n> ${EMOJI_WARNING} Последняя ошибка авторизации: ${status.lastAuthError.message}`;
   }
   return clipRichMarkdown(md);
 }

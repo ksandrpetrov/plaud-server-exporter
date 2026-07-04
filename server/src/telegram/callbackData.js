@@ -22,8 +22,8 @@ export const CB_FILES_TREE = "files_tree";
 export const CB_FILES_TREE_FOLDER_PREFIX = "tf:";
 export const CB_FILES_STATS = "files_stats";
 export const CB_BACK = "back";
+export const CB_BACK_FILES = "back_files";
 export const CB_HELP = "help";
-export const CB_CLOSE = "close";
 
 /**
  * Build the callback_data payload for opening a folder page in the tree.

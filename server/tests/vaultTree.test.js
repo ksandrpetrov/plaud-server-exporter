@@ -123,7 +123,7 @@ test("buildSyncIndexTreeRoot lists folders sorted with Unfiled/Trash last", () =
   );
 
   const html = filesTreeRootHtml(root);
-  assert.match(html, /Дерево синка/);
+  assert.match(html, /Дерево записей/);
   assert.match(html, /Всего файлов: 4, папок: 4/);
   assert.match(html, /<b>Work<\/b>/);
   assert.match(html, /<b>Clients<\/b>/);
@@ -452,7 +452,7 @@ test("buildFilesTreeRootKeyboard renders one button per folder + back to menu", 
     ],
   };
   const kb = buildFilesTreeRootKeyboard(root);
-  assert.equal(kb.inline_keyboard.length, 3);
+  assert.equal(kb.inline_keyboard.length, 4);
   assert.match(kb.inline_keyboard[0][0].text, /Clients \(2\)/);
   assert.equal(
     kb.inline_keyboard[0][0].callback_data,
@@ -463,7 +463,8 @@ test("buildFilesTreeRootKeyboard renders one button per folder + back to menu", 
     kb.inline_keyboard[1][0].callback_data,
     filesTreeFolderCallback(1, 1)
   );
-  assert.equal(kb.inline_keyboard[2][0].callback_data, "back");
+  assert.equal(kb.inline_keyboard[2][0].callback_data, "back_files");
+  assert.equal(kb.inline_keyboard[3][0].callback_data, "back");
 });
 
 test("buildFilesTreeFolderKeyboard shows prev/next + К папкам + В меню", () => {
@@ -472,10 +473,11 @@ test("buildFilesTreeFolderKeyboard shows prev/next + К папкам + В мен
     page: 1,
     totalPages: 1,
   });
-  // Single page: just the [К папкам] [В меню] row.
-  assert.equal(single.inline_keyboard.length, 1);
+  // Single page: К папкам + К файлам, then В меню.
+  assert.equal(single.inline_keyboard.length, 2);
   assert.equal(single.inline_keyboard[0][0].callback_data, "files_tree");
-  assert.equal(single.inline_keyboard[0][1].callback_data, "back");
+  assert.equal(single.inline_keyboard[0][1].callback_data, "back_files");
+  assert.equal(single.inline_keyboard[1][0].callback_data, "back");
 
   const first = buildFilesTreeFolderKeyboard({
     folderIndex: 2,
@@ -543,7 +545,7 @@ test("scanVaultSummary counts md files and lists recent by mtime", async () => {
   assert.ok(!stats.recent[0].relativePath.startsWith("/"));
 
   const html = filesStatsHtml(stats);
-  assert.match(html, /Сводка vault/);
+  assert.match(html, /На диске/);
   assert.match(html, /Файлов .md: 3/);
 });
 

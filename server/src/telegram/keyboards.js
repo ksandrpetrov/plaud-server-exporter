@@ -4,14 +4,11 @@
  * Each function returns a Telegram `InlineKeyboardMarkup` object directly
  * consumable by `telegramClient.sendMessage({ replyMarkup })`. Keep callback
  * payloads short: Telegram limits `callback_data` to 64 bytes.
- *
- * Layout mirrors `satellite/satellite/messages_ru.py` (one action per row,
- * navigation at the bottom).
  */
 
 import {
   CB_BACK,
-  CB_CLOSE,
+  CB_BACK_FILES,
   CB_FILES,
   CB_FILES_STATS,
   CB_FILES_TREE,
@@ -27,20 +24,21 @@ import {
   filesTreeFolderCallback,
 } from "./callbackData.js";
 import { INTERVAL_PRESETS_MIN } from "./botSettings.js";
+import { humanIntervalLabel } from "./messages/copyStyle.js";
 
 export function buildMainMenuKeyboard() {
   return {
     inline_keyboard: [
       [
         {
-          text: "🔄 Запустить синк сейчас",
+          text: "🔄 Синхронизировать",
           callback_data: CB_RUN_SYNC,
           style: "primary",
         },
       ],
-      [{ text: "📊 Статус последнего синка", callback_data: CB_STATUS }],
+      [{ text: "📊 Статус", callback_data: CB_STATUS }],
       [{ text: "📁 Файлы", callback_data: CB_FILES }],
-      [{ text: "⚙️ Настройки расписания", callback_data: CB_SETTINGS }],
+      [{ text: "⚙️ Расписание", callback_data: CB_SETTINGS }],
       [{ text: "ℹ️ Помощь", callback_data: CB_HELP }],
     ],
   };
@@ -52,12 +50,21 @@ export function buildBackToMenuKeyboard() {
   };
 }
 
+export function buildBackToFilesKeyboard() {
+  return {
+    inline_keyboard: [
+      [{ text: "⬅️ К файлам", callback_data: CB_BACK_FILES }],
+      [{ text: "⬅️ В меню", callback_data: CB_BACK }],
+    ],
+  };
+}
+
 export function buildFilesMenuKeyboard() {
   return {
     inline_keyboard: [
       [
-        { text: "🌳 Дерево синка", callback_data: CB_FILES_TREE },
-        { text: "📊 Сводка vault", callback_data: CB_FILES_STATS },
+        { text: "🌳 Дерево записей", callback_data: CB_FILES_TREE },
+        { text: "📊 На диске", callback_data: CB_FILES_STATS },
       ],
       [{ text: "⬅️ В меню", callback_data: CB_BACK }],
     ],
@@ -66,8 +73,7 @@ export function buildFilesMenuKeyboard() {
 
 /**
  * Tree root keyboard: one button per folder (drills into a paginated folder
- * view), with the main-menu back button last. Each folder button is rendered
- * on its own row so long labels (e.g. "SocServ QA Cap…") don't wrap awkwardly.
+ * view), with navigation at the bottom.
  *
  * @param {import("./vaultTree.js").SyncIndexTreeRoot} root
  */
@@ -79,15 +85,31 @@ export function buildFilesTreeRootKeyboard(root) {
       callback_data: filesTreeFolderCallback(idx, 1),
     },
   ]);
-  rows.push([{ text: "⬅️ В меню", callback_data: CB_BACK }]);
+  rows.push(
+    [{ text: "⬅️ К файлам", callback_data: CB_BACK_FILES }],
+    [{ text: "⬅️ В меню", callback_data: CB_BACK }]
+  );
   return { inline_keyboard: rows };
+}
+
+export function buildFilesTreeEmptyKeyboard() {
+  return {
+    inline_keyboard: [
+      [
+        {
+          text: "🔄 Синхронизировать",
+          callback_data: CB_RUN_SYNC,
+          style: "primary",
+        },
+      ],
+      [{ text: "⬅️ К файлам", callback_data: CB_BACK_FILES }],
+    ],
+  };
 }
 
 /**
  * Tree folder keyboard: prev/next inside the current folder, plus a row to go
  * back to the folder list (К папкам) or all the way out to the main menu.
- *
- * The page indicator is in the message header instead of a noop button.
  *
  * @param {{ folderIndex?: number; page?: number; totalPages?: number }} folderPage
  */
@@ -122,8 +144,9 @@ export function buildFilesTreeFolderKeyboard(folderPage) {
 
   rows.push([
     { text: "📁 К папкам", callback_data: CB_FILES_TREE },
-    { text: "⬅️ В меню", callback_data: CB_BACK },
+    { text: "⬅️ К файлам", callback_data: CB_BACK_FILES },
   ]);
+  rows.push([{ text: "⬅️ В меню", callback_data: CB_BACK }]);
   return { inline_keyboard: rows };
 }
 
@@ -131,18 +154,21 @@ export function buildSyncFinishedKeyboard() {
   return buildBackToMenuKeyboard();
 }
 
-export function buildSyncRunningKeyboard() {
+export function buildTreePickErrorKeyboard() {
   return {
-    inline_keyboard: [[{ text: "⏳ Идёт синк…", callback_data: CB_RUN_SYNC }]],
+    inline_keyboard: [
+      [{ text: "🌳 К дереву", callback_data: CB_FILES_TREE }],
+      [{ text: "⬅️ В меню", callback_data: CB_BACK }],
+    ],
   };
+}
+
+export function buildTreePickSuccessKeyboard() {
+  return buildTreePickErrorKeyboard();
 }
 
 /**
  * Settings screen: interval presets + scheduled-summary toggle + back button.
- * Highlights the active interval with a leading checkmark, the same
- * convention as digest_days_keyboard in satellite. The toggle button renders
- * its own state in the label so the user sees what tapping it will switch to
- * without re-reading the screen body.
  *
  * @param {number} activeIntervalMin
  * @param {boolean} [scheduledSummaryVisible]
@@ -159,7 +185,8 @@ export function buildSettingsKeyboard(
   };
   const buttons = INTERVAL_PRESETS_MIN.map((min) => {
     const isActive = min === activeIntervalMin;
-    const label = isActive ? `✅ ${min} мин` : `${min} мин`;
+    const human = humanIntervalLabel(min);
+    const label = isActive ? `✅ ${human}` : `${human} · ${min} мин`;
     return {
       text: label,
       callback_data: presetToCallback[min],
@@ -167,20 +194,14 @@ export function buildSettingsKeyboard(
     };
   });
   const summaryLabel = scheduledSummaryVisible
-    ? "🔔 Сообщения автосинка: вкл"
-    : "🔕 Сообщения автосинка: выкл";
+    ? "🔔 Уведомлять об автосинке: да"
+    : "🔕 Уведомлять об автосинке: нет";
   return {
     inline_keyboard: [
       [buttons[0], buttons[1]],
       [buttons[2], buttons[3]],
       [{ text: summaryLabel, callback_data: CB_SETTINGS_TOGGLE_SUMMARY }],
-      [{ text: "⬅️ Назад", callback_data: CB_BACK }],
+      [{ text: "⬅️ В меню", callback_data: CB_BACK }],
     ],
-  };
-}
-
-export function buildCloseKeyboard() {
-  return {
-    inline_keyboard: [[{ text: "⬅️ Закрыть", callback_data: CB_CLOSE }]],
   };
 }

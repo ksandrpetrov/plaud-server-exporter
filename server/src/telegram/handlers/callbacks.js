@@ -1,7 +1,7 @@
 import { logger } from "../../logger.js";
 import {
   CB_BACK,
-  CB_CLOSE,
+  CB_BACK_FILES,
   CB_FILES,
   CB_FILES_STATS,
   CB_FILES_TREE,
@@ -19,7 +19,7 @@ import { buildBackToMenuKeyboard } from "../keyboards.js";
 import {
   BOT_HELP_HTML,
   BOT_HELP_RICH_MARKDOWN,
-  MENU_CLOSED_TEXT,
+  humanIntervalLabel,
   statusScreenHtml,
   statusScreenRichMarkdown,
   syncBusyText,
@@ -31,9 +31,7 @@ import {
 } from "../botSettings.js";
 import {
   answerBestEffort,
-  editToMenuScreen,
   safeCallbackRichScreen,
-  safeSend,
 } from "../botMessageUtils.js";
 import { readStatus } from "../../sync/statusReader.js";
 import { SYNC_ACTION_MANUAL, syncRunGuard } from "../syncGuards.js";
@@ -60,7 +58,6 @@ async function handleRunSyncCallback({ ctx, chatId, messageId, callback }) {
   if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_MANUAL)) {
     const busy = syncBusyText("manual");
     await answerBestEffort(ctx, callback, { text: busy, showAlert: true });
-    await safeSend(ctx, chatId, busy, { animate: false });
     return true;
   }
   await ctx.runManualSync({ chatId, loadingMessageId: messageId });
@@ -98,7 +95,7 @@ async function handleIntervalCallback({
     intervalMin,
   });
   await answerBestEffort(ctx, callback, {
-    text: `Интервал: ${intervalMin} мин`,
+    text: `Интервал: ${humanIntervalLabel(intervalMin)}`,
   });
   return false;
 }
@@ -130,13 +127,18 @@ async function handleToggleSummaryCallback({
     scheduledSummaryVisible: next,
   });
   await answerBestEffort(ctx, callback, {
-    text: next ? "Сообщения автосинка: вкл" : "Сообщения автосинка: выкл",
+    text: next ? "Уведомлять об автосинке: да" : "Уведомлять об автосинке: нет",
   });
   return false;
 }
 
 async function handleBackCallback({ ctx, chatId, messageId }) {
   await openMenuAtMessage(ctx, { chatId, messageId });
+  return false;
+}
+
+async function handleBackFilesCallback({ ctx, chatId, messageId }) {
+  await handleFilesCallback({ ctx, chatId, messageId });
   return false;
 }
 
@@ -151,16 +153,6 @@ async function handleHelpCallback({ ctx, chatId, messageId }) {
   return false;
 }
 
-async function handleCloseCallback({ ctx, chatId, messageId }) {
-  await editToMenuScreen(ctx, {
-    chatId,
-    messageId,
-    text: MENU_CLOSED_TEXT,
-    keyboard: null,
-  });
-  return false;
-}
-
 /** @type {Record<string, import("./dispatch.js").CallbackHandler>} */
 const CALLBACK_HANDLERS = {
   [CB_RUN_SYNC]: handleRunSyncCallback,
@@ -171,15 +163,15 @@ const CALLBACK_HANDLERS = {
   [CB_SETTINGS]: handleSettingsCallback,
   [CB_SETTINGS_TOGGLE_SUMMARY]: handleToggleSummaryCallback,
   [CB_BACK]: handleBackCallback,
+  [CB_BACK_FILES]: handleBackFilesCallback,
   [CB_HELP]: handleHelpCallback,
-  [CB_CLOSE]: handleCloseCallback,
 };
 
 /**
  * @returns {Promise<boolean>} true when answerCallbackQuery was already sent
  */
 export async function routeCallback(ctx, params) {
-  const { data } = params;
+  const { data, callback } = params;
 
   const directHandler = CALLBACK_HANDLERS[data];
   if (directHandler) return directHandler({ ctx, ...params });
@@ -192,7 +184,11 @@ export async function routeCallback(ctx, params) {
   if (treeRoute !== null) return treeRoute;
 
   logger.info("Unknown callback_data", { data });
-  return false;
+  await answerBestEffort(ctx, callback, {
+    text: "Кнопка устарела — открой /menu",
+    showAlert: true,
+  });
+  return true;
 }
 
 export { CB_INTERVAL_VALUES, CALLBACK_HANDLERS };

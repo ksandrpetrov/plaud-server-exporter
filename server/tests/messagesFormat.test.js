@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   clipTelegramText,
+  describeStatusVerdict,
   safeSliceHtml,
   TELEGRAM_HTML_MAX_LEN,
 } from "../src/telegram/messages/format.js";
@@ -35,6 +36,11 @@ test("clipTelegramText keeps HTML balanced under TELEGRAM_HTML_MAX_LEN", () => {
   );
 });
 
+test("describeStatusVerdict uses friendly Russian labels", () => {
+  assert.equal(describeStatusVerdict("completed"), "успешно");
+  assert.equal(describeStatusVerdict("running"), "идёт");
+});
+
 test("syncProgressRichMarkdown includes percent, checklist, and lastMessage", () => {
   const md = syncProgressRichMarkdown({
     processed: 42,
@@ -42,7 +48,7 @@ test("syncProgressRichMarkdown includes percent, checklist, and lastMessage", ()
     lastMessage: "Synced: Встреча с командой QA",
   });
   assert.match(md, /\*\*42 \/ 128\*\* \(33%\)/);
-  assert.match(md, /- \[x\] Подключение к Plaud/);
+  assert.match(md, /- \[x\] Список записей/);
   assert.match(md, /> Synced: Встреча с командой QA/);
 });
 
@@ -56,14 +62,14 @@ test("syncProgressHtml wraps lastMessage in a blockquote", () => {
   assert.match(html, /<blockquote>Synced: Demo<\/blockquote>/);
 });
 
-test("syncSummaryRichMarkdown adds details when errors or skipped", () => {
+test("syncSummaryRichMarkdown keeps metrics in the table only", () => {
   const md = syncSummaryRichMarkdown(
     { new: 0, updated: 0, unchanged: 0, skipped: 2, errors: 1 },
     { source: "manual", durationSec: 12 }
   );
-  assert.match(md, /<details open>/);
-  assert.match(md, /Пропущено: 2/);
-  assert.match(md, /Ошибок: 1/);
+  assert.match(md, /\| Пропущено \| 2 \|/);
+  assert.match(md, /\| Ошибок \| 1 \|/);
+  assert.doesNotMatch(md, /<details open>/);
 });
 
 test("clipRichMarkdown preserves table and details blocks", () => {

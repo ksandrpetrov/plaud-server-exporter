@@ -206,7 +206,7 @@ test("missing session reports SYNC_NO_SESSION_HTML", async () => {
   const final = telegram.events.find(
     (e) =>
       (e.type === "send" || e.type === "edit") &&
-      /Нет сохранённой сессии/.test(e.text)
+      /Сессия Plaud не найдена/.test(e.text)
   );
   assert.ok(final);
   syncRunGuard.reset();

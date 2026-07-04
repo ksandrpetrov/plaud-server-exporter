@@ -35,7 +35,7 @@ import { runSyncSilent, runSyncWithReporting } from "./syncOrchestrator.js";
 
 const MENU_COMMANDS = [
   { command: "menu", description: "Главное меню" },
-  { command: "status", description: "Статус последнего синка" },
+  { command: "status", description: "Статус синка" },
   { command: "help", description: "Справка" },
 ];
 

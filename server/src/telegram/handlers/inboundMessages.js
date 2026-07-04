@@ -11,6 +11,7 @@ import {
   isStartCommand,
   isStatusCommand,
 } from "../commandParsers.js";
+import { buildBackToMenuKeyboard } from "../keyboards.js";
 import { safeSend, safeSendRich } from "../botMessageUtils.js";
 import { handleTreeFilePick } from "../treeBrowse.js";
 import { handleStart, openMenu, sendStatusMessage } from "./menu.js";
@@ -46,6 +47,7 @@ export async function handleMessage(ctx, message) {
   if (isHelpCommand(text)) {
     await safeSendRich(ctx, chatId, BOT_HELP_RICH_MARKDOWN, {
       fallbackHtml: BOT_HELP_HTML,
+      replyMarkup: buildBackToMenuKeyboard(),
     });
     return;
   }

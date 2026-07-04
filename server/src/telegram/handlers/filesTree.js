@@ -1,26 +1,25 @@
 import { config, effectiveVaultRoot } from "../../config/config.js";
 import {
-  buildBackToMenuKeyboard,
+  buildBackToFilesKeyboard,
   buildFilesMenuKeyboard,
 } from "../keyboards.js";
 import { parseFilesTreeFolderCallback } from "../callbackData.js";
 import {
   filesMenuHtml,
+  filesMenuRichMarkdown,
   filesStatsHtml,
   filesStatsRichMarkdown,
 } from "../messages.js";
-import {
-  editToMenuScreen,
-  safeCallbackRichScreen,
-} from "../botMessageUtils.js";
+import { safeCallbackRichScreen } from "../botMessageUtils.js";
 import { showFilesTreeFolder, showFilesTreeRoot } from "../treeBrowse.js";
 import { scanVaultSummary } from "../vaultTree.js";
 
 export async function handleFilesCallback({ ctx, chatId, messageId }) {
-  await editToMenuScreen(ctx, {
+  await safeCallbackRichScreen(ctx, {
     chatId,
     messageId,
-    text: filesMenuHtml(),
+    richMarkdown: filesMenuRichMarkdown(),
+    fallbackHtml: filesMenuHtml(),
     keyboard: buildFilesMenuKeyboard(),
   });
   return false;
@@ -41,7 +40,7 @@ export async function handleFilesStatsCallback({ ctx, chatId, messageId }) {
     messageId,
     richMarkdown: filesStatsRichMarkdown(stats),
     fallbackHtml: filesStatsHtml(stats),
-    keyboard: buildBackToMenuKeyboard(),
+    keyboard: buildBackToFilesKeyboard(),
   });
   return false;
 }

@@ -1,124 +1,88 @@
 import { blockquote, expandableBlockquote } from "../htmlFormat.js";
-import {
-  describeStatusVerdict,
-  escapeHtml,
-  formatDateTimeLocal,
-} from "./format.js";
+import { describeStatusVerdict, escapeHtml } from "./format.js";
 import { clipRichMarkdown } from "../richFormat.js";
-
-const BOT_COMMANDS_BLOCK =
-  "Команды:\n" +
-  "/menu — главное меню\n" +
-  "/status — статус последнего синка\n" +
-  "/help — справка";
+import {
+  EMOJI_BRAND,
+  EMOJI_STATS,
+  formatShortDateTimeLocal,
+} from "./copyStyle.js";
 
 const BOT_FEATURES_BLOCK =
-  "Что умею:\n" +
-  "🔄 запустить синк по кнопке\n" +
+  "🔄 синхронизировать саммари по кнопке\n" +
   "📊 показать статус последнего синка\n" +
-  "📁 откроить дерево синка и скачать .md по номеру в чате\n" +
-  "⚙️ настроить интервал автоматического запуска";
-
-const BOT_MENU_BLOCK =
-  "Через /menu доступно:\n" +
-  "🔄 запуск синка вручную\n" +
-  "📊 статус последнего синка\n" +
-  "📁 файлы: дерево синка и сводка vault\n" +
-  "⚙️ настройки расписания (интервал автозапуска)";
+  "📁 открыть дерево записей и скачать .md по номеру\n" +
+  "⚙️ настроить расписание автосинка";
 
 const TREE_PICK_TIP =
-  "В <b>Дереве синка</b> открой папку — у записей будут номера. " +
-  "Отправь цифру (1–30 на странице), чтобы получить .md: если файла ещё нет на сервере, я сначала запущу синк, а потом пришлю его.";
+  "Открой папку в <b>Дереве записей</b> — у каждой записи будет номер. " +
+  "Отправь цифру (1–30 на странице), чтобы получить .md в чат.";
 
 export const BOT_WELCOME_HTML =
-  "🛰 <b>Plaud-экспортер на связи.</b>\n\n" +
-  "Этот бот приватный: команды доступны только владельцу.\n\n" +
-  expandableBlockquote(BOT_FEATURES_BLOCK, { threshold: 3 }) +
-  "\n\n" +
-  expandableBlockquote(BOT_COMMANDS_BLOCK, { threshold: 3 });
+  `${EMOJI_BRAND} <b>Plaud-экспортер на связи.</b>\n\n` +
+  "Приватный бот: команды доступны только владельцу.\n\n" +
+  expandableBlockquote(BOT_FEATURES_BLOCK, { threshold: 3 });
 
 export const BOT_WELCOME_RICH_MARKDOWN =
-  "# 🛰 Plaud-экспортер на связи\n\n" +
-  "Этот бот приватный: команды доступны только владельцу.\n\n" +
-  "<details>\n<summary>Что умею</summary>\n\n" +
-  "🔄 запустить синк по кнопке\n" +
+  `# ${EMOJI_BRAND} Plaud-экспортер на связи\n\n` +
+  "Приватный бот: команды доступны только владельцу.\n\n" +
+  "<details>\n<summary>Возможности</summary>\n\n" +
+  "🔄 синхронизировать саммари по кнопке\n" +
   "📊 показать статус последнего синка\n" +
-  "📁 откроить дерево синка и скачать .md по номеру в чате\n" +
-  "⚙️ настроить интервал автоматического запуска\n\n" +
-  "</details>\n\n" +
-  "<details>\n<summary>Команды</summary>\n\n" +
-  "/menu — главное меню\n" +
-  "/status — статус последнего синка\n" +
-  "/help — справка\n\n" +
+  "📁 открыть дерево записей и скачать .md по номеру\n" +
+  "⚙️ настроить расписание автосинка\n\n" +
   "</details>";
 
 export const BOT_HELP_HTML =
-  "🛰 <b>Как пользоваться</b>\n\n" +
-  expandableBlockquote(BOT_COMMANDS_BLOCK, { threshold: 3 }) +
-  "\n\n" +
-  expandableBlockquote(BOT_MENU_BLOCK, { threshold: 3 }) +
-  "\n\n" +
-  blockquote(TREE_PICK_TIP);
-
-export const BOT_HELP_RICH_MARKDOWN =
-  "# 🛰 Как пользоваться\n\n" +
-  "<details>\n<summary>Команды</summary>\n\n" +
+  `${EMOJI_BRAND} <b>Как пользоваться</b>\n\n` +
+  "Команды:\n" +
   "/menu — главное меню\n" +
   "/status — статус последнего синка\n" +
   "/help — справка\n\n" +
-  "</details>\n\n" +
-  "<details>\n<summary>Через /menu доступно</summary>\n\n" +
-  "🔄 запуск синка вручную\n" +
-  "📊 статус последнего синка\n" +
-  "📁 файлы: дерево синка и сводка vault\n" +
-  "⚙️ настройки расписания (интервал автозапуска)\n\n" +
-  "</details>\n\n" +
-  "<details>\n<summary>Дерево синка</summary>\n\n" +
-  "Открой папку — у записей будут номера. " +
-  "Отправь цифру (1–30 на странице), чтобы получить .md: " +
-  "если файла ещё нет на сервере, я сначала запущу синк, а потом пришлю его.\n\n" +
+  blockquote(TREE_PICK_TIP);
+
+export const BOT_HELP_RICH_MARKDOWN =
+  `# ${EMOJI_BRAND} Как пользоваться\n\n` +
+  "Команды:\n" +
+  "/menu — главное меню\n" +
+  "/status — статус последнего синка\n" +
+  "/help — справка\n\n" +
+  "<details>\n<summary>Как скачать запись</summary>\n\n" +
+  "Открой папку в **Дереве записей** — у каждой записи будет номер. " +
+  "Отправь цифру (1–30 на странице), чтобы получить .md в чат. " +
+  "Если файла ещё нет на сервере, я сначала синхронизирую, а потом пришлю его.\n\n" +
   "</details>\n\n" +
   ".md из бота открывается отформатированным во встроенном браузере Telegram.";
 
-export const BOT_PRIVATE_HINT =
-  "🛰 Этот бот приватный. Команды доступны только владельцу.";
+export const BOT_UNKNOWN_COMMAND = `${EMOJI_BRAND} Не понял команду. Открой /menu или /help.`;
 
-export const BOT_UNKNOWN_COMMAND =
-  "🛰 Не понял команду. Открой /menu или /help.";
-
-export const MENU_HEADER = "🛰 <b>Plaud-экспортер.</b>";
-export const MENU_CLOSED_TEXT = "🛰 Меню закрыто. Возвращайся командой /menu.";
+export const MENU_HEADER = `${EMOJI_BRAND} <b>Plaud-экспортер.</b>`;
 
 export function lastSyncSummaryLine(status) {
   const lastStats = status?.lastSyncStats;
   const lastAt = status?.lastSyncAt;
   if (!lastStats || !lastAt) {
-    return "📊 Последний синк: ещё не запускался.";
+    return `${EMOJI_STATS} Последний синк: ещё не синхронизировал.`;
   }
   const verdict = describeStatusVerdict(lastStats.status);
-  const counters =
-    `+${lastStats.new ?? 0} новых, ` +
-    `${lastStats.updated ?? 0} обновлено, ` +
-    `${lastStats.errors ?? 0} ошибок`;
-  return `📊 Последний синк: ${escapeHtml(formatDateTimeLocal(lastAt))} (${verdict}, ${counters}).`;
+  const newCount = lastStats.new ?? 0;
+  const when = escapeHtml(formatShortDateTimeLocal(lastAt));
+  return `${EMOJI_STATS} Последний синк: ${when} · ${escapeHtml(verdict)} · +${newCount} новых`;
 }
 
 function lastSyncSummaryLinePlain(status) {
   const lastStats = status?.lastSyncStats;
   const lastAt = status?.lastSyncAt;
   if (!lastStats || !lastAt) {
-    return "📊 Последний синк: ещё не запускался.";
+    return `${EMOJI_STATS} Последний синк: ещё не синхронизировал.`;
   }
   const verdict = describeStatusVerdict(lastStats.status);
-  const counters =
-    `+${lastStats.new ?? 0} новых, ` +
-    `${lastStats.updated ?? 0} обновлено, ` +
-    `${lastStats.errors ?? 0} ошибок`;
-  return `📊 Последний синк: ${formatDateTimeLocal(lastAt)} (${verdict}, ${counters}).`;
+  const newCount = lastStats.new ?? 0;
+  const when = formatShortDateTimeLocal(lastAt);
+  return `${EMOJI_STATS} Последний синк: ${when} · ${verdict} · +${newCount} новых`;
 }
 
 export function buildMainMenuRichMarkdown(status) {
   return clipRichMarkdown(
-    `# 🛰 Plaud-экспортер\n\n${lastSyncSummaryLinePlain(status)}\n\nВыбери действие:`
+    `# ${EMOJI_BRAND} Plaud-экспортер\n\n${lastSyncSummaryLinePlain(status)}\n\nВыбери действие:`
   );
 }
