@@ -424,8 +424,9 @@ function extractTitleForFileFromPayload(payload, fileId) {
 
 function titleLooksLikeRawId(title, fileId) {
   const t = normalizeHumanTitle(title);
-  const id = String(fileId || "").trim();
-  if (!t || t === id) return true;
+  const id = normalizeHexRecordingId(fileId) || String(fileId || "").trim();
+  const titleId = normalizeHexRecordingId(t);
+  if (!t || t === id || (titleId && titleId === id)) return true;
   if (RAW_FILE_ID_RE.test(t)) return true;
   return false;
 }
@@ -441,6 +442,32 @@ function preferApiTitle(file, titleHint) {
     return { ...file, title: hint };
   }
   return file;
+}
+
+function buildSummaryMarkdownForFile(file, content, noteTitle = "") {
+  const contentTitle = extractTitleFromMarkdown(content);
+  const fileTitle = normalizeHumanTitle(file?.title);
+  const safeFileTitle =
+    fileTitle && !titleLooksLikeRawId(fileTitle, file?.id) ? fileTitle : "";
+  const safeNoteTitle = isPlausibleRecordingTitle(noteTitle)
+    ? normalizeHumanTitle(noteTitle)
+    : "";
+  const title =
+    safeFileTitle || contentTitle || safeNoteTitle || "Plaud summary";
+  const body = String(content || "").trim();
+  const hasMarkdownHeading = /^\s{0,3}#{1,6}\s+\S/m.test(body);
+  const firstHeadingTitle = extractTitleFromMarkdown(body);
+  const alreadyHasTitleHeading =
+    firstHeadingTitle &&
+    normalizeHumanTitle(firstHeadingTitle).toLowerCase() ===
+      normalizeHumanTitle(title).toLowerCase();
+  const shouldAddTitleHeading =
+    safeFileTitle || !hasMarkdownHeading || !alreadyHasTitleHeading;
+  const markdown =
+    shouldAddTitleHeading && !alreadyHasTitleHeading
+      ? `# ${title}\n\n${body}\n`
+      : `${body}\n`;
+  return { title, markdown };
 }
 
 /** @returns {{ trashy: number; likelyLive: number; unclear: number }} */
@@ -703,12 +730,8 @@ async function fetchPlaudSummaryExports(session, file) {
       continue;
     }
 
-    const title =
-      normalizeHumanTitle(getSummaryNoteTitle(note, "Саммари")) || "Саммари";
-    summaries.push({
-      title,
-      markdown: `# ${file.title}\n\n${content}\n`,
-    });
+    const noteTitle = getSummaryNoteTitle(note, "Саммари");
+    summaries.push(buildSummaryMarkdownForFile(file, content, noteTitle));
   }
 
   plaudExportDebug("summary:exports:ready", {
