@@ -91,6 +91,7 @@ async function fetchRecordingsVariant(session, fixedParams, opts = {}) {
     pageLimit,
     maxFiles: config.apiMaxFiles,
     maxPages,
+    isDesc: opts.isDesc !== false,
     requireArrayOnFirstPage,
     onMissingFirstPageArray: requireArrayOnFirstPage
       ? (payload) => {

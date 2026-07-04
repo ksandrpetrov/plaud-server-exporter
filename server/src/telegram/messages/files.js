@@ -14,6 +14,7 @@ import {
 import {
   formatNumberEmoji,
   formatTreeFolderItemLine,
+  formatTreeFolderItemRichMarkdown,
   parseTreeFilePickNumber,
   stripLeadingDateFromTreeTitle,
   treeFilePickOutOfRangeHtml,
@@ -24,6 +25,7 @@ export {
   formatNumberEmoji,
   treeListNumberPrefix,
   formatTreeFolderItemLine,
+  formatTreeFolderItemRichMarkdown,
   stripLeadingDateFromTreeTitle,
   parseTreeFilePickNumber,
   treeFilePickOutOfRangeHtml,
@@ -168,7 +170,7 @@ export function filesTreeFolderRichMarkdown(folderPage) {
   for (const item of folderPage.items || []) {
     lineNum += 1;
     itemLines.push(
-      formatTreeFolderItemLine({
+      formatTreeFolderItemRichMarkdown({
         lineNum,
         date: item.date,
         title: item.title,

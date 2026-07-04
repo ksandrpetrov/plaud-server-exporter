@@ -32,6 +32,17 @@ export function formatTreeFolderItemLine({ lineNum, date, title }) {
   return `${prefix} ${datePart} | ${label}`;
 }
 
+/**
+ * Rich-markdown row: GFM list item so Telegram renders one file per line.
+ */
+export function formatTreeFolderItemRichMarkdown({ lineNum, date, title }) {
+  const num = formatNumberEmoji(lineNum);
+  const datePart = String(date || "").trim() || "—";
+  const label = stripLeadingDateFromTreeTitle(datePart, title);
+  if (!label) return `- ${num} **${datePart}**`;
+  return `- ${num} **${datePart}** · ${label}`;
+}
+
 export function parseTreeFilePickNumber(text) {
   const s = String(text || "");
   const m = /^(\d+)$/.exec(s);

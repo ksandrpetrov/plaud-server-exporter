@@ -7,10 +7,12 @@ import {
   describeRecordStatus,
   filesStatsHtml,
   filesTreeFolderHtml,
+  filesTreeFolderRichMarkdown,
   filesTreeRootHtml,
   formatBytes,
   formatNumberEmoji,
   formatTreeFolderItemLine,
+  formatTreeFolderItemRichMarkdown,
   parseTreeFilePickNumber,
   stripLeadingDateFromTreeTitle,
   treeListNumberPrefix,
@@ -295,6 +297,46 @@ test("formatTreeFolderItemLine avoids duplicate date and uses pipe separator", (
     }),
     `${formatNumberEmoji(4)} - 2026-04-20`
   );
+});
+
+test("formatTreeFolderItemRichMarkdown uses GFM list items with bold date", () => {
+  const one = formatNumberEmoji(1);
+  assert.equal(
+    formatTreeFolderItemRichMarkdown({
+      lineNum: 1,
+      date: "2026-04-20",
+      title: "2026-04-20 | SocServ | QA | Leads",
+    }),
+    `- ${one} **2026-04-20** · SocServ | QA | Leads`
+  );
+  assert.equal(
+    formatTreeFolderItemRichMarkdown({
+      lineNum: 4,
+      date: "2026-04-20",
+      title: "2026-04-20",
+    }),
+    `- ${formatNumberEmoji(4)} **2026-04-20**`
+  );
+});
+
+test("filesTreeFolderRichMarkdown renders one item per line", () => {
+  const page = {
+    folder: "SocServ Dev",
+    exists: true,
+    total: 2,
+    page: 1,
+    pageSize: 30,
+    totalPages: 1,
+    items: [
+      { date: "2026-06-26", title: "06-26 Планирование" },
+      { date: "2026-06-11", title: "06-11 Встреча" },
+    ],
+  };
+  const md = filesTreeFolderRichMarkdown(page);
+  const lines = md.split("\n").filter((l) => l.startsWith("- "));
+  assert.equal(lines.length, 2);
+  assert.match(lines[0], /^-\s1/);
+  assert.match(lines[1], /^-\s2/);
 });
 
 test("stripLeadingDateFromTreeTitle", () => {

@@ -48,6 +48,7 @@ test("collectPlaudRecordingArrays keeps direct empty arrays as valid shape", () 
 });
 
 test("extractPlaudRecordingTotal handles known total field aliases", () => {
+  assert.equal(extractPlaudRecordingTotal({ data_file_total: 1420 }), 1420);
   assert.equal(extractPlaudRecordingTotal({ data: { total_count: "12" } }), 12);
   assert.equal(extractPlaudRecordingTotal({ total: 3 }), 3);
   assert.equal(extractPlaudRecordingTotal({ data: { total: -1 } }), null);
@@ -67,6 +68,18 @@ test("mergeRawPlaudRecordings dedupes by normalized recording id", () => {
     first,
     other,
   ]);
+});
+
+test("isPlaudRecordingPageDone keeps paginating when total exceeds fetched rows", () => {
+  assert.equal(
+    isPlaudRecordingPageDone({
+      serverTotal: 1420,
+      rawLen: 21,
+      skip: 400,
+      pageLimit: 100,
+    }),
+    false
+  );
 });
 
 test("isPlaudRecordingPageDone preserves full-page pagination despite total", () => {
@@ -179,9 +192,18 @@ test("buildPlaudRecordingFanoutPlan covers global, trash, unfiled and folders", 
 
   assert.deepEqual(plan[0], {
     params: { is_trash: "0" },
-    opts: { maxPages: 1, limitOverride: 123 },
+    opts: {},
     contextFolderId: "",
   });
+  assert.ok(
+    plan.some(
+      (step) =>
+        step.params.is_trash === "0" &&
+        step.opts.isDesc === false &&
+        !step.contextFolderId
+    ),
+    "expected ascending global pull"
+  );
   assert.ok(hasParams({ is_trash: "1" }), "expected explicit trash pull");
   assert.ok(
     hasParams({ file_tag_id: "unf" }),

@@ -438,6 +438,7 @@ async function fetchPlaudFilesOneListVariant(session, fixedParams, opts = {}) {
     pageLimit,
     maxFiles: PLAUD_API_MAX_FILES,
     maxPages,
+    isDesc: opts.isDesc !== false,
   });
 }
 
@@ -1223,10 +1224,13 @@ export async function runExportAll(backgroundMode = false, options = {}) {
     } else {
       try {
         files = await fetchPlaudFilesFromApi(session);
+        const apiCount = files.length;
         mergeDomRecordingIdsIntoFiles(files, {
           unfiledLabel: PLAUD_FOLDER_UNFILED,
         });
-        mergeLocalStorageRecordingIdsIntoFiles(files);
+        mergeLocalStorageRecordingIdsIntoFiles(files, {
+          maxExtraFromCache: Math.max(0, PLAUD_API_MAX_FILES - apiCount),
+        });
       } catch (error) {
         console.warn("Could not read Plaud file list from API:", error.message);
         return false;
@@ -1265,6 +1269,16 @@ export async function runExportAll(backgroundMode = false, options = {}) {
       fileCount++;
       let fileHadFatalError = false;
       let fileHadAnySuccess = false;
+
+      try {
+        session = getPlaudSession();
+      } catch (sessionError) {
+        throw new Error(
+          sessionError?.message ||
+            "Сессия Plaud недоступна. Обновите вкладку Plaud Web и войдите снова.",
+          { cause: sessionError }
+        );
+      }
 
       if (shouldExportAudio) {
         updateIndicator(

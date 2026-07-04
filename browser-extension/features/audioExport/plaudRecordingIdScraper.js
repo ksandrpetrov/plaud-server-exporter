@@ -131,13 +131,16 @@ function collectRecordingIdsFromPlaudSessionStorage() {
   return collectRecordingIdsFromPlaudWebStorage(sessionStorage, 220);
 }
 
+const MAX_EXTRA_FROM_CACHE = 192;
+
 /**
  * Adds entries for ids cached in Plaud Web's localStorage / sessionStorage
  * that aren't in the API response (Plaud caches trimmed metadata locally).
  *
  * @param {Array<{ id?: string; raw?: object }>} files
+ * @param {{ maxExtraFromCache?: number }} [options]
  */
-export function mergeLocalStorageRecordingIdsIntoFiles(files) {
+export function mergeLocalStorageRecordingIdsIntoFiles(files, options = {}) {
   const lsIds = collectRecordingIdsFromPlaudLocalStorage();
   const ssIds = collectRecordingIdsFromPlaudSessionStorage();
   const combined = [...new Set([...lsIds, ...ssIds])];
@@ -148,9 +151,13 @@ export function mergeLocalStorageRecordingIdsIntoFiles(files) {
     )
   );
   let lsMerged = 0;
-  const MAX_EXTRA_FROM_CACHE = 192;
+  const maxExtraRaw = Number(options.maxExtraFromCache);
+  const maxExtra =
+    Number.isFinite(maxExtraRaw) && maxExtraRaw >= 0
+      ? Math.floor(maxExtraRaw)
+      : MAX_EXTRA_FROM_CACHE;
   for (const hid of combined) {
-    if (lsMerged >= MAX_EXTRA_FROM_CACHE) break;
+    if (lsMerged >= maxExtra) break;
     const id = String(hid).toLowerCase();
     if (seenIds.has(id)) continue;
     seenIds.add(id);

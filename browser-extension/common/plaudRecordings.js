@@ -119,6 +119,8 @@ export function extractPlaudRecordingTotal(payload) {
   if (!payload || typeof payload !== "object") return null;
   const data = /** @type {any} */ (payload).data;
   const candidates = [
+    /** @type {any} */ (payload).data_file_total,
+    data?.data_file_total,
     data?.total,
     data?.total_count,
     data?.count,
@@ -185,6 +187,12 @@ function pushStep(steps, params, opts, contextFolderId = "") {
   });
 }
 
+/** Desc + asc passes — Plaud `/file/simple/web` often caps skip near ~400 per sort. */
+function pushSortPair(steps, params, opts, contextFolderId = "") {
+  pushStep(steps, params, opts, contextFolderId);
+  pushStep(steps, params, { ...(opts || {}), isDesc: false }, contextFolderId);
+}
+
 /**
  * Build the shared fan-out plan used to discover all workspace recordings.
  *
@@ -205,9 +213,6 @@ export function buildPlaudRecordingFanoutPlan(options = {}) {
     [...rawUnfiledIds].map((id) => String(id).trim()).filter(Boolean)
   );
   const includeTrash = options.includeTrash !== false;
-  const maxFiles = Number.isFinite(Number(options.maxFiles))
-    ? Math.max(1, Math.floor(Number(options.maxFiles)))
-    : 5000;
   const maxFolderPulls = Number.isFinite(Number(options.maxFolderPulls))
     ? Math.max(0, Math.floor(Number(options.maxFolderPulls)))
     : 400;
@@ -216,16 +221,13 @@ export function buildPlaudRecordingFanoutPlan(options = {}) {
     : 80;
 
   const steps = [];
-  const megaOpts = { maxPages: 1, limitOverride: maxFiles };
-  pushStep(steps, { is_trash: "0" }, megaOpts);
-  pushStep(steps, { is_trash: "2" }, megaOpts);
 
   for (const params of [{ is_trash: "0" }, { is_trash: "2" }, {}]) {
-    pushStep(steps, params);
+    pushSortPair(steps, params);
   }
 
   if (includeTrash) {
-    pushStep(steps, { is_trash: "1" });
+    pushSortPair(steps, { is_trash: "1" });
   }
 
   for (const uid of unfiledIds) {
@@ -237,12 +239,12 @@ export function buildPlaudRecordingFanoutPlan(options = {}) {
     pushStep(steps, { file_tag_id: uid });
   }
 
-  pushStep(steps, { is_trash: "2", filetag_id: "0" }, { maxPages: 20 });
-  pushStep(steps, { is_trash: "2", filetag_id: "-2" }, { maxPages: 20 });
+  pushSortPair(steps, { is_trash: "2", filetag_id: "0" }, { maxPages: 20 });
+  pushSortPair(steps, { is_trash: "2", filetag_id: "-2" }, { maxPages: 20 });
 
   for (const sid of ["0", "-1", "-2"]) {
-    pushStep(steps, { is_trash: "2", tag_id: sid }, { maxPages: 20 });
-    pushStep(steps, { is_trash: "2", folder_id: sid }, { maxPages: 20 });
+    pushSortPair(steps, { is_trash: "2", tag_id: sid }, { maxPages: 20 });
+    pushSortPair(steps, { is_trash: "2", folder_id: sid }, { maxPages: 20 });
   }
 
   const folderIds = new Set(unfiledIds);
@@ -256,14 +258,14 @@ export function buildPlaudRecordingFanoutPlan(options = {}) {
   for (const folderId of folderIds) {
     if (pulls >= maxFolderPulls) break;
     pulls++;
-    pushStep(
+    pushSortPair(
       steps,
       { is_trash: "2", filetag_id: folderId },
       { maxPages: folderMaxPages },
       folderId
     );
     if (unfiledIds.has(folderId)) {
-      pushStep(
+      pushSortPair(
         steps,
         { filetag_id: folderId },
         { maxPages: folderMaxPages },
@@ -272,8 +274,8 @@ export function buildPlaudRecordingFanoutPlan(options = {}) {
     }
   }
 
-  pushStep(steps, { is_trash: "2", filetag_id: "-1" }, { maxPages: 15 });
-  pushStep(steps, { filetag_id: "-1" }, { maxPages: 15 });
+  pushSortPair(steps, { is_trash: "2", filetag_id: "-1" }, { maxPages: 15 });
+  pushSortPair(steps, { filetag_id: "-1" }, { maxPages: 15 });
   return steps;
 }
 
@@ -288,6 +290,7 @@ export function buildPlaudRecordingFanoutPlan(options = {}) {
  *   pageLimit: number;
  *   maxFiles: number;
  *   maxPages?: number;
+ *   isDesc?: boolean;
  *   requireArrayOnFirstPage?: boolean;
  *   onMissingFirstPageArray?: (payload: unknown) => void;
  * }} options
@@ -307,6 +310,7 @@ export async function paginatePlaudRecordingVariant(options) {
     Number.isFinite(maxPagesRaw) && maxPagesRaw > 0 ? maxPagesRaw : Infinity;
   const limit = Math.max(1, Math.floor(Number(options.pageLimit) || 1));
   const cap = Math.max(limit, Math.floor(Number(options.maxFiles) || limit));
+  const isDesc = options.isDesc !== false;
 
   const files = [];
   const seenIds = new Set();
@@ -317,7 +321,7 @@ export async function paginatePlaudRecordingVariant(options) {
       skip: String(skip),
       limit: String(limit),
       sort_by: sortBy || "start_time",
-      is_desc: "true",
+      is_desc: isDesc ? "true" : "false",
       r: String(Math.random()),
       ...fixedParams,
     };

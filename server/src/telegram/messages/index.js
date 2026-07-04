@@ -73,6 +73,7 @@ export {
   formatNumberEmoji,
   treeListNumberPrefix,
   formatTreeFolderItemLine,
+  formatTreeFolderItemRichMarkdown,
   stripLeadingDateFromTreeTitle,
   parseTreeFilePickNumber,
   treeFilePickOutOfRangeHtml,
