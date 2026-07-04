@@ -15,7 +15,6 @@
         download: "Скачать саммари",
         subtitle: "AI-саммари · Markdown",
         noRecording: "Откройте саммари записи на Plaud Web",
-        downloading: "Скачиваем…",
       },
       sheet: {
         title: "Ещё",
@@ -26,8 +25,6 @@
         preferences: "Настройки",
       },
       hero: {
-        title: "Саммари",
-        lead: "Скачайте AI-саммари в Markdown",
         downloadAll: "Скачать все саммари",
         downloadCurrent: "Только текущая запись",
       },
@@ -65,22 +62,11 @@
         dayAgo: "{n} дн назад",
         exportElapsed: "{m} мин {s} с",
       },
-      subtitles: {
-        exportAllAvailable: "Экспорт всех доступных записей",
-        audioSummary: "Аудио и саммари",
-        switchPlaudWeb: "Переключитесь на вкладку Plaud Web",
-        openPlaudTab: "Откройте вкладку Plaud Web",
-      },
-      current: {
-        title: "Текущая запись",
-        lead: "Экспорт только открытой записи",
-      },
       offline: {
         title: "Plaud-страница не найдена",
         lead: "Экспорт и синхронизация доступны только на вкладке Plaud Web.",
       },
       export: {
-        title: "Аудио и полный экспорт",
         subtitle: "Разовая выгрузка в Downloads",
         allRecordings: "Все записи",
         currentRecording: "Текущая запись",
@@ -102,15 +88,12 @@
         icloudTipCopyFailed: "Не удалось",
         icloudTipFootnote:
           "После этого в поле выше укажите путь через созданный симлинк (например, iCloud/PlaudExports/Sync) и сохраните.",
-        saveFolder: "Сохранить",
         openDownloads: "Открыть Downloads",
         start: "Синхронизировать",
         starting: "Подготавливаем синхронизацию…",
         started: "Синхронизация запущена.",
         busy: "Дождитесь завершения текущей операции.",
         settingsUnavailable: "Настройки синхронизации пока недоступны.",
-        folderSaved: "Папка синхронизации сохранена.",
-        folderSaveError: "Не удалось сохранить папку: {msg}",
         startError: "Не удалось запустить синхронизацию: {msg}",
         idleLine: "Синхронизация ещё не запускалась.",
         indexLine: "В индексе: {n}. Последняя синхронизация: {time}.",
@@ -134,7 +117,6 @@
       btn: {
         audioAndSummary: "Аудио и саммари",
         audioOnly: "Только аудио",
-        summaryOnly: "Только саммари",
         exportBackground: "Экспортировать в фоне",
         stop: "Стоп",
         copyError: "Копировать текст ошибки",
@@ -244,7 +226,6 @@
         download: "Download summary",
         subtitle: "AI summary · Markdown",
         noRecording: "Open a recording's summary on Plaud Web",
-        downloading: "Downloading…",
       },
       sheet: {
         title: "More",
@@ -255,8 +236,6 @@
         preferences: "Preferences",
       },
       hero: {
-        title: "Summaries",
-        lead: "Download AI summaries as Markdown",
         downloadAll: "Download all summaries",
         downloadCurrent: "Current recording only",
       },
@@ -294,22 +273,11 @@
         dayAgo: "{n} d ago",
         exportElapsed: "{m} min {s} s",
       },
-      subtitles: {
-        exportAllAvailable: "Export all available recordings",
-        audioSummary: "Audio and summaries",
-        switchPlaudWeb: "Switch to the Plaud Web tab",
-        openPlaudTab: "Open the Plaud Web tab",
-      },
-      current: {
-        title: "Current recording",
-        lead: "Export only the open recording",
-      },
       offline: {
         title: "Plaud page not found",
         lead: "Export and sync actions are available only on a Plaud Web tab.",
       },
       export: {
-        title: "Audio and full export",
         subtitle: "One-time download to Downloads",
         allRecordings: "All recordings",
         currentRecording: "Current recording",
@@ -331,15 +299,12 @@
         icloudTipCopyFailed: "Failed",
         icloudTipFootnote:
           "Then point the field above at a path through the symlink (e.g. iCloud/PlaudExports/Sync) and save.",
-        saveFolder: "Save",
         openDownloads: "Open Downloads",
         start: "Sync now",
         starting: "Preparing sync…",
         started: "Sync started.",
         busy: "Wait for the current operation to finish.",
         settingsUnavailable: "Sync settings are not available yet.",
-        folderSaved: "Sync folder saved.",
-        folderSaveError: "Could not save folder: {msg}",
         startError: "Could not start sync: {msg}",
         idleLine: "Sync has not run yet.",
         indexLine: "Indexed: {n}. Last sync: {time}.",
@@ -363,7 +328,6 @@
       btn: {
         audioAndSummary: "Audio and summaries",
         audioOnly: "Audio only",
-        summaryOnly: "Summaries only",
         exportBackground: "Export in background",
         stop: "Stop",
         copyError: "Copy error text",
@@ -582,7 +546,6 @@
   globalThis.PlaudI18n = {
     STORAGE_KEY: STORAGE_KEY,
     THEME_STORAGE_KEY: THEME_STORAGE_KEY,
-    MESSAGES: MESSAGES,
     t: t,
     getDefaultLocaleFromNavigator: getDefaultLocaleFromNavigator,
     getEffectiveLocale: getEffectiveLocalePromise,

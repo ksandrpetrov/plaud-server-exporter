@@ -5,7 +5,6 @@ import { join } from "node:path";
 import test from "node:test";
 import {
   describeRecordStatus,
-  filesStatsHtml,
   filesTreeFolderHtml,
   filesTreeFolderRichMarkdown,
   filesTreeRootHtml,
@@ -37,8 +36,8 @@ import {
   comparePlaudFolderLabels,
   parseSummaryFilename,
   plaudFolderLabelFromVaultPath,
-  scanVaultSummary,
 } from "../src/telegram/vaultTree.js";
+import { scanVaultSummary } from "../src/sync/vaultDiskScan.js";
 import {
   PLAUD_FOLDER_TRASH,
   PLAUD_FOLDER_UNFILED,
@@ -585,10 +584,6 @@ test("scanVaultSummary counts md files and lists recent by mtime", async () => {
     "paths are relative to vault root"
   );
   assert.ok(!stats.recent[0].relativePath.startsWith("/"));
-
-  const html = filesStatsHtml(stats);
-  assert.match(html, /На диске/);
-  assert.match(html, /Файлов .md: 3/);
 });
 
 test("scanVaultSummary returns exists=false when vault subfolder is missing", async () => {
@@ -599,7 +594,6 @@ test("scanVaultSummary returns exists=false when vault subfolder is missing", as
   });
   assert.equal(stats.exists, false);
   assert.equal(stats.totalCount, 0);
-  assert.equal(filesStatsHtml(stats), filesStatsHtml({ exists: false }));
 });
 
 test("formatBytes and describeRecordStatus", () => {

@@ -7,9 +7,6 @@ export const syncRunGuard = new ActionGuard({ cooldownSec: 35 });
 export const SYNC_ACTION_MANUAL = "sync:manual";
 export const SYNC_ACTION_SCHEDULED = "sync:scheduled";
 
-/** @deprecated Use {@link SYNC_ACTION_MANUAL} in new code; kept for tests. */
-export const SYNC_ACTION_KEY = SYNC_ACTION_MANUAL;
-
 /**
  * @param {"manual" | "scheduled"} source
  * @returns {string}

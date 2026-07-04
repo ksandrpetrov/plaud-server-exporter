@@ -6,6 +6,29 @@ if (window.__plaudExporterContentLoaded) {
 } else {
   window.__plaudExporterContentLoaded = true;
 
+  let contentLocale = globalThis.PlaudI18n
+    ? globalThis.PlaudI18n.getDefaultLocaleFromNavigator()
+    : "ru";
+  if (globalThis.PlaudI18n) {
+    globalThis.PlaudI18n.getEffectiveLocale().then(function (loc) {
+      contentLocale = loc;
+    });
+    if (chrome.storage?.onChanged) {
+      chrome.storage.onChanged.addListener(function (changes, areaName) {
+        if (areaName !== "sync" || !changes[globalThis.PlaudI18n.STORAGE_KEY])
+          return;
+        var nv = changes[globalThis.PlaudI18n.STORAGE_KEY].newValue;
+        if (nv === "ru" || nv === "en") contentLocale = nv;
+      });
+    }
+  }
+
+  function contentTr(key, params) {
+    var I = globalThis.PlaudI18n;
+    if (!I) return key;
+    return I.t(contentLocale, key, params);
+  }
+
   // Flag to indicate if the export process is running in background mode.
   let isBackgroundExporting = false;
   // Flag to signal when the export process should stop.
@@ -80,7 +103,7 @@ if (window.__plaudExporterContentLoaded) {
       shouldStopExport = true;
       sendResponse({
         success: true,
-        message: "Экспорт остановится после завершения текущего файла.",
+        message: contentTr("error.stopAfterFile"),
       });
       return false;
     }
@@ -262,8 +285,7 @@ if (window.__plaudExporterContentLoaded) {
         } catch (error) {
           sendResponse({
             success: false,
-            error:
-              error?.message || "Не удалось начать экспорт текущей записи.",
+            error: error?.message || contentTr("error.couldNotStartCurrent"),
           });
         }
       })();
@@ -307,8 +329,7 @@ if (window.__plaudExporterContentLoaded) {
         if (exportRunLock) {
           reply({
             success: false,
-            error:
-              "Сейчас выполняется экспорт. Дождитесь его завершения и снова обновите статистику.",
+            error: contentTr("error.waitExport"),
           });
           return;
         }
@@ -386,15 +407,14 @@ if (window.__plaudExporterContentLoaded) {
         if (exportRunLock) {
           reply({
             success: false,
-            error:
-              "Сейчас выполняется экспорт. Дождитесь завершения и повторите синхронизацию.",
+            error: contentTr("sync.busy"),
           });
           return;
         }
         if (smartSyncLock) {
           reply({
             success: false,
-            error: "Синхронизация уже выполняется на этой вкладке.",
+            error: contentTr("sync.alreadyRunning"),
           });
           return;
         }

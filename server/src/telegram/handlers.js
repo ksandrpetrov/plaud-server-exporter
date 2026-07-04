@@ -20,10 +20,3 @@ export {
   isStartCommand,
   isStatusCommand,
 } from "./commandParsers.js";
-
-import { loadOwnerChat } from "./ownerChat.js";
-
-export async function ownerChatId() {
-  const record = await loadOwnerChat();
-  return record?.chatId ?? null;
-}

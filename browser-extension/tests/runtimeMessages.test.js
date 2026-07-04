@@ -15,7 +15,15 @@ import { RUNTIME_MESSAGE_ACTIONS } from "../common/runtimeMessages.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const CLASSIC_SCRIPT_FILES = ["popup/popup.js", "content.js"];
+const CLASSIC_SCRIPT_FILES = [
+  "popup/popup.js",
+  "popup/popupTabs.js",
+  "popup/popupMessaging.js",
+  "popup/popupSyncUi.js",
+  "popup/popupStatsUi.js",
+  "popup/popupExportUi.js",
+  "content.js",
+];
 
 /**
  * Actions that classic scripts are allowed NOT to reference. (They're sent or

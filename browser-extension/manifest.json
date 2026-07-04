@@ -29,7 +29,7 @@
   "content_scripts": [
     {
       "matches": ["https://app.plaud.ai/*", "https://web.plaud.ai/*"],
-      "js": ["content.js"],
+      "js": ["common/plaud-i18n-messages.js", "content.js"],
       "run_at": "document_idle"
     }
   ],

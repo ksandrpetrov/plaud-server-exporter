@@ -38,7 +38,6 @@ import { SYNC_ACTION_MANUAL, syncRunGuard } from "../syncGuards.js";
 import {
   handleFilesCallback,
   handleFilesStatsCallback,
-  handleFilesTreeCallback,
   routeFilesTreeCallback,
 } from "./filesTree.js";
 import {
@@ -158,7 +157,7 @@ const CALLBACK_HANDLERS = {
   [CB_RUN_SYNC]: handleRunSyncCallback,
   [CB_STATUS]: handleStatusCallback,
   [CB_FILES]: handleFilesCallback,
-  [CB_FILES_TREE]: handleFilesTreeCallback,
+  [CB_FILES_TREE]: handleFilesCallback,
   [CB_FILES_STATS]: handleFilesStatsCallback,
   [CB_SETTINGS]: handleSettingsCallback,
   [CB_SETTINGS_TOGGLE_SUMMARY]: handleToggleSummaryCallback,

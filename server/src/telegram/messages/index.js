@@ -60,13 +60,10 @@ export { settingsScreenHtml, settingsScreenRichMarkdown } from "./settings.js";
 
 export {
   FILES_TREE_EMPTY,
-  FILES_STATS_EMPTY,
   filesTreeRootHtml,
   filesTreeRootRichMarkdown,
   filesTreeFolderHtml,
   filesTreeFolderRichMarkdown,
-  filesStatsHtml,
-  filesStatsRichMarkdown,
   formatNumberEmoji,
   treeListNumberPrefix,
   formatTreeFolderItemLine,

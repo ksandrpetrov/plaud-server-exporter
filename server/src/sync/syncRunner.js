@@ -1,18 +1,12 @@
-import { stat } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { config } from "../config/config.js";
 import { logger } from "../logger.js";
 import { redactError } from "../security/redact.js";
 import { reportError } from "../errors/errorReporter.js";
-import { ERROR_KIND_PLAUD_CHANGED } from "../errors/errorClassifier.js";
 import { PlaudChangedError } from "../plaud/errors.js";
 import {
-  buildAudioSignature,
   buildStableId,
-  buildSummaryBundle,
   detectDuplicate,
   determineSyncAction,
-  hashSummary,
   refineSyncActionForDisk,
   SYNC_ACTION_ALREADY_SYNCED,
   SYNC_ACTION_NEW,
@@ -24,118 +18,23 @@ import {
   SYNC_STATUS_UPDATED,
   updateExistingRecord,
 } from "../../../browser-extension/common/syncCore.js";
-import { PLAUD_FOLDER_UNFILED } from "../plaud/plaudFolders.js";
-import {
-  getRecordingCreatedAtRaw,
-  getRecordingUpdatedAtRaw,
-} from "../plaud/recordingTimestamps.js";
 import { fetchSummaries, listAllRecordings } from "../plaud/plaudApiClient.js";
 import { loadSyncIndex, saveSyncIndex } from "./serverSyncIndex.js";
 import { buildMarkdownDocument, writeMarkdownFile } from "./obsidianWriter.js";
 import {
   collectOccupiedFilenames,
   planSummaryPath,
-  resolveMeetingTitle,
 } from "./filenamePlanner.js";
 import { acquireSyncLock, SyncLockError } from "./runLock.js";
 import { writeStatusFile } from "./syncStatusWriter.js";
+import {
+  buildCandidate,
+  needsSummaryRestore,
+  resolveSyncFolderSegment,
+} from "./syncCandidate.js";
+import { emptyStats, markPlaudChangedIfNeeded } from "./syncStats.js";
 
 export { SyncLockError };
-
-function markPlaudChangedIfNeeded(stats, reported) {
-  if (reported.classified.kind === ERROR_KIND_PLAUD_CHANGED) {
-    stats.plaudChanged = true;
-    stats.needsManualReview = true;
-  }
-}
-
-async function summaryFileExists(absolutePath) {
-  if (!absolutePath) return false;
-  try {
-    const info = await stat(absolutePath);
-    return info.isFile();
-  } catch (err) {
-    if (err?.code === "ENOENT") return false;
-    throw err;
-  }
-}
-
-/**
- * True when the index says synced but no summary file exists on disk
- * (user deleted it manually, or a partial write left only the index).
- */
-async function needsSummaryRestore(existingRecord, plannedAbsolutePath) {
-  if (!existingRecord?.summaryHash) return false;
-  const paths = new Set(
-    [plannedAbsolutePath, existingRecord.summaryPath].filter(Boolean)
-  );
-  if (!paths.size) return true;
-  for (const path of paths) {
-    if (await summaryFileExists(path)) return false;
-  }
-  return true;
-}
-
-function resolveSyncFolderSegment(file) {
-  const segment = String(file?.folderSegment || "").trim();
-  if (!config.mirrorFolders) return "";
-  return segment || PLAUD_FOLDER_UNFILED;
-}
-
-async function buildCandidate(file, summaries) {
-  const summaryBundle = buildSummaryBundle(summaries);
-  const meetingTitle = resolveMeetingTitle({
-    plaudTitle: file.title,
-    summaries,
-    createdAt: getRecordingCreatedAtRaw(file.raw),
-  });
-
-  const identity = buildStableId({
-    ...file,
-    raw: file.raw,
-    title: meetingTitle,
-    summaryMarkdown: summaryBundle,
-    createdAt: getRecordingCreatedAtRaw(file.raw),
-  });
-
-  return {
-    stableId: identity.stableId,
-    identityKind: identity.identityKind,
-    identityConfidence: identity.confidence,
-    fingerprint: identity.fingerprint,
-    title: meetingTitle,
-    sourceUrl: "",
-    summaryHash: await hashSummary(summaryBundle),
-    audioSignature: buildAudioSignature(file),
-    createdAt: getRecordingCreatedAtRaw(file.raw),
-    updatedAt: getRecordingUpdatedAtRaw(file.raw),
-    normalizedFilename: "",
-    folderSegment: resolveSyncFolderSegment(file),
-  };
-}
-
-function emptyStats() {
-  return {
-    status: "running",
-    runId: "",
-    total: 0,
-    processed: 0,
-    new: 0,
-    updated: 0,
-    unchanged: 0,
-    metadataUpdated: 0,
-    skipped: 0,
-    alreadySynced: 0,
-    errors: 0,
-    audioDownloaded: 0,
-    summariesDownloaded: 0,
-    plaudChanged: false,
-    needsManualReview: false,
-    startedAt: new Date().toISOString(),
-    finishedAt: null,
-    dryRun: false,
-  };
-}
 
 /**
  * @param {{

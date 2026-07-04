@@ -68,7 +68,7 @@ see [getting-started.md](./getting-started.md).
 npm test                 # server (node:test)
 npm run lint
 npm run verify
-npm run test:extension   # plaud-exporter (node:test)
+npm run test:extension   # browser-extension (node:test)
 ```
 
 ## How to deploy

@@ -83,7 +83,7 @@ Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](se
 
 | Модуль                                                                               | Назначение                                                              |
 | ------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| [`handlers.js`](server/src/telegram/handlers.js)                                     | Barrel: `dispatchUpdate`, `ownerChatId`, re-export command parsers      |
+| [`handlers.js`](server/src/telegram/handlers.js)                                     | Barrel: `dispatchUpdate`, re-export command parsers                     |
 | [`handlers/dispatch.js`](server/src/telegram/handlers/dispatch.js)                   | `dispatchUpdate`, callback auth gate                                    |
 | [`handlers/privateUpdateGate.js`](server/src/telegram/handlers/privateUpdateGate.js) | `guardAuthorizedPrivateUpdate` — private chat + allowed sender          |
 | [`handlers/inboundMessages.js`](server/src/telegram/handlers/inboundMessages.js)     | `/start`, `/menu`, tree pick by number (inbound text)                   |

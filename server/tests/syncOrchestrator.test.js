@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runSyncWithReporting } from "../src/telegram/syncOrchestrator.js";
-import { SYNC_ACTION_KEY, syncRunGuard } from "../src/telegram/syncGuards.js";
+import {
+  SYNC_ACTION_MANUAL,
+  syncRunGuard,
+} from "../src/telegram/syncGuards.js";
 import { SyncLockError } from "../src/sync/syncRunner.js";
 import { PlaudAuthError } from "../src/plaud/plaudApiClient.js";
 
@@ -66,7 +69,7 @@ const HUGE_PULSE = 10_000_000;
 
 test("manual sync edits the loading message into the final summary", async () => {
   syncRunGuard.reset();
-  syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
+  syncRunGuard.tryAcquire(42, SYNC_ACTION_MANUAL);
   const telegram = fakeTelegram();
   let now = 0;
   const result = await runSyncWithReporting({
@@ -127,7 +130,7 @@ test("manual sync edits the loading message into the final summary", async () =>
 
 test("scheduled sync sends a fresh message instead of editing", async () => {
   syncRunGuard.reset();
-  syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
+  syncRunGuard.tryAcquire(42, SYNC_ACTION_MANUAL);
   const telegram = fakeTelegram();
   const result = await runSyncWithReporting({
     telegram,
@@ -158,7 +161,7 @@ test("scheduled sync sends a fresh message instead of editing", async () => {
 
 test("SyncLockError turns into a friendly busy message", async () => {
   syncRunGuard.reset();
-  syncRunGuard.tryAcquire(1, SYNC_ACTION_KEY);
+  syncRunGuard.tryAcquire(1, SYNC_ACTION_MANUAL);
   const telegram = fakeTelegram();
   const result = await runSyncWithReporting({
     telegram,
@@ -185,7 +188,7 @@ test("SyncLockError turns into a friendly busy message", async () => {
 
 test("missing session reports SYNC_NO_SESSION_HTML", async () => {
   syncRunGuard.reset();
-  syncRunGuard.tryAcquire(1, SYNC_ACTION_KEY);
+  syncRunGuard.tryAcquire(1, SYNC_ACTION_MANUAL);
   const telegram = fakeTelegram();
   let syncCalled = false;
   const result = await runSyncWithReporting({
@@ -214,7 +217,7 @@ test("missing session reports SYNC_NO_SESSION_HTML", async () => {
 
 test("PlaudAuthError reports the auth-rejected message", async () => {
   syncRunGuard.reset();
-  syncRunGuard.tryAcquire(1, SYNC_ACTION_KEY);
+  syncRunGuard.tryAcquire(1, SYNC_ACTION_MANUAL);
   const telegram = fakeTelegram();
   const result = await runSyncWithReporting({
     telegram,
@@ -240,7 +243,7 @@ test("PlaudAuthError reports the auth-rejected message", async () => {
 
 test("manual sync success may attach message effect in private chat", async () => {
   syncRunGuard.reset();
-  syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
+  syncRunGuard.tryAcquire(42, SYNC_ACTION_MANUAL);
   const telegram = fakeTelegram();
   await runSyncWithReporting({
     telegram,
@@ -268,7 +271,7 @@ test("manual sync success may attach message effect in private chat", async () =
 
 test("GPT-style reveal: thinking draft then sendMessage (no final edit snap)", async () => {
   syncRunGuard.reset();
-  syncRunGuard.tryAcquire(42, SYNC_ACTION_KEY);
+  syncRunGuard.tryAcquire(42, SYNC_ACTION_MANUAL);
   const telegram = fakeTelegram();
   await runSyncWithReporting({
     telegram,

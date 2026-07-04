@@ -1,16 +1,6 @@
-import {
-  clipTelegramText,
-  escapeHtml,
-  formatBytes,
-  formatDateTimeLocal,
-} from "./format.js";
+import { clipTelegramText, escapeHtml } from "./format.js";
 import { clipRichMarkdown } from "../richFormat.js";
-import {
-  EMOJI_FILES,
-  EMOJI_STATS,
-  EMOJI_TREE,
-  EMOJI_WARNING,
-} from "./copyStyle.js";
+import { EMOJI_FILES, EMOJI_TREE, EMOJI_WARNING } from "./copyStyle.js";
 import {
   formatNumberEmoji,
   formatTreeFolderItemLine,
@@ -34,7 +24,6 @@ export {
 export const FILES_TREE_EMPTY =
   `${EMOJI_TREE} <b>Дерево записей</b>\n\n` +
   "Записей пока нет. Нажми 🔄 Синхронизировать.";
-export const FILES_STATS_EMPTY = `${EMOJI_STATS} <b>На диске</b>\n\nПапка Plaud ещё не создана.`;
 
 export function filesTreeRootHtml(root) {
   if (!root?.total) {
@@ -192,79 +181,4 @@ export function filesTreeFolderRichMarkdown(folderPage) {
     return clipRichMarkdown(md);
   }
   return clipped;
-}
-
-export function filesStatsHtml(stats) {
-  if (!stats?.exists) {
-    return FILES_STATS_EMPTY;
-  }
-
-  const lines = [
-    `${EMOJI_STATS} <b>На диске</b>`,
-    "",
-    `📂 Папка Plaud/${escapeHtml(stats.subfolder)}/`,
-    `📄 Файлов .md: ${stats.totalCount ?? 0}`,
-    `💾 Суммарный размер: ${formatBytes(stats.totalBytes ?? 0)}`,
-  ];
-
-  if (stats.lastMtime) {
-    lines.push(
-      `🕘 Последнее изменение: ${escapeHtml(formatDateTimeLocal(stats.lastMtime))}`
-    );
-  }
-
-  if (stats.scanTruncated) {
-    lines.push("", `${EMOJI_WARNING} Сканирование обрезано по лимиту файлов.`);
-  }
-
-  const recent = stats.recent || [];
-  if (recent.length > 0) {
-    lines.push("", "Последние 10:");
-    for (const file of recent) {
-      const name = escapeHtml(file.relativePath);
-      const size = formatBytes(file.size);
-      lines.push(`  • ${name} (${size})`);
-    }
-  } else if (stats.totalCount === 0) {
-    lines.push("", "Файлов .md пока нет.");
-  }
-
-  return clipTelegramText(lines.join("\n"));
-}
-
-/**
- * @param {object} stats
- * @returns {string}
- */
-export function filesStatsRichMarkdown(stats) {
-  if (!stats?.exists) {
-    return clipRichMarkdown(
-      `# ${EMOJI_STATS} На диске\n\nПапка Plaud ещё не создана.`
-    );
-  }
-  const rows = [
-    "| | |",
-    "| --- | --- |",
-    `| Файлов .md | ${stats.totalCount ?? 0} |`,
-    `| Размер | ${formatBytes(stats.totalBytes ?? 0)} |`,
-  ];
-  if (stats.lastMtime) {
-    rows.push(
-      `| Последнее изменение | ${formatDateTimeLocal(stats.lastMtime)} |`
-    );
-  }
-  let md = `# ${EMOJI_STATS} На диске\n\n**Папка Plaud/${stats.subfolder}/**\n\n${rows.join("\n")}`;
-  if (stats.scanTruncated) {
-    md += `\n\n> ${EMOJI_WARNING} Сканирование обрезано по лимиту файлов.`;
-  }
-  const recent = stats.recent || [];
-  if (recent.length > 0) {
-    const recentRows = recent.map(
-      (file) => `| ${file.relativePath} | ${formatBytes(file.size)} |`
-    );
-    md += `\n\n<details open>\n<summary>Последние ${recent.length}</summary>\n\n| Файл | Размер |\n| --- | --- |\n${recentRows.join("\n")}\n\n</details>`;
-  } else if (stats.totalCount === 0) {
-    md += "\n\nФайлов .md пока нет.";
-  }
-  return clipRichMarkdown(md);
 }
