@@ -26,5 +26,6 @@ export async function refreshSyncNotificationSetting() {
  */
 export function createSyncNotification(options) {
   if (!syncNotificationsEnabled()) return;
+  if (typeof chrome.notifications?.create !== "function") return;
   chrome.notifications.create(options);
 }

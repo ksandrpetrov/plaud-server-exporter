@@ -16,6 +16,7 @@
     "server:sync": "node server/src/cli/index.js sync",
     "server:status": "node server/src/cli/index.js status",
     "server:bot": "node server/src/cli/index.js bot",
+    "extension:safari": "bash scripts/build-safari-app.sh --install --install-launch-agent",
     "test": "node --test $(find server/tests -name '*.test.js' | sort)",
     "test:extension": "cd browser-extension && npm test",
     "lint": "npm run lint --workspace=@plaud-server-exporter/server",

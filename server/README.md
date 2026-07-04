@@ -1,14 +1,17 @@
 # Серверный экспортёр
 
-Node.js CLI: **саммари** встреч Plaud → Markdown для Obsidian (или любого дерева папок). Рассчитан на небольшой VPS без
-БД и веб-UI.
+Программа, которая сохраняет **текстовые саммари** записей Plaud в обычные файлы Markdown — для Obsidian или любой
+папки с заметками. Работает на небольшом VPS без базы данных и веб-интерфейса.
 
-**По умолчанию только саммари.** Аудио сервер не скачивает.
+**По умолчанию только саммари.** Аудио сервер не скачивает — для аудио есть [Chrome-расширение](../browser-extension/).
+
+Пошаговая установка для пользователей — [docs/getting-started.md](../docs/getting-started.md).
 
 ## Что делает
 
-1. Читает сохранённую сессию Plaud (`session.json` после Playwright-входа на Mac).
-2. Получает список записей через внутренний API Plaud.
+1. Читает сохранённый доступ к Plaud (`oauth-tokens.json` после OAuth-входа на Mac; legacy — `session.json` после
+   Playwright).
+2. Получает список записей через API Plaud.
 3. Загружает AI-саммари и пишет `.md` в `{vault}/Plaud/` (при зеркалировании папок — `Plaud/{тег}/`).
 4. Ведёт `server/.data/sync-index.json`, чтобы не дублировать неизменённые записи.
 5. При сбоях пишет отчёты в `{vault}/_errors/`.
@@ -22,11 +25,11 @@ Chrome-расширения).
 
 ```bash
 npm install --workspaces
-npx playwright install chromium   # только Mac, для auth
+npx playwright install chromium   # только Mac, для legacy --playwright
 cp .env.example .env
 # Задайте PLAUD_EXPORT_ROOT и PLAUD_TIMEZONE
 
-npm run server:auth
+npm run server:auth               # OAuth (default) → oauth-tokens.json
 npm run server:status
 npm run server:sync -- --dry-run
 npm run server:sync
@@ -51,18 +54,19 @@ npm run server:sync
 | `WEBAPP_PORT`               | Порт HTTP (по умолчанию `8080`; healthcheck `/healthz`)       |
 | `WEBAPP_BASE_URL`           | Публичный HTTPS URL для `/connect` (nginx), не локальный путь |
 
-Не коммитьте `.env` и `server/.data/session.json`.
+Не коммитьте `.env`, `server/.data/oauth-tokens.json` и `server/.data/session.json`.
 
 ## Команды
 
-| Команда                               | Описание                                            |
-| ------------------------------------- | --------------------------------------------------- |
-| `npm run server:auth`                 | Playwright-вход на Mac → `session.json`             |
-| `npm run server:sync`                 | Выгрузка саммари (one-shot)                         |
-| `npm run server:sync -- --dry-run`    | План без записи на диск и без обновления индекса    |
-| `npm run server:status`               | JSON-статус (без секретов)                          |
-| `npm run server:bot`                  | Запустить Telegram-бот (long-polling + планировщик) |
-| `node server/src/cli/index.js logout` | Удалить снимок сессии                               |
+| Команда                               | Описание                                                        |
+| ------------------------------------- | --------------------------------------------------------------- |
+| `npm run server:auth`                 | Вход в Plaud на Mac → `oauth-tokens.json` (OAuth, по умолчанию) |
+| `npm run server:auth -- --playwright` | Legacy Playwright → `session.json` (нужен для папок Plaud)      |
+| `npm run server:sync`                 | Выгрузка саммари (one-shot)                                     |
+| `npm run server:sync -- --dry-run`    | План без записи на диск и без обновления индекса                |
+| `npm run server:status`               | JSON-статус (без секретов)                                      |
+| `npm run server:bot`                  | Запустить Telegram-бот (long-polling + планировщик)             |
+| `node server/src/cli/index.js logout` | Удалить сохранённый доступ (OAuth и/или session snapshot)       |
 
 ### Коды выхода
 
@@ -76,13 +80,13 @@ npm run server:sync
 
 ## Куда пишутся файлы
 
-| Вывод       | Путь                                                              |
-| ----------- | ----------------------------------------------------------------- |
-| Саммари     | `{PLAUD_EXPORT_ROOT или vault}/Plaud/ГГГГ-ММ-ДД - {название}.md`  |
-| Ошибки      | `{корень vault}/_errors/ГГГГ-ММ-ДД-ЧЧ-ММ-plaud-export-error-*.md` |
-| Индекс sync | `server/.data/sync-index.json` (не в дереве экспорта)             |
-| Сессия      | `server/.data/session.json`                                       |
-| Статус      | `server/.data/status.json`                                        |
+| Вывод       | Путь                                                                 |
+| ----------- | -------------------------------------------------------------------- |
+| Саммари     | `{PLAUD_EXPORT_ROOT или vault}/Plaud/ГГГГ-ММ-ДД - {название}.md`     |
+| Ошибки      | `{корень vault}/_errors/ГГГГ-ММ-ДД-ЧЧ-ММ-plaud-export-error-*.md`    |
+| Индекс sync | `server/.data/sync-index.json` (не в дереве экспорта)                |
+| Доступ      | `server/.data/oauth-tokens.json` (OAuth) или `session.json` (legacy) |
+| Статус      | `server/.data/status.json`                                           |
 
 В `.md` только текст саммари. Технические поля (stable id, hash, пути) — в `sync-index.json`.
 
@@ -102,7 +106,8 @@ npm run server:sync
 
 Общее:
 
-- `server:auth` — **только на Mac**; `session.json` копируйте на сервер (`scp`) или в Docker volume.
+- `server:auth` — **только на Mac**; `oauth-tokens.json` (или legacy `session.json`) копируйте на сервер (`scp`) или в
+  Docker volume.
 - `server:bot` — основной долгоживущий процесс (systemd или контейнер); вместе с ним поднимается HTTP `/healthz`.
 - `server:sync` — ручные запуски; общий файловый лок не даст столкнуться с ботом.
 - Playwright на VPS с 1 GB RAM не запускайте.

@@ -95,33 +95,39 @@ chrome.tabs.onRemoved.addListener((tabId, _removeInfo) => {
   }
 });
 
-chrome.downloads.onDeterminingFilename.addListener((downloadItem, suggest) => {
-  plaudBgLog(
-    "onDeterminingFilename event triggered for:",
-    downloadItem.filename
-  );
+if (
+  typeof chrome.downloads?.onDeterminingFilename?.addListener === "function"
+) {
+  chrome.downloads.onDeterminingFilename.addListener(
+    (downloadItem, suggest) => {
+      plaudBgLog(
+        "onDeterminingFilename event triggered for:",
+        downloadItem.filename
+      );
 
-  const originatingTabId = downloadItem.tabId;
-  if (originatingTabId && activeTabIds.has(originatingTabId)) {
-    plaudBgLog(
-      `Download from active export tab ${originatingTabId}. Filename: ${downloadItem.filename}`
-    );
+      const originatingTabId = downloadItem.tabId;
+      if (originatingTabId && activeTabIds.has(originatingTabId)) {
+        plaudBgLog(
+          `Download from active export tab ${originatingTabId}. Filename: ${downloadItem.filename}`
+        );
 
-    if (
-      downloadItem.filename &&
-      downloadItem.filename.toLowerCase().endsWith(".mp3")
-    ) {
-      const safeAudioDir = AUDIO_SUBDIRECTORY.replace(/[\\/:*?"<>|]/g, "_");
-      const newFilename = `${safeAudioDir}/${downloadItem.filename}`;
-      plaudBgLog(`Suggesting new filename: ${newFilename}`);
+        if (
+          downloadItem.filename &&
+          downloadItem.filename.toLowerCase().endsWith(".mp3")
+        ) {
+          const safeAudioDir = AUDIO_SUBDIRECTORY.replace(/[\\/:*?"<>|]/g, "_");
+          const newFilename = `${safeAudioDir}/${downloadItem.filename}`;
+          plaudBgLog(`Suggesting new filename: ${newFilename}`);
 
-      suggest({
-        filename: newFilename,
-        conflictAction: "uniquify",
-      });
-      return;
+          suggest({
+            filename: newFilename,
+            conflictAction: "uniquify",
+          });
+          return;
+        }
+      }
     }
-  }
-});
+  );
+}
 
 plaudBgLog("Background script loaded and listeners initialized.");

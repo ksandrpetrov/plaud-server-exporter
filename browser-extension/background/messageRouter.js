@@ -289,6 +289,13 @@ export function registerMessageRouter(plaudBgLog) {
       }
 
       if (message.action === ACTION_SHOW_DEFAULT_DOWNLOADS_FOLDER) {
+        if (typeof chrome.downloads?.showDefaultFolder !== "function") {
+          sendResponse({
+            success: false,
+            error: "chrome.downloads недоступен в Safari.",
+          });
+          return false;
+        }
         try {
           chrome.downloads.showDefaultFolder();
           sendResponse({ success: true });

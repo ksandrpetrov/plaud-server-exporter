@@ -57,6 +57,50 @@ macOS (например, в iCloud).
 4. **Загрузить распакованное расширение** — папка **`browser-extension/`** (где лежит
    `manifest.json`), не корень всего монорепозитория.
 
+## Safari (macOS, без платного Apple Developer)
+
+Safari не держит «временные» неподписанные расширения после перезапуска. Обходной путь —
+собрать **host app** с Web Extension и локально подписать стабильным self-signed
+сертификатом, затем включить «Allow unsigned extensions» (можно автоматизировать).
+
+Требования: macOS, Xcode (Command Line Tools недостаточно), Safari 17+.
+
+```bash
+# из корня репозитория
+npm run extension:safari
+# или точечно:
+bash scripts/build-safari-app.sh --install --install-launch-agent
+```
+
+Скрипт:
+
+1. Копирует runtime-файлы расширения в `build/safari/`.
+2. Генерирует Xcode-проект через `safari-web-extension-converter`.
+3. Собирает `Plaud Export.app` с подписью **Plaud Export Local Dev** (создаётся в
+   связке ключей login при первом запуске).
+4. Устанавливает приложение в `~/Applications/Plaud Export.app` и регистрирует appex.
+5. Ставит LaunchAgent, который при старте Safari включает **Allow unsigned extensions**
+   (потребуется пароль macOS; один раз за сессию).
+
+После сборки один раз в Safari:
+
+1. **Safari → Settings → Advanced** — «Show features for web developers».
+2. **Safari → Settings → Developer** — «Allow unsigned extensions» (или дождаться
+   LaunchAgent).
+3. **Safari → Settings → Extensions** — включить **Plaud Export Extension**.
+
+После изменений в коде расширения пересоберите: `npm run extension:safari`.
+
+Ограничения Safari (по сравнению с Chrome):
+
+- `chrome.downloads` и `chrome.notifications` недоступны — скачивание идёт через
+  `<a download>` на странице Plaud (`extensionDownloadBridge.js`).
+- Фоновые уведомления sync отключены; прогресс — в попапе и на странице.
+
+Платный Apple Developer ($99/год) или бесплатная personal team в Xcode даёт сертификат,
+после которого Safari не требует «Allow unsigned extensions»; self-signed этого не
+заменяет.
+
 ## Пользование попапом
 
 1. Откройте **Plaud Web** на подходящей вкладке.
