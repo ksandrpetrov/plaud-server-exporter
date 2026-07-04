@@ -8,7 +8,7 @@ logs
 **/._*
 
 # Vendored data files (size + auto-generated)
-plaud-exporter/common/plaud-i18n-messages.js
+browser-extension/common/plaud-i18n-messages.js
 
 # Lockfiles (handled by npm)
 package-lock.json

@@ -3,7 +3,7 @@ import { config } from "../config/config.js";
 import {
   createEmptySyncIndex,
   normalizeSyncIndex,
-} from "../../../plaud-exporter/common/syncCore.js";
+} from "../../../browser-extension/common/syncCore.js";
 import { writeJsonAtomic } from "../util/atomicJson.js";
 
 export async function loadSyncIndex(path = config.syncIndexPath) {

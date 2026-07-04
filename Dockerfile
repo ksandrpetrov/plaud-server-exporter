@@ -28,7 +28,7 @@ RUN npm ci --omit=dev --workspaces --ignore-scripts \
     && npm cache clean --force
 
 COPY server/src server/src
-COPY plaud-exporter/common plaud-exporter/common
+COPY browser-extension/common browser-extension/common
 COPY scripts/smoke_container.mjs scripts/smoke_container.mjs
 
 RUN mkdir -p /app/server/.data /app/exports \

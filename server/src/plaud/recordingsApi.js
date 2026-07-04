@@ -18,7 +18,7 @@ import {
   normalizePlaudRecording,
   paginatePlaudRecordingVariant,
   runPlaudRecordingFanout,
-} from "../../../plaud-exporter/common/plaudRecordings.js";
+} from "../../../browser-extension/common/plaudRecordings.js";
 import {
   mergeFiletagsById,
   parseFiletagListPayload,
@@ -29,7 +29,7 @@ import { buildFolderResolutionContext } from "./folderResolution.js";
 export {
   TITLE_KEYS,
   normalizeHumanTitle,
-} from "../../../plaud-exporter/common/plaudTitles.js";
+} from "../../../browser-extension/common/plaudTitles.js";
 
 export { normalizePlaudRecording as normalizePlaudFile };
 

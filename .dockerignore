@@ -9,7 +9,7 @@ logs
 *.log
 .env
 .env.*
-plaud-exporter/node_modules
+browser-extension/node_modules
 docs
 deploy/ansible
 coverage

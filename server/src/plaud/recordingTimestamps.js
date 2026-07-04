@@ -6,7 +6,7 @@
  * Use `getRecordingCreatedAtIso` only for display fields such as `lastSyncedAt`.
  */
 
-import { getRawField } from "../../../plaud-exporter/common/syncCore.js";
+import { getRawField } from "../../../browser-extension/common/syncCore.js";
 
 export const RECORDING_CREATED_AT_KEYS = [
   "created_at",

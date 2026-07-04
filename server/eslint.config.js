@@ -32,6 +32,6 @@ export default [
   // Must be last: disables stylistic rules that conflict with Prettier.
   prettier,
   {
-    ignores: ["node_modules/", ".data/", "../plaud-exporter/"],
+    ignores: ["node_modules/", ".data/", "../browser-extension/"],
   },
 ];

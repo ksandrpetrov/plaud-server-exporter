@@ -5,7 +5,7 @@
 ## Резюме
 
 Server exporter переносит рабочую логику Chrome-расширения
-[`plaud-exporter`](../plaud-exporter/README.md) (Manifest V3) в headless Node.js:
+[`plaud-exporter`](../browser-extension/README.md) (Manifest V3) в headless Node.js:
 скачивание записей и AI-саммари Plaud на сервере, запись Markdown для Obsidian и
 пропуск неизменённого — без открытия попапа в браузере каждый раз.
 
@@ -30,18 +30,18 @@ Manifest V3, три слоя runtime.
 | Popup          | `popup/*`                              | Запуск экспорта, настройка подпапки sync                                                                           |
 
 Протокол сообщений между слоями: константы `action` в
-[`runtimeMessages.js`](../plaud-exporter/common/runtimeMessages.js) (SW и
+[`runtimeMessages.js`](../browser-extension/common/runtimeMessages.js) (SW и
 `audioExport` импортируют ESM; popup/content — строковые литералы, сверка
 тестом).
 
 Чистая логика — stable id, решения sync, имена, папки Plaud — в модулях без
 браузера (shared с server):
 
-- [`syncCore.js`](../plaud-exporter/common/syncCore.js)
-- [`exportPathUtils.js`](../plaud-exporter/common/exportPathUtils.js)
-- [`plaudFolders.js`](../plaud-exporter/common/plaudFolders.js)
+- [`syncCore.js`](../browser-extension/common/syncCore.js)
+- [`exportPathUtils.js`](../browser-extension/common/exportPathUtils.js)
+- [`plaudFolders.js`](../browser-extension/common/plaudFolders.js)
 
-Сервер импортирует их из `plaud-exporter/common/` — единый источник правды с
+Сервер импортирует их из `browser-extension/common/` — единый источник правды с
 расширением (`npm run verify`).
 
 ## Текущий поток экспорта
@@ -59,7 +59,7 @@ flowchart TD
     AE -.->|fallback при сбое list API| DOM[domExportFallback.js]
 ```
 
-`runSmartSync` в [`audioExport.js`](../plaud-exporter/features/audioExport/audioExport.js)
+`runSmartSync` в [`audioExport.js`](../browser-extension/features/audioExport/audioExport.js)
 — ближайший аналог server sync:
 
 1. Индекс из `chrome.storage.local`.
@@ -68,7 +68,7 @@ flowchart TD
    `already_synced` / `skipped`, запись только при необходимости.
 
 Сервер заменяет (1) JSON-файлом, (3) — `fs.writeFile`, логику решений берёт из
-`plaud-exporter/common/*` без изменений.
+`browser-extension/common/*` без изменений.
 
 ## Модель auth / сессии
 
@@ -137,7 +137,7 @@ file-id: <id>                    (только на /ai/query_note)
 
 ## Что переиспользовать на сервере
 
-Из `plaud-exporter/common/` напрямую (см. `npm run verify`):
+Из `browser-extension/common/` напрямую (см. `npm run verify`):
 
 - `syncCore.js` — stable id, отпечатки, `folderSegment`, решения sync
   (в т.ч. `metadata_only` при смене папки/имени без нового хеша), нормализация
@@ -162,14 +162,14 @@ file-id: <id>                    (только на /ai/query_note)
 
 ## Риски
 
-| Риск                                  | Вероятность        | Смягчение                                                 |
-| ------------------------------------- | ------------------ | --------------------------------------------------------- |
-| Неожиданное истечение JWT             | Средняя            | `server:auth`, `auth_expired` в status, без retry 401/403 |
-| Смена полей/кодов Plaud               | Низкая/средняя     | Версионированный клиент; диагностика статусов без тел     |
-| Список API короче DOM-merge           | Низкая             | Лог расхождения; фаза 2 — теги и скан снимка              |
-| Headless без UI для login             | Высокая при деплое | X11, auth на Mac + scp, `--import` DevTools               |
-| Утечка секретов в логах               | Средняя            | Центральная редакция; запрет печати токенов               |
-| Расхождение с `plaud-exporter/common` | Низкая             | `npm run verify`                                          |
+| Риск                                     | Вероятность        | Смягчение                                                 |
+| ---------------------------------------- | ------------------ | --------------------------------------------------------- |
+| Неожиданное истечение JWT                | Средняя            | `server:auth`, `auth_expired` в status, без retry 401/403 |
+| Смена полей/кодов Plaud                  | Низкая/средняя     | Версионированный клиент; диагностика статусов без тел     |
+| Список API короче DOM-merge              | Низкая             | Лог расхождения; фаза 2 — теги и скан снимка              |
+| Headless без UI для login                | Высокая при деплое | X11, auth на Mac + scp, `--import` DevTools               |
+| Утечка секретов в логах                  | Средняя            | Центральная редакция; запрет печати токенов               |
+| Расхождение с `browser-extension/common` | Низкая             | `npm run verify`                                          |
 
 ## Рекомендуемый путь реализации
 
@@ -178,7 +178,7 @@ file-id: <id>                    (только на /ai/query_note)
 1. **Playwright (редко).** `server:auth`: Chromium, `https://web.plaud.ai`, вход,
    проверка `GET /file/simple/web?limit=1`, снимок в `session.json` (`0600`).
 2. **Прямой API.** `server:sync`: снимок → те же заголовки, что в расширении,
-   четыре эндпоинта, `syncCore` + `exportPathUtils` из `plaud-exporter/common/`.
+   четыре эндпоинта, `syncCore` + `exportPathUtils` из `browser-extension/common/`.
 3. **Индекс.** `sync-index.json` — схема `plaudExporterSyncIndexV1`, те же
    `determineSyncAction`.
 4. **Вывод.** `{vault}/Plaud/{YYYY-MM-DD} - {title}.md`; аудио опционально в

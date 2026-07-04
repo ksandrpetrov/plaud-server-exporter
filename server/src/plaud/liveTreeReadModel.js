@@ -5,7 +5,7 @@
 
 import { createPlaudSessionLoader } from "../auth/loadPlaudSession.js";
 import { logger } from "../logger.js";
-import { buildStableId } from "../../../plaud-exporter/common/syncCore.js";
+import { buildStableId } from "../../../browser-extension/common/syncCore.js";
 import { resolveFileFolderSegment } from "./plaudFolders.js";
 import { buildFolderResolutionContext } from "./folderResolution.js";
 import {

@@ -1,7 +1,7 @@
 name: Setup monorepo
 description: >-
   Install Node.js with npm cache and run `npm ci` for both server (root workspace)
-  and the plaud-exporter extension. Callers must run actions/checkout beforehand.
+  and the browser-extension Chrome MV3 package. Callers must run actions/checkout beforehand.
 
 inputs:
   node-version:
@@ -19,7 +19,7 @@ runs:
         cache: npm
         cache-dependency-path: |
           package-lock.json
-          plaud-exporter/package-lock.json
+          browser-extension/package-lock.json
 
     - name: Install server workspace
       shell: bash
@@ -27,5 +27,5 @@ runs:
 
     - name: Install extension devDependencies
       shell: bash
-      working-directory: plaud-exporter
+      working-directory: browser-extension
       run: npm ci --ignore-scripts

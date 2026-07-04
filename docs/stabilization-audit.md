@@ -5,7 +5,7 @@
 ## Current architecture
 
 - **Root repo** `plaud-server-exporter`: Node 20+ CLI (`server:auth`, `server:sync`, `server:status`, `logout`).
-- **Submodule** `plaud-exporter/`: Chrome extension + shared `common/syncCore.js`, `common/exportPathUtils.js`,
+- **Browser extension** `browser-extension/`: Chrome MV3 + shared `common/syncCore.js`, `common/exportPathUtils.js`,
   `common/plaudFolders.js`.
 - **Server** `server/src/`: Playwright auth, session snapshot, Plaud API client, sync runner, Obsidian writer, filename
   planner, error reporter, JSON sync-index, run lock.
@@ -45,8 +45,8 @@ No database, queue, or HTTP server — CLI and files only.
 - **Server exporter: summary-only only.** No `--audio-too`, no `PLAUD_EXPORT_AUDIO` env, no audio download in `runSync`.
 - `runSync` never calls `/file/temp-url` (covered by `syncAudioDefault.test.js`).
 - Helpers for server audio download were removed; `runSync` stays summary-only (see `syncAudioDefault.test.js`).
-- **Chrome extension** (`plaud-exporter/`) still has its own audio export; unchanged and tested via
-  `npm run test:submodule`.
+- **Chrome extension** (`browser-extension/`) still has its own audio export; unchanged and tested via
+  `npm run test:extension`.
 
 ## File naming logic
 
@@ -87,8 +87,8 @@ No database, queue, or HTTP server — CLI and files only.
 
 ## Tests coverage
 
-**127 server tests** (`npm test`), **15 extension tests** (`npm run test:submodule`) — на момент аудита; сейчас
-`npm test` / `npm run test:submodule` из корня дают больше (см. CI).
+**127 server tests** (`npm test`), **15 extension tests** (`npm run test:extension`) — на момент аудита; сейчас
+`npm test` / `npm run test:extension` из корня дают больше (см. CI).
 
 | Area             | Coverage                                                                                                            |
 |------------------|---------------------------------------------------------------------------------------------------------------------|
@@ -130,7 +130,7 @@ No database, queue, or HTTP server — CLI and files only.
 
 ## Acceptance checklist
 
-- [x] `npm test`, `npm run lint`, `npm run verify`, `npm run test:submodule`
+- [x] `npm test`, `npm run lint`, `npm run verify`, `npm run test:extension`
 - [x] Default export is summary-only; server never downloads audio
 - [x] Clean `.md` without exporter frontmatter
 - [x] Meeting title in filename (Plaud → heading → date fallback)

@@ -4,7 +4,7 @@ import {
   extractRawRecordingId,
   normalizeHexRecordingId,
   normalizePlaudRecordingId,
-} from "../../plaud-exporter/common/plaudRecordingIds.js";
+} from "../../browser-extension/common/plaudRecordingIds.js";
 
 test("extractRawRecordingId reads first present key", () => {
   assert.equal(

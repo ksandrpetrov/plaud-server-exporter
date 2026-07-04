@@ -81,7 +81,7 @@ jobs:
         # advisories; production deps power the running bot and must stay clean.
         run: |
           npm audit --omit=dev --audit-level=high
-          (cd plaud-exporter && npm audit --omit=dev --audit-level=high)
+          (cd browser-extension && npm audit --omit=dev --audit-level=high)
 
       # Docker PR build: guards against Dockerfile drift before merge. Scoped to
       # pull_request events only — on push to main/tags the Deploy workflow builds

@@ -1,6 +1,6 @@
 import { mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { withUtf8Bom } from "../../../plaud-exporter/common/exportPathUtils.js";
+import { withUtf8Bom } from "../../../browser-extension/common/exportPathUtils.js";
 import { resolveMeetingTitle } from "./filenamePlanner.js";
 
 function stripDuplicateLeadingTitle(markdown, title) {

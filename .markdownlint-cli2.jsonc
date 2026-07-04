@@ -22,7 +22,7 @@
     "AGENTS.md",
     "docs/**/*.md",
     "deploy/**/*.md",
-    "plaud-exporter/README.md",
+    "browser-extension/README.md",
     "server/README.md"
   ],
   "ignores": [

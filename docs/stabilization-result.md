@@ -14,7 +14,7 @@
 - **Reliable sync.** Hash-based skip/update, rename-on-title-change, restore manually deleted files, `sync.lock` for
   concurrent runs (exit 4).
 - **Tests.** На момент стабилизации: 127 server + 15 extension; сейчас из корня: `npm test` (server) и
-  `npm run test:submodule` (extension) — см. актуальный вывод CI.
+  `npm run test:extension` (extension) — см. актуальный вывод CI.
 
 ## Files changed
 
@@ -27,7 +27,7 @@
 | Config              | `server/src/config/config.js`, `.env.example`                                                                         |
 | Tests               | `server/tests/*.test.js`                                                                                              |
 | Docs                | `docs/stabilization-*.md`, `server/README.md`, `docs/server-deploy.md`, `docs/security.md`, `docs/troubleshooting.md` |
-| Extension submodule | **unchanged**                                                                                                         |
+| Browser extension | **unchanged**                                                                                                         |
 
 ## Behavior after changes
 
@@ -68,7 +68,7 @@ see [getting-started.md](./getting-started.md).
 npm test                 # server (node:test)
 npm run lint
 npm run verify
-npm run test:submodule   # plaud-exporter (node:test)
+npm run test:extension   # plaud-exporter (node:test)
 ```
 
 ## How to deploy
@@ -90,4 +90,4 @@ logrotate, `scripts/server-as-plaud.sh`).
 3. Expired session — `_errors/auth_error*.md`, exit 2.
 4. Simulated API shape break — `_errors/plaud_changed*.md`, exit 3.
 5. Two simultaneous `server:sync` — one exits 4.
-6. Chrome extension still loads (`npm run test:submodule`).
+6. Chrome extension still loads (`npm run test:extension`).

@@ -1,1 +1,1 @@
-export * from "../../../plaud-exporter/common/plaudFolders.js";
+export * from "../../../browser-extension/common/plaudFolders.js";

@@ -4,11 +4,11 @@
  */
 import { config } from "../config/config.js";
 import { PlaudAuthError, PlaudChangedError } from "./errors.js";
-import { normalizePlaudRecordingId } from "../../../plaud-exporter/common/plaudRecordingIds.js";
+import { normalizePlaudRecordingId } from "../../../browser-extension/common/plaudRecordingIds.js";
 import {
   normalizeHumanTitle,
   pickRawTitleFromFile,
-} from "../../../plaud-exporter/common/plaudTitles.js";
+} from "../../../browser-extension/common/plaudTitles.js";
 import {
   findSummaryNotes,
   getNoteDataLink,
@@ -16,7 +16,7 @@ import {
   getSummaryNoteTitle,
   parseSummaryContent,
   stripPlaudInlineAssets,
-} from "../../../plaud-exporter/common/plaudSummaries.js";
+} from "../../../browser-extension/common/plaudSummaries.js";
 import { fetchUrlTextWithRetries } from "./httpTransport.js";
 
 /** Official API rejects page_size below 10. */

@@ -23,7 +23,7 @@ import {
   SYNC_STATUS_SUCCESS,
   SYNC_STATUS_UPDATED,
   updateExistingRecord,
-} from "../../../plaud-exporter/common/syncCore.js";
+} from "../../../browser-extension/common/syncCore.js";
 import { PLAUD_FOLDER_UNFILED } from "../plaud/plaudFolders.js";
 import {
   getRecordingCreatedAtRaw,

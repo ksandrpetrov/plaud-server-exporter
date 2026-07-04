@@ -17,7 +17,7 @@ const {
   fitsPathLengthBudget,
 } = await import("../src/sync/filenamePlanner.js");
 const { MAX_FILENAME_WITH_EXTENSION, MARKDOWN_EXTENSION } =
-  await import("../../plaud-exporter/common/exportPathUtils.js");
+  await import("../../browser-extension/common/exportPathUtils.js");
 
 test("resolveMeetingTitle prefers Plaud metadata over boilerplate", () => {
   assert.equal(

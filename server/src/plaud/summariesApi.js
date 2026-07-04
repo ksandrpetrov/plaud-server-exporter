@@ -16,8 +16,8 @@ import {
   getSummaryNoteTitle,
   parseSummaryContent,
   stripPlaudInlineAssets,
-} from "../../../plaud-exporter/common/plaudSummaries.js";
-import { normalizeHumanTitle } from "../../../plaud-exporter/common/plaudTitles.js";
+} from "../../../browser-extension/common/plaudSummaries.js";
+import { normalizeHumanTitle } from "../../../browser-extension/common/plaudTitles.js";
 
 export {
   findSummaryNotes,
@@ -25,7 +25,7 @@ export {
   parseSummaryContent,
   stripPlaudInlineAssets,
   SUMMARY_NOTE_TYPES,
-} from "../../../plaud-exporter/common/plaudSummaries.js";
+} from "../../../browser-extension/common/plaudSummaries.js";
 
 async function getNoteRawContent(note) {
   const inline = getNoteInlineContent(note);

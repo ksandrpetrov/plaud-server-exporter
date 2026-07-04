@@ -5,7 +5,7 @@ import { config, effectiveVaultRoot } from "../config/config.js";
 import { logger } from "../logger.js";
 import { redactError, redactString, redactValue } from "../security/redact.js";
 import { classifyError } from "./errorClassifier.js";
-import { hashStringSync } from "../../../plaud-exporter/common/syncCore.js";
+import { hashStringSync } from "../../../browser-extension/common/syncCore.js";
 
 function errorsDir() {
   return join(effectiveVaultRoot(), "_errors");

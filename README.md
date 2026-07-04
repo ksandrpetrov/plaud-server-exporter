@@ -2,17 +2,17 @@
 
 Репозиторий: [github.com/ksandrpetrov/plaud-server-exporter](https://github.com/ksandrpetrov/plaud-server-exporter)
 
-Серверный CLI выгружает **саммари** записей Plaud в Markdown для Obsidian. На VPS расписание и уведомления ведёт **Telegram-бот** (long-polling под systemd). В том же репозитории лежит Chrome-расширение **`plaud-exporter/`**; семь
-модулей `plaud-exporter/common/*` (sync, пути, папки, id, title, записи, summary markdown) — формальный контракт server ↔ extension (см. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [AGENTS.md](AGENTS.md)).
+Серверный CLI выгружает **саммари** записей Plaud в Markdown для Obsidian. На VPS расписание и уведомления ведёт **Telegram-бот** (long-polling под systemd). В том же репозитории лежит Chrome-расширение **`browser-extension/`**; семь
+модулей `browser-extension/common/*` (sync, пути, папки, id, title, записи, summary markdown) — формальный контракт server ↔ extension (см. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [AGENTS.md](AGENTS.md)).
 
 ## Состав репозитория
 
-| Каталог                              | Назначение                                                |
-| ------------------------------------ | --------------------------------------------------------- |
-| [`server/`](server/)                 | Node CLI, Playwright-авторизация, Plaud API, Telegram-бот |
-| [`plaud-exporter/`](plaud-exporter/) | Расширение Chrome MV3 + общий код sync/путей              |
-| [`docs/`](docs/)                     | Установка, деплой, Syncthing, безопасность                |
-| [`deploy/`](deploy/)                 | systemd, logrotate, Docker Compose, Ansible, nginx-пример |
+| Каталог                                    | Назначение                                                |
+| ------------------------------------------ | --------------------------------------------------------- |
+| [`server/`](server/)                       | Node CLI, Playwright-авторизация, Plaud API, Telegram-бот |
+| [`browser-extension/`](browser-extension/) | Расширение Chrome MV3 + общий код sync/путей              |
+| [`docs/`](docs/)                           | Установка, деплой, Syncthing, безопасность                |
+| [`deploy/`](deploy/)                       | systemd, logrotate, Docker Compose, Ansible, nginx-пример |
 
 Отдельный репозиторий расширения (
 исторически): [ksandrpetrov/plaud-exporter](https://github.com/ksandrpetrov/plaud-exporter).
@@ -30,17 +30,17 @@
 
 ## Документация
 
-| Документ                                               | Содержание                                                         |
-| ------------------------------------------------------ | ------------------------------------------------------------------ |
-| **[docs/getting-started.md](docs/getting-started.md)** | Mac, VPS, первый sync, Telegram-бот, systemd                       |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)           | Карта кода, общие модули, потоки sync, что трогать при изменении X |
-| [docs/server-deploy.md](docs/server-deploy.md)         | Продакшен: systemd или Docker (чеклист)                            |
-| [deploy/README.md](deploy/README.md)                   | Docker + Ansible, GHCR, CI deploy                                  |
-| [docs/obsidian-sync.md](docs/obsidian-sync.md)         | Syncthing: сервер → Mac                                            |
-| [docs/troubleshooting.md](docs/troubleshooting.md)     | Коды выхода, сессия, `scp`, lock, Telegram                         |
-| [docs/security.md](docs/security.md)                   | Секреты, логи, ротация сессии                                      |
-| [plaud-exporter/README.md](plaud-exporter/README.md)   | Chrome-расширение (установка, попап)                               |
-| [server/README.md](server/README.md)                   | CLI, `.env`, Telegram, пути на диске                               |
+| Документ                                                   | Содержание                                                         |
+| ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| **[docs/getting-started.md](docs/getting-started.md)**     | Mac, VPS, первый sync, Telegram-бот, systemd                       |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)               | Карта кода, общие модули, потоки sync, что трогать при изменении X |
+| [docs/server-deploy.md](docs/server-deploy.md)             | Продакшен: systemd или Docker (чеклист)                            |
+| [deploy/README.md](deploy/README.md)                       | Docker + Ansible, GHCR, CI deploy                                  |
+| [docs/obsidian-sync.md](docs/obsidian-sync.md)             | Syncthing: сервер → Mac                                            |
+| [docs/troubleshooting.md](docs/troubleshooting.md)         | Коды выхода, сессия, `scp`, lock, Telegram                         |
+| [docs/security.md](docs/security.md)                       | Секреты, логи, ротация сессии                                      |
+| [browser-extension/README.md](browser-extension/README.md) | Chrome-расширение (установка, попап)                               |
+| [server/README.md](server/README.md)                       | CLI, `.env`, Telegram, пути на диске                               |
 
 ## Команды (из корня репозитория)
 
@@ -70,7 +70,7 @@ npm run server:bot       # Telegram-бот (VPS / локальная прове�
 
 ```bash
 npm install              # ставит deps в server/ + ставит pre-commit хук
-cd plaud-exporter && npm install && cd ..
+cd browser-extension && npm install && cd ..
 
 npm run check            # ОДНА команда: lint + typecheck + format:check
                          #   + lint:markdown + verify + tests + smoke
@@ -80,19 +80,19 @@ npm run check            # ОДНА команда: lint + typecheck + format:ch
 
 ```bash
 npm run lint             # eslint server, --max-warnings 0
-npm run lint:extension   # eslint plaud-exporter
+npm run lint:extension   # eslint browser-extension
 npm run lint:markdown    # markdownlint-cli2 (docs/, README, AGENTS)
 npm run typecheck        # JSDoc + tsc --checkJs (server + extension)
 npm run format           # prettier --write
 npm run format:check     # prettier --check (как в CI)
-npm run verify           # импорты server → plaud-exporter/common/*
+npm run verify           # импорты server → browser-extension/common/*
 npm run verify:extension # MV3 dynamic imports + manifest invariants
 npm test                 # server/tests (node:test)
-npm run test:extension   # plaud-exporter/tests (alias: test:submodule)
+npm run test:extension   # browser-extension/tests
 npm run test:coverage    # lcov + thresholds (требует Node 22+)
 ```
 
-Расширение отдельно: `cd plaud-exporter && npm run lint && npm test && npm run verify`.
+Расширение отдельно: `cd browser-extension && npm run lint && npm test && npm run verify`.
 
 Pre-commit хук (`simple-git-hooks` + `lint-staged`) ставится при `npm install`. Запускает
 prettier/eslint/verify-manifest на изменённые файлы. Снять: `git commit --no-verify` или
@@ -115,6 +115,6 @@ Deploy ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) на pus
 
 Локальный Docker: `cp .env.example .env` → `make docker-up` → `curl -s http://127.0.0.1:8080/healthz`.
 
-> Каталог [`plaud-exporter/`](plaud-exporter/) — **не git-submodule**, а вендорный код в монорепо. Скрипт
-> `npm run verify` (исторически `verify-submodule`) проверяет, что `plaud-exporter/common/*.js` существуют и относительные
+> Каталог [`browser-extension/`](browser-extension/) — вендорный код Chrome-расширения в монорепо (не git-submodule). Скрипт
+> `npm run verify` проверяет, что `browser-extension/common/*.js` существуют и относительные
 > импорты из `server/src/` резолвятся.

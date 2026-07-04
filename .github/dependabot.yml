@@ -33,7 +33,7 @@ updates:
 
   # Chrome extension (separate package-lock.json).
   - package-ecosystem: npm
-    directory: /plaud-exporter
+    directory: /browser-extension
     schedule:
       interval: weekly
       day: monday

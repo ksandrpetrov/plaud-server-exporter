@@ -10,7 +10,7 @@ main.
 - **Pre-commit (опционально, ставится `npm install` через `prepare`)**: `simple-git-hooks` + `lint-staged` запускают
   prettier/eslint/manifest verify на изменённые файлы. Конфиг лежит в [.lintstagedrc.mjs](../.lintstagedrc.mjs); ESLint
   диспатчится по воркспейсам через [scripts/lint-staged-eslint.mjs](../scripts/lint-staged-eslint.mjs), потому что
-  флэт-конфиг ESLint находится внутри `server/` и `plaud-exporter/`, а не в корне.
+  флэт-конфиг ESLint находится внутри `server/` и `browser-extension/`, а не в корне.
 - **PR template**: [.github/PULL_REQUEST_TEMPLATE.md](../.github/PULL_REQUEST_TEMPLATE.md) — короткий чек-лист.
 - **CODEOWNERS**: [.github/CODEOWNERS](../.github/CODEOWNERS) — авто-reviewer на shared/CI/деплой пути.
 

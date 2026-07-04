@@ -15,7 +15,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildStableId } from "../../plaud-exporter/common/syncCore.js";
+import { buildStableId } from "../../browser-extension/common/syncCore.js";
 import { getRecordingCreatedAtRaw } from "../src/plaud/recordingTimestamps.js";
 import {
   PLAUD_FOLDER_TRASH,

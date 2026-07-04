@@ -6,7 +6,7 @@ import {
   MAX_FILENAME_WITH_EXTENSION,
   sanitizePathSegment,
   truncateToGraphemes,
-} from "../../../plaud-exporter/common/exportPathUtils.js";
+} from "../../../browser-extension/common/exportPathUtils.js";
 import { config, effectiveVaultRoot } from "../config/config.js";
 
 /**

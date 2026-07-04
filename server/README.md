@@ -13,7 +13,7 @@ Node.js CLI: **саммари** встреч Plaud → Markdown для Obsidian 
 4. Ведёт `server/.data/sync-index.json`, чтобы не дублировать неизменённые записи.
 5. При сбоях пишет отчёты в `{vault}/_errors/`.
 
-Общая логика путей и хешей — в [`plaud-exporter/common/`](../plaud-exporter/common/) (тот же код, что у
+Общая логика путей и хешей — в [`browser-extension/common/`](../browser-extension/common/) (тот же код, что у
 Chrome-расширения).
 
 ## Быстрый старт
@@ -89,7 +89,7 @@ npm run server:sync
 ## Аудио
 
 **Сервер аудио не качает.** Флага `--audio-too` нет; `runSync` не вызывает `/file/temp-url` (см.
-`syncAudioDefault.test.js`). Для аудио используйте Chrome-расширение в [`plaud-exporter/`](../plaud-exporter/) или экспорт с Plaud Web.
+`syncAudioDefault.test.js`). Для аудио используйте Chrome-расширение в [`browser-extension/`](../browser-extension/) или экспорт с Plaud Web.
 
 ## Продакшен на VPS
 

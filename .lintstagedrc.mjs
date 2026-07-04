@@ -1,5 +1,5 @@
 // Lint-staged runs from the repo root, but ESLint configs live inside each
-// workspace (`server/eslint.config.js`, `plaud-exporter/eslint.config.js`).
+// workspace (`server/eslint.config.js`, `browser-extension/eslint.config.js`).
 // Dispatch staged files to ESLint per workspace via a small Node helper so the
 // command runs with the workspace as cwd (where its flat config + plugins
 // live). We can't use `cd <ws> && eslint …` because lint-staged uses tinyexec
@@ -37,15 +37,15 @@ export default {
       tasks.push(eslintForWorkspace(serverFiles, "server"));
     }
 
-    const extensionFiles = filesIn(files, "plaud-exporter");
+    const extensionFiles = filesIn(files, "browser-extension");
     if (extensionFiles.length > 0) {
-      tasks.push(eslintForWorkspace(extensionFiles, "plaud-exporter"));
+      tasks.push(eslintForWorkspace(extensionFiles, "browser-extension"));
     }
 
     return tasks;
   },
   "*.{json,md,yml,yaml}": "prettier --write",
-  "plaud-exporter/manifest.json":
-    "node plaud-exporter/scripts/verify-manifest.js",
+  "browser-extension/manifest.json":
+    "node browser-extension/scripts/verify-manifest.js",
   ".github/workflows/*.{yml,yaml}": "prettier --write",
 };

@@ -8,7 +8,7 @@ mkdir -p "$ROOT/coverage"
 
 # Ensure each workspace produces a separate lcov so include filters stay simple.
 ( cd "$ROOT/server" && npm run --silent test:coverage )
-( cd "$ROOT/plaud-exporter" && npm run --silent test:coverage )
+( cd "$ROOT/browser-extension" && npm run --silent test:coverage )
 
 node "$ROOT/scripts/coverage-thresholds.mjs" \
   "$ROOT/coverage/server.lcov.info" \

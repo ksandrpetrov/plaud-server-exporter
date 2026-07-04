@@ -2,9 +2,9 @@
 * @ksandrpetrov
 
 # Shared contract between server and extension — extra scrutiny on changes.
-/plaud-exporter/common/                @ksandrpetrov
-/scripts/verify-submodule.js           @ksandrpetrov
-/plaud-exporter/scripts/verify-*.js    @ksandrpetrov
+/browser-extension/common/                @ksandrpetrov
+/scripts/verify-shared-contract.js     @ksandrpetrov
+/browser-extension/scripts/verify-*.js    @ksandrpetrov
 
 # CI / quality gate / deployment scripts.
 /.github/                              @ksandrpetrov
@@ -19,6 +19,6 @@
 /.gitleaks.toml                        @ksandrpetrov
 /eslint.config.js                      @ksandrpetrov
 /server/eslint.config.js               @ksandrpetrov
-/plaud-exporter/eslint.config.js       @ksandrpetrov
+/browser-extension/eslint.config.js       @ksandrpetrov
 /server/tsconfig.json                  @ksandrpetrov
-/plaud-exporter/tsconfig.json          @ksandrpetrov
+/browser-extension/tsconfig.json          @ksandrpetrov

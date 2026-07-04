@@ -14,9 +14,9 @@ const modules = [
   "server/src/http/webServer.js",
   "server/src/telegram/index.js",
   "server/src/sync/syncRunner.js",
-  "plaud-exporter/common/syncCore.js",
-  "plaud-exporter/common/exportPathUtils.js",
-  "plaud-exporter/common/plaudFolders.js",
+  "browser-extension/common/syncCore.js",
+  "browser-extension/common/exportPathUtils.js",
+  "browser-extension/common/plaudFolders.js",
 ];
 
 for (const rel of modules) {
