@@ -15,14 +15,11 @@ import {
 import {
   buildPlaudRecordingFanoutPlan,
   collectPlaudRecordingArrays,
-  extractPlaudRecordingTotal,
-  isPlaudRecordingPageDone,
-  mergeRawPlaudRecordings,
   normalizePlaudRecording,
+  paginatePlaudRecordingVariant,
+  runPlaudRecordingFanout,
 } from "../../../plaud-exporter/common/plaudRecordings.js";
 import {
-  extractFiletagIdsFromRaw,
-  mergeFiletagIds,
   mergeFiletagsById,
   parseFiletagListPayload,
   resolveFileFolderSegment,
@@ -34,9 +31,7 @@ export {
   normalizeHumanTitle,
 } from "../../../plaud-exporter/common/plaudTitles.js";
 
-export function normalizePlaudFile(rawFile) {
-  return normalizePlaudRecording(rawFile);
-}
+export { normalizePlaudRecording as normalizePlaudFile };
 
 async function fetchPlaudFiletagListWithAuth(session, authHeader) {
   const headers = authHeader ? { Authorization: authHeader } : {};
@@ -86,50 +81,23 @@ async function fetchRecordingsVariant(session, fixedParams, opts = {}) {
       ? Math.floor(limitOverride)
       : config.apiPageLimit;
 
-  const files = [];
-  const seenIds = new Set();
-  let pagesFetched = 0;
-
-  for (let skip = 0; skip < config.apiMaxFiles; skip += pageLimit) {
-    const query = new URLSearchParams({
-      skip: String(skip),
-      limit: String(pageLimit),
-      sort_by: sortBy || "start_time",
-      is_desc: "true",
-      r: String(Math.random()),
-      ...fixedParams,
-    });
-    const payload = await fetchPlaudApi(
-      session,
-      `/file/simple/web?${query.toString()}`
-    );
-    const arrays = collectPlaudRecordingArrays(payload);
-    if (requireArrayOnFirstPage && skip === 0 && !arrays.length) {
-      findFileArray(payload, { requireArray: true });
-    }
-    const rawLen = arrays.length ? Math.max(...arrays.map((a) => a.length)) : 0;
-    const mergedRaw = mergeRawPlaudRecordings(arrays);
-    const serverTotal = extractPlaudRecordingTotal(payload);
-
-    const pageFiles = mergedRaw
-      .map(normalizePlaudFile)
-      .filter(Boolean)
-      .filter((file) => {
-        if (seenIds.has(file.id)) return false;
-        seenIds.add(file.id);
-        return true;
-      });
-
-    files.push(...pageFiles);
-    pagesFetched++;
-    if (pagesFetched >= maxPages) break;
-
-    if (isPlaudRecordingPageDone({ serverTotal, rawLen, skip, pageLimit })) {
-      break;
-    }
-  }
-
-  return files;
+  return paginatePlaudRecordingVariant({
+    fetchPage: async (query) => {
+      const qs = new URLSearchParams(query).toString();
+      return fetchPlaudApi(session, `/file/simple/web?${qs}`);
+    },
+    fixedParams,
+    sortBy,
+    pageLimit,
+    maxFiles: config.apiMaxFiles,
+    maxPages,
+    requireArrayOnFirstPage,
+    onMissingFirstPageArray: requireArrayOnFirstPage
+      ? (payload) => {
+          findFileArray(payload, { requireArray: true });
+        }
+      : undefined,
+  });
 }
 
 function attachFolderSegments(files, tagById, unfiledIds, allFilesIds) {
@@ -236,55 +204,26 @@ export async function listAllRecordings(session, options = {}) {
   }
   const { tagById, unfiledIds, allFilesIds } =
     buildFolderResolutionContext(tags);
-  const byId = new Map();
 
-  function ingest(list, contextFolderId = "") {
-    for (const file of list) {
-      const fromRaw = extractFiletagIdsFromRaw(file.raw);
-      const folderIds = mergeFiletagIds(
-        file.folderIds,
-        fromRaw,
-        contextFolderId ? [contextFolderId] : []
-      );
-      const merged = { ...file, folderIds };
-      const existing = byId.get(file.id);
-      if (existing) {
-        merged.folderIds = mergeFiletagIds(existing.folderIds, folderIds);
-      }
-      byId.set(file.id, merged);
-    }
-  }
-
-  async function tryIngest(params, opts, contextFolderId = "") {
-    try {
-      ingest(
-        await fetchRecordingsVariant(session, params, { sortBy, ...opts }),
-        contextFolderId
-      );
-    } catch (err) {
+  const files = await runPlaudRecordingFanout({
+    fetchVariant: (params, variantOpts) =>
+      fetchRecordingsVariant(session, params, { sortBy, ...variantOpts }),
+    plan: buildPlaudRecordingFanoutPlan({
+      tags,
+      unfiledIds,
+      includeTrash,
+      maxFiles: config.apiMaxFiles,
+    }),
+    onVariantError: (err, step) => {
       logger.warn("recordingsApi: recordings list variant failed", {
-        params,
-        contextFolderId: contextFolderId || undefined,
+        params: step.params,
+        contextFolderId: step.contextFolderId || undefined,
         error: String(err?.message || err),
       });
-    }
-  }
+    },
+  });
 
-  for (const step of buildPlaudRecordingFanoutPlan({
-    tags,
-    unfiledIds,
-    includeTrash,
-    maxFiles: config.apiMaxFiles,
-  })) {
-    await tryIngest(step.params, step.opts, step.contextFolderId);
-  }
-
-  return attachFolderSegments(
-    [...byId.values()],
-    tagById,
-    unfiledIds,
-    allFilesIds
-  );
+  return attachFolderSegments(files, tagById, unfiledIds, allFilesIds);
 }
 
 function findFileArray(payload, { requireArray = false } = {}) {

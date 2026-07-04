@@ -58,7 +58,38 @@ function checkRequiredFiles() {
   return ok;
 }
 
-const IMPORT_RE = /from\s+["']([^"']+)["']/g;
+const IMPORT_RE = /(?:from|import)\s*(?:\(\s*)?["']([^"']+)["']/g;
+const SHARED_COMMON_PREFIX = "plaud-exporter/common/";
+
+function sharedCommonBasenames() {
+  return new Set(
+    REQUIRED_SUBMODULE_FILES.map((rel) =>
+      rel.slice(SHARED_COMMON_PREFIX.length)
+    )
+  );
+}
+
+async function walkAndCheckCommonImports(dir, allowed) {
+  const files = await walkJsFiles(dir);
+  let ok = true;
+  for (const file of files) {
+    const text = readFileSync(file, "utf8");
+    for (const match of text.matchAll(IMPORT_RE)) {
+      const spec = match[1];
+      const marker = "plaud-exporter/common/";
+      const idx = spec.indexOf(marker);
+      if (idx === -1) continue;
+      const basename = spec.slice(idx + marker.length);
+      if (!allowed.has(basename)) {
+        fail(
+          `server imports extension-only common module: ${spec} (in ${file})`
+        );
+        ok = false;
+      }
+    }
+  }
+  return ok;
+}
 
 async function checkServerImports() {
   if (!existsSync(SERVER_SRC)) return true;
@@ -82,7 +113,11 @@ async function checkServerImports() {
 
 const filesOk = checkRequiredFiles();
 const importsOk = await checkServerImports();
+const commonBoundaryOk = await walkAndCheckCommonImports(
+  SERVER_SRC,
+  sharedCommonBasenames()
+);
 
-if (filesOk && importsOk) {
+if (filesOk && importsOk && commonBoundaryOk) {
   console.log("verify-submodule: OK");
 }

@@ -48,14 +48,14 @@
 Формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и **оба** набора тестов.
 
 | Файл                                                                                       | Меняешь — обновляй                                                                                                                                       |
-| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
 | [`plaud-exporter/common/syncCore.js`](plaud-exporter/common/syncCore.js)                   | Тесты в `plaud-exporter/tests/syncCore.test.js` **и** `server/tests/syncRunner*.test.js`                                                                 |
 | [`plaud-exporter/common/exportPathUtils.js`](plaud-exporter/common/exportPathUtils.js)     | `plaud-exporter/tests/exportPathUtils.test.js` + `server/tests/filenamePlanner.test.js`                                                                  |
 | [`plaud-exporter/common/plaudFolders.js`](plaud-exporter/common/plaudFolders.js)           | `plaud-exporter/tests/plaudFolders.test.js` + `server/tests/plaudFolders.test.js`                                                                        |
 | [`plaud-exporter/common/plaudRecordingIds.js`](plaud-exporter/common/plaudRecordingIds.js) | `plaud-exporter/tests/plaudRecordingIds.test.js` + `server/tests/plaudRecordingIds.test.js`; consumers: `recordingsApi.js`, `plaudRecordingIdScraper.js` |
 | [`plaud-exporter/common/plaudTitles.js`](plaud-exporter/common/plaudTitles.js)             | `plaud-exporter/tests/plaudTitles.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js`, `summariesApi.js`    |
 | [`plaud-exporter/common/plaudSummaries.js`](plaud-exporter/common/plaudSummaries.js)       | `plaud-exporter/tests/plaudSummaries.test.js` + `server/tests/plaudApiClient.test.js`; consumers: `summariesApi.js`, `audioExport.js`                    |
-| [`plaud-exporter/common/plaudRecordings.js`](plaud-exporter/common/plaudRecordings.js)     | `plaud-exporter/tests/plaudRecordings.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js`                   |
+| [`plaud-exporter/common/plaudRecordings.js`](plaud-exporter/common/plaudRecordings.js)     | Парсинг `/file/simple/web`, pagination, ingest/fan-out, нормализация записей                                                                             | `plaud-exporter/tests/plaudRecordings.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js` |
 
 Список захардкожен в [`scripts/verify-submodule.js`](scripts/verify-submodule.js). `npm run verify` проверяет
 существование файлов и что все относительные импорты `server/src/...` резолвятся.
@@ -70,7 +70,7 @@
 
 | Файл                                                                                                       | LOC   | Что в нём                                                                                      |
 | ---------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------- |
-| [`plaud-exporter/features/audioExport/audioExport.js`](plaud-exporter/features/audioExport/audioExport.js) | ~2.2k | Plaud HTTP в браузере + `runExportAll` + `runSmartSync`                                        |
+| [`plaud-exporter/features/audioExport/audioExport.js`](plaud-exporter/features/audioExport/audioExport.js) | ~1.4k | Plaud HTTP в браузере + `runExportAll` + `runSmartSync`                                        |
 | [`plaud-exporter/popup/popup.js`](plaud-exporter/popup/popup.js)                                           | ~1.9k | Весь UI попапа и его состояние                                                                 |
 | [`plaud-exporter/background.js`](plaud-exporter/background.js)                                             | ~1k   | MV3 service worker: оркестрация export/sync (downloads — `background/chromeDownloadBridge.js`) |
 
