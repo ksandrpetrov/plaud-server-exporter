@@ -37,6 +37,8 @@ export const ACTION_GET_SYNC_SETTINGS = "getSyncSettings";
 /** popup -> background */
 export const ACTION_SET_SYNC_SUBDIRECTORY = "setSyncSubdirectory";
 /** popup -> background */
+export const ACTION_SET_SYNC_MODE = "setSyncMode";
+/** popup -> background */
 export const ACTION_SHOW_DEFAULT_DOWNLOADS_FOLDER =
   "showDefaultDownloadsFolder";
 
@@ -88,6 +90,7 @@ export const RUNTIME_MESSAGE_ACTIONS = Object.freeze({
   ACTION_GET_SMART_SYNC_STATUS,
   ACTION_GET_SYNC_SETTINGS,
   ACTION_SET_SYNC_SUBDIRECTORY,
+  ACTION_SET_SYNC_MODE,
   ACTION_SHOW_DEFAULT_DOWNLOADS_FOLDER,
   ACTION_DOWNLOAD_PLAUD_FILE,
   ACTION_RUN_EXPORT_ALL,

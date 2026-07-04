@@ -74,19 +74,19 @@ document.addEventListener("DOMContentLoaded", async function () {
     requestAnimationFrame(fn);
   }
 
+  const heroExportAllSummaryBtn = document.getElementById(
+    "heroExportAllSummaryBtn"
+  );
+  const heroExportCurrentSummaryBtn = document.getElementById(
+    "heroExportCurrentSummaryBtn"
+  );
+  const heroPanel = document.getElementById("heroPanel");
   const exportAllBtn = document.getElementById("exportAllBtn");
-  const exportAudioBtn = document.getElementById("exportAudioBtn");
-  const exportSummaryBtn = document.getElementById("exportSummaryBtn");
+  const exportCurrentBtn = document.getElementById("exportCurrentBtn");
   const exportBgBtn = document.getElementById("exportBgBtn");
   const stopExportBtn = document.getElementById("stopExportBtn");
-  const currentExportAllBtn = document.getElementById("currentExportAllBtn");
-  const currentExportAudioBtn = document.getElementById(
-    "currentExportAudioBtn"
-  );
-  const currentExportSummaryBtn = document.getElementById(
-    "currentExportSummaryBtn"
-  );
-  const currentPanel = document.getElementById("currentPanel");
+  const exportModeBothBtn = document.getElementById("exportModeBothBtn");
+  const exportModeAudioBtn = document.getElementById("exportModeAudioBtn");
   const exportPanel = document.getElementById("exportPanel");
   const syncPanel = document.getElementById("syncPanel");
   const offlinePanel = document.getElementById("offlinePanel");
@@ -94,11 +94,13 @@ document.addEventListener("DOMContentLoaded", async function () {
   const smartSyncBtn = document.getElementById("smartSyncBtn");
   const openDownloadsBtn = document.getElementById("openDownloadsBtn");
   const syncFolderInput = document.getElementById("syncFolderInput");
-  const syncFolderSaveBtn = document.getElementById("syncFolderSaveBtn");
+  const syncModeBothBtn = document.getElementById("syncModeBothBtn");
+  const syncModeSummaryBtn = document.getElementById("syncModeSummaryBtn");
   const syncStatusEl = document.getElementById("syncStatus");
   const syncIcloudCmdEl = document.getElementById("syncIcloudCmd");
   const syncIcloudCopyBtn = document.getElementById("syncIcloudCopyBtn");
   let syncIcloudCopyResetTimer = null;
+  let syncFolderSaveTimer = null;
   /** Linking the whole iCloud Drive root keeps the field flexible: user picks any subpath. */
   const ICLOUD_SYMLINK_COMMAND =
     'ln -s "$HOME/Library/Mobile Documents/com~apple~CloudDocs" "$HOME/Downloads/iCloud"';
@@ -114,16 +116,8 @@ document.addEventListener("DOMContentLoaded", async function () {
   const tabStateBadge = document.getElementById("tabStateBadge");
   const exportSubtitle = document.getElementById("exportSubtitle");
   const headerSubtitle = document.getElementById("headerSubtitle");
-  const statsQuest = document.getElementById("statsQuest");
-  const statsTierEmoji = document.getElementById("statsTierEmoji");
-  const statsTierLabel = document.getElementById("statsTierLabel");
-  const statsRecordingsValue = document.getElementById("statsRecordingsValue");
-  const statsSummariesValue = document.getElementById("statsSummariesValue");
-  const statsMilestoneFill = document.getElementById("statsMilestoneFill");
-  const statsMilestoneCaption = document.getElementById(
-    "statsMilestoneCaption"
-  );
-  const statsFootnote = document.getElementById("statsFootnote");
+  const archiveStrip = document.getElementById("archiveStrip");
+  const archiveLine = document.getElementById("archiveLine");
   const statsRefreshBtn = document.getElementById("statsRefreshBtn");
   const langRuBtn = document.getElementById("langRuBtn");
   const langEnBtn = document.getElementById("langEnBtn");
@@ -132,9 +126,6 @@ document.addEventListener("DOMContentLoaded", async function () {
   const themeDarkBtn = document.getElementById("themeDarkBtn");
 
   const LIBRARY_STATS_STORAGE_KEY = "plaudExporterLibraryStats";
-  const RECORDING_MILESTONES = [5, 10, 25, 50, 100, 250];
-  let summariesCountingLabel = "";
-  let recordingsSearchingLabel = "";
   let statsFetchInFlight = false;
   let statsWatchdogTimer = null;
   let lastExportStatusData = null;
@@ -144,8 +135,6 @@ document.addEventListener("DOMContentLoaded", async function () {
   const DEFAULT_SYNC_SUBDIRECTORY = "PlaudExports/Sync";
   /** @type {{ recordings: number; summaries: number; updatedAt: number } | null} */
   let warmStatsDuringFetch = null;
-  /** @type {ReturnType<typeof setTimeout> | null} */
-  let statsStartupBusyTimer = null;
 
   function applyI18nToDocument() {
     document.documentElement.lang = uiLocale;
@@ -165,8 +154,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (footerThemeGroup)
       footerThemeGroup.setAttribute("aria-label", tr("footer.theme"));
     copyStatusBtnDefault = tr("btn.copyError");
-    summariesCountingLabel = tr("stats.countingSummaries");
-    recordingsSearchingLabel = tr("stats.searchingRecordings");
     if (copyStatusBtn && copyStatusBtn.hidden) {
       copyStatusBtn.textContent = copyStatusBtnDefault;
     }
@@ -208,15 +195,23 @@ document.addEventListener("DOMContentLoaded", async function () {
   const EXPORT_MODE_BOTH = "both";
   const EXPORT_MODE_AUDIO = "audio";
   const EXPORT_MODE_SUMMARY = "summary";
+  const SYNC_MODE_BOTH = "both";
+  const SYNC_MODE_SUMMARY = "summary";
+  /** @type {"both" | "summary"} */
+  let selectedSyncMode = SYNC_MODE_BOTH;
+  /** @type {"both" | "audio"} */
+  let selectedAdvancedExportMode = EXPORT_MODE_BOTH;
   const exportActionButtons = [
+    heroExportAllSummaryBtn,
+    heroExportCurrentSummaryBtn,
     exportAllBtn,
-    exportAudioBtn,
-    exportSummaryBtn,
+    exportCurrentBtn,
     exportBgBtn,
     smartSyncBtn,
-    currentExportAllBtn,
-    currentExportAudioBtn,
-    currentExportSummaryBtn,
+    exportModeBothBtn,
+    exportModeAudioBtn,
+    syncModeBothBtn,
+    syncModeSummaryBtn,
   ];
   const hasChromeExtensionApi =
     typeof chrome !== "undefined" &&
@@ -326,9 +321,10 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   function setPlaudTabState(tab) {
     activeTabIsPlaud = isPlaudTab(tab);
-    if (currentPanel) currentPanel.hidden = !activeTabIsPlaud;
+    if (heroPanel) heroPanel.hidden = !activeTabIsPlaud;
     if (exportPanel) exportPanel.hidden = !activeTabIsPlaud;
     if (syncPanel) syncPanel.hidden = !activeTabIsPlaud;
+    if (archiveStrip) archiveStrip.hidden = !activeTabIsPlaud;
     if (offlinePanel) offlinePanel.hidden = activeTabIsPlaud;
     tabStateBadge.textContent = activeTabIsPlaud
       ? tr("badge.onPlaudWeb")
@@ -337,10 +333,7 @@ document.addEventListener("DOMContentLoaded", async function () {
       ? "badge badge-tab badge-tab--ready"
       : "badge badge-tab badge-tab--offline";
     if (activeTabIsPlaud) {
-      setPairSubtitles(
-        tr("subtitles.exportAllAvailable"),
-        tr("subtitles.audioSummary")
-      );
+      if (headerSubtitle) headerSubtitle.textContent = tr("hero.lead");
     } else {
       setPairSubtitles(tr("subtitles.switchPlaudWeb"));
     }
@@ -447,53 +440,42 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  function getArchiveTier(recordings) {
-    if (recordings >= 100)
-      return { emoji: "🏆", titleKey: "stats.tier.legend" };
-    if (recordings >= 50)
-      return { emoji: "✨", titleKey: "stats.tier.resumeWizard" };
-    if (recordings >= 25)
-      return { emoji: "⚡", titleKey: "stats.tier.chronicler" };
-    if (recordings >= 10)
-      return { emoji: "📚", titleKey: "stats.tier.archivist" };
-    if (recordings >= 3)
-      return { emoji: "🧠", titleKey: "stats.tier.thoughtCollector" };
-    return { emoji: "🎙️", titleKey: "stats.tier.newcomer" };
+  function renderArchiveStrip(recordings, summaries, opts = {}) {
+    if (!archiveLine || !archiveStrip) return;
+
+    const r = Number(recordings) || 0;
+    const summariesUnknown =
+      summaries === null ||
+      summaries === undefined ||
+      Number.isNaN(Number(summaries));
+    const s = summariesUnknown ? "—" : String(Number(summaries) || 0);
+
+    let line = tr("archive.line", { recordings: r, summaries: s });
+
+    if (opts.cachedAt && !opts.loading) {
+      line += ` · ${formatShortRelative(opts.cachedAt)}`;
+    }
+    if (opts.loading) {
+      line = tr("archive.loading");
+    }
+    if (opts.offline && !opts.loading) {
+      line = tr("archive.offline", {
+        recordings: r,
+        summaries: s,
+        time: opts.cachedAt ? formatShortRelative(opts.cachedAt) : "—",
+      });
+    }
+    if (opts.phaseMessage) {
+      line = opts.phaseMessage;
+    }
+
+    archiveLine.textContent = line;
+    archiveStrip.classList.toggle("archive-strip--loading", !!opts.loading);
+    archiveStrip.classList.toggle("archive-strip--offline", !!opts.offline);
   }
 
-  function getMilestoneProgress(recordings) {
-    const max = RECORDING_MILESTONES[RECORDING_MILESTONES.length - 1];
-    if (recordings >= max) {
-      return {
-        pct: 100,
-        caption: tr("stats.milestone.final"),
-      };
-    }
-
-    let prev = 0;
-    let next = RECORDING_MILESTONES[0];
-    for (let i = 0; i < RECORDING_MILESTONES.length; i++) {
-      next = RECORDING_MILESTONES[i];
-      if (recordings < next) break;
-      prev = next;
-    }
-
-    if (recordings >= next) {
-      return {
-        pct: 100,
-        caption: tr("stats.milestone.goalMet", { n: next }),
-      };
-    }
-
-    const span = Math.max(1, next - prev);
-    const pct = Math.round(((recordings - prev) / span) * 100);
-    return {
-      pct: Math.min(100, Math.max(0, pct)),
-      caption: tr("stats.milestone.until", {
-        next: next,
-        left: next - recordings,
-      }),
-    };
+  function showArchiveLoading() {
+    renderArchiveStrip(0, 0, { loading: true });
   }
 
   function formatShortRelative(ts) {
@@ -507,93 +489,107 @@ document.addEventListener("DOMContentLoaded", async function () {
     return tr("time.dayAgo", { n: d });
   }
 
-  function formatStatsCacheFootPrefix(ts) {
-    const sec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-    if (sec < 60) return tr("stats.foot.cacheJustNow");
-    return tr("stats.foot.cachePrefix", { time: formatShortRelative(ts) });
+  function formatForegroundExportResult(data) {
+    if (!data) return tr("toast.exportDoneGeneric");
+    if (data.error) {
+      return tr("error.exportError", { msg: data.error });
+    }
+    const summaries = Number(data.summariesExported) || 0;
+    const audio = Number(data.audioExported) || 0;
+    const errors =
+      (Number(data.filesErrored) || 0) + (Number(data.summaryErrors) || 0);
+    const mode = data.exportMode || EXPORT_MODE_BOTH;
+    if (mode === EXPORT_MODE_SUMMARY) {
+      return tr("toast.exportDoneSummary", { n: summaries, e: errors });
+    }
+    if (mode === EXPORT_MODE_AUDIO) {
+      return tr("toast.exportDoneAudio", { n: audio, e: errors });
+    }
+    return tr("toast.exportDoneBoth", {
+      audio,
+      summaries,
+      e: errors,
+    });
   }
 
-  function renderLibraryStatsPanel(recordings, summaries, opts = {}) {
-    if (
-      !statsQuest ||
-      !statsTierEmoji ||
-      !statsTierLabel ||
-      !statsRecordingsValue ||
-      !statsSummariesValue ||
-      !statsMilestoneFill ||
-      !statsMilestoneCaption ||
-      !statsFootnote
-    ) {
+  function pingContentBusyState(tab, callback) {
+    if (!tab?.id || !isPlaudTab(tab)) {
+      callback(null);
       return;
     }
-
-    const r = Number(recordings) || 0;
-    const summariesUnknown =
-      summaries === null ||
-      summaries === undefined ||
-      Number.isNaN(Number(summaries));
-    const s = summariesUnknown ? 0 : Number(summaries);
-
-    const tier = getArchiveTier(r);
-    const mile = getMilestoneProgress(r);
-
-    statsTierEmoji.textContent = tier.emoji;
-    statsTierLabel.textContent = tr(tier.titleKey);
-    statsRecordingsValue.textContent = String(r);
-    statsSummariesValue.textContent = summariesUnknown ? "—" : String(s);
-    statsMilestoneFill.style.width = `${mile.pct}%`;
-    statsMilestoneCaption.textContent = mile.caption;
-
-    let foot = "";
-    if (opts.cachedAt && opts.offlinePreview) {
-      foot = `${formatStatsCacheFootPrefix(opts.cachedAt)}`;
-    } else if (opts.cachedAt && opts.staleWhileRevalidate) {
-      foot = `${formatStatsCacheFootPrefix(opts.cachedAt)}`;
-      if (opts.syncInProgress) {
-        foot = `${foot} ${tr("stats.syncInProgress")}`;
+    sendMessageToTabWithRecovery(
+      tab,
+      { action: "plaudExportPing" },
+      (err, resp) => {
+        if (err || !resp) {
+          callback(null);
+          return;
+        }
+        callback(resp);
       }
-    }
+    );
+  }
 
-    statsFootnote.textContent = foot;
-
-    statsQuest.classList.toggle("stats-quest--loading", !!opts.loading);
-    statsQuest.classList.toggle("stats-quest--offline", !!opts.offline);
-    if (!opts.loading && statsMilestoneFill) {
-      statsMilestoneFill.classList.remove("stats-milestone-fill--busy");
+  function applyContentBusyFromPing(ping) {
+    if (!ping) return;
+    if (ping.exportRunLock || ping.smartSyncLock) {
+      foregroundExportBusy = !!ping.exportRunLock;
+      smartSyncActive = !!ping.smartSyncLock;
+      updateExportControls();
     }
   }
 
-  function setStatsMilestoneBusy(active) {
-    if (statsStartupBusyTimer !== null) {
-      clearTimeout(statsStartupBusyTimer);
-      statsStartupBusyTimer = null;
+  function updateSyncModeToggleUi() {
+    if (syncModeBothBtn) {
+      syncModeBothBtn.classList.toggle(
+        "segment-group__item--active",
+        selectedSyncMode === SYNC_MODE_BOTH
+      );
     }
-    if (!statsMilestoneFill) return;
-    statsMilestoneFill.classList.toggle("stats-milestone-fill--busy", active);
-    if (!active && statsMilestoneFill.style.width === "0%") {
-      statsMilestoneFill.style.removeProperty("width");
-      return;
+    if (syncModeSummaryBtn) {
+      syncModeSummaryBtn.classList.toggle(
+        "segment-group__item--active",
+        selectedSyncMode === SYNC_MODE_SUMMARY
+      );
     }
-    if (active) statsMilestoneFill.style.width = "0%";
   }
 
-  function showStatsStartupPlaceholder() {
-    if (!statsQuest) return;
-    statsQuest.classList.add("stats-quest--loading");
-    if (statsTierLabel) statsTierLabel.textContent = tr("stats.startupLabel");
-    if (statsFootnote) statsFootnote.textContent = tr("stats.startupFootnote");
-    if (statsMilestoneCaption) statsMilestoneCaption.textContent = "";
-    if (statsSummariesValue)
-      statsSummariesValue.textContent = summariesCountingLabel;
-    if (statsRecordingsValue)
-      statsRecordingsValue.textContent = recordingsSearchingLabel;
-    if (statsStartupBusyTimer !== null) {
-      clearTimeout(statsStartupBusyTimer);
+  function updateAdvancedExportModeUi() {
+    if (exportModeBothBtn) {
+      exportModeBothBtn.classList.toggle(
+        "segment-group__item--active",
+        selectedAdvancedExportMode === EXPORT_MODE_BOTH
+      );
     }
-    statsStartupBusyTimer = setTimeout(function () {
-      statsStartupBusyTimer = null;
-      setStatsMilestoneBusy(true);
-    }, 150);
+    if (exportModeAudioBtn) {
+      exportModeAudioBtn.classList.toggle(
+        "segment-group__item--active",
+        selectedAdvancedExportMode === EXPORT_MODE_AUDIO
+      );
+    }
+  }
+
+  function persistSyncMode(mode) {
+    sendRuntimeMessage({ action: "setSyncMode", syncMode: mode }, () => {});
+  }
+
+  function scheduleSyncFolderSave() {
+    if (syncFolderSaveTimer) clearTimeout(syncFolderSaveTimer);
+    syncFolderSaveTimer = setTimeout(function () {
+      syncFolderSaveTimer = null;
+      const syncSubdirectory =
+        syncFolderInput?.value?.trim() || DEFAULT_SYNC_SUBDIRECTORY;
+      sendRuntimeMessage(
+        { action: "setSyncSubdirectory", syncSubdirectory },
+        (sendError, response) => {
+          if (sendError || !response?.success) return;
+          if (syncFolderInput) {
+            syncFolderInput.value =
+              response.settings?.syncSubdirectory || syncSubdirectory;
+          }
+        }
+      );
+    }, 450);
   }
 
   function persistLibraryStatsMerge(recordings, summariesUpdate) {
@@ -650,6 +646,11 @@ document.addEventListener("DOMContentLoaded", async function () {
       const subdir =
         response.settings?.syncSubdirectory || DEFAULT_SYNC_SUBDIRECTORY;
       if (syncFolderInput) syncFolderInput.value = subdir;
+      const syncMode = response.settings?.syncMode;
+      if (syncMode === SYNC_MODE_SUMMARY || syncMode === SYNC_MODE_BOTH) {
+        selectedSyncMode = syncMode;
+      }
+      updateSyncModeToggleUi();
       if (response.summary) {
         renderSmartSyncStatus({
           status: "idle",
@@ -763,42 +764,26 @@ document.addEventListener("DOMContentLoaded", async function () {
     }, 2000);
   }
 
-  function statsPhaseLineWithWarmCache(phaseMsg) {
-    if (!warmStatsDuringFetch?.updatedAt) return phaseMsg;
-    return `${formatStatsCacheFootPrefix(warmStatsDuringFetch.updatedAt)} ${phaseMsg}`;
-  }
-
   function handleLibraryStatsProgress(data) {
     if (!data || !statsFetchInFlight) return;
-    const keepStaleCells = !!warmStatsDuringFetch;
     if (data.phase === "list") {
-      statsFootnote.textContent = statsPhaseLineWithWarmCache(
-        tr("stats.phase.list")
+      renderArchiveStrip(
+        warmStatsDuringFetch?.recordings || 0,
+        warmStatsDuringFetch?.summaries || 0,
+        { loading: true, phaseMessage: tr("stats.phase.list") }
       );
-      if (!keepStaleCells) {
-        if (statsRecordingsValue)
-          statsRecordingsValue.textContent = recordingsSearchingLabel;
-        if (statsSummariesValue)
-          statsSummariesValue.textContent = summariesCountingLabel;
-      }
     }
     if (data.phase === "summaries") {
       const total = Number(data.total);
       const current = Number(data.current);
       if (Number.isFinite(total) && total > 0 && Number.isFinite(current)) {
-        setStatsMilestoneBusy(false);
-        if (statsRecordingsValue)
-          statsRecordingsValue.textContent = String(total);
-        statsFootnote.textContent = statsPhaseLineWithWarmCache(
-          tr("stats.phase.summariesLine", {
-            current: current,
-            total: total,
-          })
-        );
-        statsSummariesValue.textContent = `${current}/${total}`;
-        const pct = Math.round((current / total) * 100);
-        statsMilestoneFill.style.width = `${pct}%`;
-        statsMilestoneCaption.textContent = tr("stats.phase.summariesCaption");
+        renderArchiveStrip(total, current, {
+          loading: true,
+          phaseMessage: tr("stats.phase.summariesLine", {
+            current,
+            total,
+          }),
+        });
       }
     }
   }
@@ -841,58 +826,35 @@ document.addEventListener("DOMContentLoaded", async function () {
       if (!statsFetchInFlight) return;
       statsFetchInFlight = false;
       warmStatsDuringFetch = null;
-      statsQuest?.classList.remove("stats-quest--loading");
-      setStatsMilestoneBusy(false);
       if (hasWarm) {
-        renderLibraryStatsPanel(
+        renderArchiveStrip(
           Number(warmCache.recordings) || 0,
           Number(warmCache.summaries) || 0,
-          {
-            cachedAt: warmCache.updatedAt,
-            staleWhileRevalidate: true,
-            syncInProgress: false,
-          }
+          { cachedAt: warmCache.updatedAt, offline: true }
         );
-        statsTierLabel.textContent = tr("stats.timeout");
-        statsFootnote.textContent = `${statsFootnote.textContent} — ${tr("stats.timeoutFootnote")}`;
+        updateStatus(tr("stats.timeoutFootnote"), "error");
       } else {
-        statsTierLabel.textContent = tr("stats.timeout");
-        if (statsRecordingsValue) statsRecordingsValue.textContent = "—";
-        if (statsSummariesValue) statsSummariesValue.textContent = "—";
-        statsFootnote.textContent = tr("stats.timeoutFootnote");
+        renderArchiveStrip(0, 0, {
+          offline: true,
+          phaseMessage: tr("stats.timeoutFootnote"),
+        });
       }
-      statsQuest?.classList.add("stats-quest--offline");
       updateExportControls();
     }, watchdogMs);
 
-    statsQuest?.classList.add("stats-quest--loading");
-
     if (hasWarm) {
-      renderLibraryStatsPanel(
+      renderArchiveStrip(
         Number(warmCache.recordings) || 0,
         Number(warmCache.summaries) || 0,
-        {
-          cachedAt: warmCache.updatedAt,
-          staleWhileRevalidate: true,
-          syncInProgress: true,
-        }
+        { cachedAt: warmCache.updatedAt, loading: true }
       );
-      setStatsMilestoneBusy(false);
     } else {
-      setStatsMilestoneBusy(true);
-    }
-
-    statsTierLabel.textContent = includeSummaries
-      ? tr("stats.countingLabel")
-      : tr("stats.loadingListLabel");
-    if (!hasWarm) {
-      statsFootnote.textContent = includeSummaries
-        ? tr("stats.fullScan")
-        : tr("stats.loadListSummaries");
-      if (statsRecordingsValue)
-        statsRecordingsValue.textContent = recordingsSearchingLabel;
-      if (statsSummariesValue)
-        statsSummariesValue.textContent = summariesCountingLabel;
+      renderArchiveStrip(0, 0, {
+        loading: true,
+        phaseMessage: includeSummaries
+          ? tr("stats.fullScan")
+          : tr("stats.loadListSummaries"),
+      });
     }
     updateExportControls();
 
@@ -904,33 +866,21 @@ document.addEventListener("DOMContentLoaded", async function () {
         statsFetchInFlight = false;
         warmStatsDuringFetch = null;
 
-        statsQuest?.classList.remove("stats-quest--loading");
-        setStatsMilestoneBusy(false);
-
         if (sendError || !response?.success) {
           const msg =
             sendError?.message || response?.error || tr("stats.statsError");
           if (hasWarm) {
-            renderLibraryStatsPanel(
+            renderArchiveStrip(
               Number(warmCache.recordings) || 0,
               Number(warmCache.summaries) || 0,
-              {
-                cachedAt: warmCache.updatedAt,
-                staleWhileRevalidate: true,
-                syncInProgress: false,
-              }
+              { cachedAt: warmCache.updatedAt, offline: true }
             );
-            statsTierLabel.textContent = tr("stats.needPlaudTab");
-            statsFootnote.textContent = `${statsFootnote.textContent} — ${msg}. ${tr("stats.retryPlaud")}`;
-            statsQuest?.classList.add("stats-quest--offline");
-            updateExportControls();
-            return;
+          } else {
+            renderArchiveStrip(0, 0, {
+              offline: true,
+              phaseMessage: `${msg} ${tr("stats.retryPlaud")}`,
+            });
           }
-          statsTierLabel.textContent = tr("stats.needPlaudTab");
-          statsFootnote.textContent = `${msg} ${tr("stats.retryPlaud")}`;
-          if (statsRecordingsValue) statsRecordingsValue.textContent = "—";
-          if (statsSummariesValue) statsSummariesValue.textContent = "—";
-          statsQuest?.classList.add("stats-quest--offline");
           updateExportControls();
           return;
         }
@@ -953,18 +903,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 ? Number(cached.summaries)
                 : null;
 
-          renderLibraryStatsPanel(rec, renderSummaries, {
-            cachedAt: Date.now(),
-          });
-
-          if (
-            (rawSummaries === null || rawSummaries === undefined) &&
-            (renderSummaries === null || renderSummaries === undefined)
-          ) {
-            statsFootnote.textContent = `${statsFootnote.textContent}${tr("stats.fullCountHint")}`;
-          }
-
-          statsQuest?.classList.remove("stats-quest--offline");
+          renderArchiveStrip(rec, renderSummaries, { cachedAt: Date.now() });
           updateExportControls();
         });
       }
@@ -980,33 +919,28 @@ document.addEventListener("DOMContentLoaded", async function () {
 
       if (!tab || !isPlaudTab(tab)) {
         if (hasCache) {
-          renderLibraryStatsPanel(cached.recordings, cached.summaries, {
+          renderArchiveStrip(cached.recordings, cached.summaries, {
             cachedAt: cached.updatedAt,
             offline: true,
-            offlinePreview: true,
-          });
-          statsFootnote.textContent = tr("stats.offlinePreview", {
-            time: formatShortRelative(cached.updatedAt),
           });
         } else {
-          renderLibraryStatsPanel(0, 0, { offline: true });
-          statsTierLabel.textContent = tr("stats.waitPlaudWeb");
-          statsFootnote.textContent = tr("stats.waitLogin");
+          renderArchiveStrip(0, 0, {
+            offline: true,
+            phaseMessage: tr("stats.waitLogin"),
+          });
         }
         updateExportControls();
         return;
       }
 
       if (hasCache) {
-        renderLibraryStatsPanel(cached.recordings, cached.summaries, {
+        renderArchiveStrip(cached.recordings, cached.summaries, {
           cachedAt: cached.updatedAt,
-          staleWhileRevalidate: true,
-          syncInProgress: true,
+          loading: true,
         });
       }
 
       if (exportActive || foregroundExportBusy) {
-        statsFootnote.textContent = tr("stats.exportBlocksStats");
         updateExportControls();
         return;
       }
@@ -1154,9 +1088,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     getFocusedTab((tabError, tab) => {
       if (tabError) {
         activeTabIsPlaud = false;
-        if (currentPanel) currentPanel.hidden = true;
+        if (heroPanel) heroPanel.hidden = true;
         if (exportPanel) exportPanel.hidden = true;
         if (syncPanel) syncPanel.hidden = true;
+        if (archiveStrip) archiveStrip.hidden = true;
         if (offlinePanel) offlinePanel.hidden = false;
         tabStateBadge.textContent = tr("badge.noTab");
         tabStateBadge.className = "badge badge-tab badge-tab--offline";
@@ -1169,6 +1104,7 @@ document.addEventListener("DOMContentLoaded", async function () {
       ensureActiveTabHasUrl(tab, function (resolved) {
         setPlaudTabState(resolved);
         refreshSmartSyncStatus(resolved);
+        pingContentBusyState(resolved, applyContentBusyFromPing);
         tryScheduleLibraryStats(isPlaudTab(resolved) ? resolved : null);
         if (lastExportStatusData) {
           updateExportStatus(lastExportStatusData);
@@ -1267,37 +1203,40 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  if (syncFolderSaveBtn) {
-    syncFolderSaveBtn.addEventListener("click", function () {
-      const syncSubdirectory =
-        syncFolderInput?.value?.trim() || DEFAULT_SYNC_SUBDIRECTORY;
-      syncFolderSaveBtn.disabled = true;
-      sendRuntimeMessage(
-        { action: "setSyncSubdirectory", syncSubdirectory },
-        (sendError, response) => {
-          syncFolderSaveBtn.disabled = false;
-          if (sendError || !response?.success) {
-            updateStatus(
-              tr("sync.folderSaveError", {
-                msg:
-                  response?.error || sendError?.message || tr("error.unknown"),
-              }),
-              "error"
-            );
-            return;
-          }
-          if (syncFolderInput) {
-            syncFolderInput.value =
-              response.settings?.syncSubdirectory || syncSubdirectory;
-          }
-          renderSmartSyncStatus({
-            status: "idle",
-            ...(response.summary || {}),
-            lastMessage: tr("sync.folderSaved"),
-          });
-          updateStatus(tr("sync.folderSaved"), "success");
-        }
-      );
+  if (syncFolderInput) {
+    syncFolderInput.addEventListener("input", scheduleSyncFolderSave);
+    syncFolderInput.addEventListener("change", scheduleSyncFolderSave);
+  }
+
+  if (syncModeBothBtn) {
+    syncModeBothBtn.addEventListener("click", function () {
+      if (selectedSyncMode === SYNC_MODE_BOTH) return;
+      selectedSyncMode = SYNC_MODE_BOTH;
+      updateSyncModeToggleUi();
+      persistSyncMode(SYNC_MODE_BOTH);
+    });
+  }
+  if (syncModeSummaryBtn) {
+    syncModeSummaryBtn.addEventListener("click", function () {
+      if (selectedSyncMode === SYNC_MODE_SUMMARY) return;
+      selectedSyncMode = SYNC_MODE_SUMMARY;
+      updateSyncModeToggleUi();
+      persistSyncMode(SYNC_MODE_SUMMARY);
+    });
+  }
+
+  if (exportModeBothBtn) {
+    exportModeBothBtn.addEventListener("click", function () {
+      if (selectedAdvancedExportMode === EXPORT_MODE_BOTH) return;
+      selectedAdvancedExportMode = EXPORT_MODE_BOTH;
+      updateAdvancedExportModeUi();
+    });
+  }
+  if (exportModeAudioBtn) {
+    exportModeAudioBtn.addEventListener("click", function () {
+      if (selectedAdvancedExportMode === EXPORT_MODE_AUDIO) return;
+      selectedAdvancedExportMode = EXPORT_MODE_AUDIO;
+      updateAdvancedExportModeUi();
     });
   }
 
@@ -1373,6 +1312,7 @@ document.addEventListener("DOMContentLoaded", async function () {
               action: "startSmartSync",
               tabId: resolved.id,
               syncSubdirectory,
+              syncMode: selectedSyncMode,
             },
             (sendError, response) => {
               if (sendError || !response?.success) {
@@ -1408,127 +1348,131 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  exportAllBtn.addEventListener("click", function () {
-    startForegroundExport(EXPORT_MODE_BOTH);
-  });
+  if (heroExportAllSummaryBtn) {
+    heroExportAllSummaryBtn.addEventListener("click", function () {
+      startForegroundExport(EXPORT_MODE_SUMMARY);
+    });
+  }
 
-  exportAudioBtn.addEventListener("click", function () {
-    startForegroundExport(EXPORT_MODE_AUDIO);
-  });
+  if (heroExportCurrentSummaryBtn) {
+    heroExportCurrentSummaryBtn.addEventListener("click", function () {
+      startCurrentPageExport(EXPORT_MODE_SUMMARY);
+    });
+  }
 
-  exportSummaryBtn.addEventListener("click", function () {
-    startForegroundExport(EXPORT_MODE_SUMMARY);
-  });
+  if (exportAllBtn) {
+    exportAllBtn.addEventListener("click", function () {
+      startForegroundExport(selectedAdvancedExportMode);
+    });
+  }
 
-  currentExportAllBtn.addEventListener("click", function () {
-    startCurrentPageExport(EXPORT_MODE_BOTH);
-  });
+  if (exportCurrentBtn) {
+    exportCurrentBtn.addEventListener("click", function () {
+      startCurrentPageExport(selectedAdvancedExportMode);
+    });
+  }
 
-  currentExportAudioBtn.addEventListener("click", function () {
-    startCurrentPageExport(EXPORT_MODE_AUDIO);
-  });
+  if (exportBgBtn) {
+    exportBgBtn.addEventListener("click", function () {
+      getFocusedTab((tabError, tab) => {
+        if (tabError) {
+          updateStatus(
+            tr("error.bgExportFailed", { msg: tabError.message }),
+            "error"
+          );
+          return;
+        }
+        ensureActiveTabHasUrl(tab, function (resolved) {
+          if (!isPlaudTab(resolved)) {
+            updateStatus(getPlaudTabHelpText(tr("actions.bgExport")), "error");
+            return;
+          }
 
-  currentExportSummaryBtn.addEventListener("click", function () {
-    startCurrentPageExport(EXPORT_MODE_SUMMARY);
-  });
+          exportBgBtn.disabled = true;
+          sendRuntimeMessage(
+            {
+              action: "startBackgroundExport",
+              tabId: resolved.id,
+              exportMode: selectedAdvancedExportMode,
+            },
+            (sendError, response) => {
+              if (sendError) {
+                updateStatus(
+                  tr("error.bgStartFailed", { msg: sendError.message }),
+                  "error"
+                );
+              } else if (response && response.success) {
+                updateStatus(tr("error.bgStarted"), "success");
+                exportActive = true;
+                currentExportTabId = resolved.id;
+                updateExportControls();
+                startStatusPolling();
+              } else {
+                updateStatus(
+                  tr("error.bgStartFailed", {
+                    msg: response?.error || tr("error.unknown"),
+                  }),
+                  "error"
+                );
+              }
+              updateExportControls();
+            }
+          );
+        });
+      });
+    });
+  }
 
-  exportBgBtn.addEventListener("click", function () {
-    getFocusedTab((tabError, tab) => {
-      if (tabError) {
-        updateStatus(
-          tr("error.bgExportFailed", { msg: tabError.message }),
-          "error"
-        );
-        return;
-      }
-      ensureActiveTabHasUrl(tab, function (resolved) {
-        if (!isPlaudTab(resolved)) {
-          updateStatus(getPlaudTabHelpText(tr("actions.bgExport")), "error");
+  if (stopExportBtn) {
+    stopExportBtn.addEventListener("click", function () {
+      const stopTabId = currentExportTabId;
+      getFocusedTab((tabError, tab) => {
+        const tabId = stopTabId || tab?.id;
+        if (tabError && !tabId) {
+          updateStatus(
+            tr("error.stopFailed", { msg: tabError.message }),
+            "error"
+          );
+          return;
+        }
+        if (!tabId) {
+          updateStatus(tr("error.stopNoTab"), "error");
           return;
         }
 
-        exportBgBtn.disabled = true;
         sendRuntimeMessage(
           {
-            action: "startBackgroundExport",
-            tabId: resolved.id,
-            exportMode: EXPORT_MODE_BOTH,
+            action: "stopExport",
+            tabId,
           },
           (sendError, response) => {
             if (sendError) {
               updateStatus(
-                tr("error.bgStartFailed", { msg: sendError.message }),
+                tr("error.stopFailed", { msg: sendError.message }),
                 "error"
               );
-            } else if (response && response.success) {
-              updateStatus(tr("error.bgStarted"), "success");
-              exportActive = true;
-              currentExportTabId = resolved.id;
+              return;
+            }
+            if (response && response.success) {
+              updateStatus(tr("error.stopAfterFile"), "info");
+              stopStatusPolling();
+              exportActive = false;
+              currentExportTabId = null;
+              updateExportStatus(null);
               updateExportControls();
-              startStatusPolling();
             } else {
               updateStatus(
-                tr("error.bgStartFailed", {
+                tr("error.stopFailedGeneric", {
                   msg: response?.error || tr("error.unknown"),
                 }),
                 "error"
               );
             }
-            updateExportControls();
           }
         );
       });
     });
-  });
-
-  stopExportBtn.addEventListener("click", function () {
-    const stopTabId = currentExportTabId;
-    getFocusedTab((tabError, tab) => {
-      const tabId = stopTabId || tab?.id;
-      if (tabError && !tabId) {
-        updateStatus(
-          tr("error.stopFailed", { msg: tabError.message }),
-          "error"
-        );
-        return;
-      }
-      if (!tabId) {
-        updateStatus(tr("error.stopNoTab"), "error");
-        return;
-      }
-
-      sendRuntimeMessage(
-        {
-          action: "stopExport",
-          tabId,
-        },
-        (sendError, response) => {
-          if (sendError) {
-            updateStatus(
-              tr("error.stopFailed", { msg: sendError.message }),
-              "error"
-            );
-            return;
-          }
-          if (response && response.success) {
-            updateStatus(tr("error.stopAfterFile"), "info");
-            stopStatusPolling();
-            exportActive = false;
-            currentExportTabId = null;
-            updateExportStatus(null);
-            updateExportControls();
-          } else {
-            updateStatus(
-              tr("error.stopFailedGeneric", {
-                msg: response?.error || tr("error.unknown"),
-              }),
-              "error"
-            );
-          }
-        }
-      );
-    });
-  });
+  }
 
   function copyTextToClipboard(text) {
     if (navigator.clipboard?.writeText) {
@@ -1610,9 +1554,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     getFocusedTab((tabError, tab) => {
       if (tabError) {
         activeTabIsPlaud = false;
-        if (currentPanel) currentPanel.hidden = true;
+        if (heroPanel) heroPanel.hidden = true;
         if (exportPanel) exportPanel.hidden = true;
         if (syncPanel) syncPanel.hidden = true;
+        if (archiveStrip) archiveStrip.hidden = true;
         if (offlinePanel) offlinePanel.hidden = false;
         tabStateBadge.textContent = tr("badge.noTab");
         tabStateBadge.className = "badge badge-tab badge-tab--offline";
@@ -1627,6 +1572,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         runAfterNextPaint(function () {
           setPlaudTabState(focusedResolved);
           refreshSmartSyncStatus(focusedResolved);
+          pingContentBusyState(focusedResolved, applyContentBusyFromPing);
 
           const statsTab = isPlaudTab(focusedResolved) ? focusedResolved : null;
 
@@ -1862,9 +1808,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         smartSyncActive ||
         !activeTabIsPlaud;
     }
-    if (syncFolderSaveBtn) {
-      syncFolderSaveBtn.disabled = smartSyncActive;
-    }
     if (syncFolderInput) {
       syncFolderInput.disabled = smartSyncActive;
     }
@@ -1928,6 +1871,19 @@ document.addEventListener("DOMContentLoaded", async function () {
     chrome.runtime.onMessage.addListener((request) => {
       if (request.action === "foregroundExportComplete") {
         foregroundExportBusy = false;
+        const result = request.data;
+        if (result?.error) {
+          updateStatus(formatForegroundExportResult(result), "error");
+        } else if (result) {
+          const hasErrors =
+            (Number(result.filesErrored) || 0) +
+              (Number(result.summaryErrors) || 0) >
+            0;
+          updateStatus(
+            formatForegroundExportResult(result),
+            hasErrors ? "error" : "success"
+          );
+        }
         updateExportControls();
         return;
       }
@@ -1944,7 +1900,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     });
   }
 
-  showStatsStartupPlaceholder();
+  showArchiveLoading();
+  updateAdvancedExportModeUi();
+  updateSyncModeToggleUi();
   loadCachedLibraryStats(function (cached) {
     const hasBootstrapCache =
       cached &&
@@ -1953,12 +1911,10 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (!hasBootstrapCache) {
       return;
     }
-    renderLibraryStatsPanel(cached.recordings, cached.summaries, {
+    renderArchiveStrip(cached.recordings, cached.summaries, {
       cachedAt: cached.updatedAt,
-      staleWhileRevalidate: true,
-      syncInProgress: true,
+      loading: true,
     });
-    statsQuest?.classList.add("stats-quest--loading");
   });
 
   checkExportStatus();

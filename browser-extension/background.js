@@ -39,6 +39,7 @@ import {
   ACTION_RUN_EXPORT_ALL,
   ACTION_RUN_SMART_SYNC,
   ACTION_SET_SYNC_SUBDIRECTORY,
+  ACTION_SET_SYNC_MODE,
   ACTION_SHOW_DEFAULT_DOWNLOADS_FOLDER,
   ACTION_SMART_SYNC_COMPLETE,
   ACTION_SMART_SYNC_PROGRESS,
@@ -293,7 +294,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return false;
       }
 
-      startSmartSync(tabId, message.syncSubdirectory)
+      startSmartSync(tabId, message.syncSubdirectory, message.syncMode)
         .then((result) => sendResponse(result))
         .catch((error) => {
           console.warn("Failed to start smart sync:", error);
@@ -411,6 +412,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               storageMode: "downloads_subfolder",
               syncSubdirectory:
                 index.settings?.syncSubdirectory || DEFAULT_SYNC_SUBDIRECTORY,
+              syncMode:
+                index.settings?.syncMode === "summary" ? "summary" : "both",
             },
             summary: summarizeSyncIndex(index),
           });
@@ -435,6 +438,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             success: true,
             settings: index.settings,
             summary: summarizeSyncIndex(index),
+          });
+        })
+        .catch((error) => {
+          sendResponse({ success: false, error: error.message });
+        });
+      return true;
+    }
+
+    if (message.action === ACTION_SET_SYNC_MODE) {
+      const syncMode = message.syncMode === "summary" ? "summary" : "both";
+      patchSyncSettings({ syncMode })
+        .then((index) => {
+          sendResponse({
+            success: true,
+            settings: index.settings,
           });
         })
         .catch((error) => {
@@ -567,6 +585,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .sendMessage({
           action: ACTION_FOREGROUND_EXPORT_COMPLETE,
           tabId: message.tabId,
+          data: message.data,
         })
         .catch(() => {});
       sendResponse({ success: true });
@@ -698,10 +717,15 @@ function sendRunExportMessageWithRecovery(tabId, exportMode) {
   });
 }
 
-function sendRunSmartSyncMessageWithRecovery(tabId, syncSubdirectory) {
+function sendRunSmartSyncMessageWithRecovery(
+  tabId,
+  syncSubdirectory,
+  syncMode
+) {
   return sendTabMessageWithRecovery(tabId, {
     action: ACTION_RUN_SMART_SYNC,
     syncSubdirectory: sanitizeSyncSubdirectory(syncSubdirectory),
+    syncMode: syncMode === "summary" ? "summary" : "both",
   });
 }
 
@@ -767,7 +791,7 @@ async function startBackgroundExport(tabId, requestedExportMode) {
   return { success: true, message: plaudT("bg.startedSuccess") };
 }
 
-async function startSmartSync(tabId, requestedSubdirectory) {
+async function startSmartSync(tabId, requestedSubdirectory, requestedSyncMode) {
   await ensureSessionRestored();
   if (
     activeSmartSyncTabIds.has(tabId) &&
@@ -777,6 +801,8 @@ async function startSmartSync(tabId, requestedSubdirectory) {
   }
 
   const syncSubdirectory = sanitizeSyncSubdirectory(requestedSubdirectory);
+  const syncMode = requestedSyncMode === "summary" ? "summary" : "both";
+  await patchSyncSettings({ syncSubdirectory, syncMode }).catch(() => {});
   activeSmartSyncTabIds.add(tabId);
   activeSmartSyncs[tabId] = {
     status: "running",
@@ -801,7 +827,8 @@ async function startSmartSync(tabId, requestedSubdirectory) {
     }
     const response = await sendRunSmartSyncMessageWithRecovery(
       tabId,
-      syncSubdirectory
+      syncSubdirectory,
+      syncMode
     );
     if (!response?.success) {
       throw new Error(response?.error || plaudT("sync.rejected"));

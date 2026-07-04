@@ -122,8 +122,10 @@ if (window.__plaudExporterContentLoaded) {
         exportRunLock = true;
         sendResponse({ success: true, message: "Запуск экспорта…" });
 
+        let foregroundResult = null;
         runExportAll(isBackgroundExporting, { exportMode })
           .then((result) => {
+            foregroundResult = result;
             if (isBackgroundExporting) {
               chrome.runtime
                 .sendMessage({
@@ -140,16 +142,17 @@ if (window.__plaudExporterContentLoaded) {
           })
           .catch((error) => {
             console.error("Сбой экспорта:", error);
+            foregroundResult = {
+              filesProcessed: 0,
+              filesErrored: 1,
+              exportMode,
+              error: error.message,
+            };
             if (isBackgroundExporting) {
               chrome.runtime
                 .sendMessage({
                   action: "exportComplete",
-                  data: {
-                    filesProcessed: 0,
-                    filesErrored: 1,
-                    exportMode,
-                    error: error.message,
-                  },
+                  data: foregroundResult,
                 })
                 .catch((err) => {
                   console.error(
@@ -168,6 +171,7 @@ if (window.__plaudExporterContentLoaded) {
                 .sendMessage({
                   action: "foregroundExportComplete",
                   tabId: senderTabId,
+                  data: foregroundResult || undefined,
                 })
                 .catch(() => {});
             }
@@ -223,9 +227,19 @@ if (window.__plaudExporterContentLoaded) {
           exportRunLock = true;
           sendResponse({ success: true, message: "Запуск экспорта…" });
 
+          let foregroundResult = null;
           runExportAll(false, { exportMode, singleFile: file })
+            .then((result) => {
+              foregroundResult = result;
+            })
             .catch((error) => {
               console.error("Сбой экспорта текущей записи:", error);
+              foregroundResult = {
+                filesProcessed: 0,
+                filesErrored: 1,
+                exportMode,
+                error: error.message,
+              };
             })
             .finally(() => {
               exportRunLock = false;
@@ -234,6 +248,7 @@ if (window.__plaudExporterContentLoaded) {
                   .sendMessage({
                     action: "foregroundExportComplete",
                     tabId: senderTabId,
+                    data: foregroundResult || undefined,
                   })
                   .catch(() => {});
               }
@@ -383,6 +398,7 @@ if (window.__plaudExporterContentLoaded) {
         try {
           const result = await runSmartSync({
             syncSubdirectory: request.syncSubdirectory,
+            syncMode: request.syncMode,
             onProgress: (data) => {
               chrome.runtime
                 .sendMessage({

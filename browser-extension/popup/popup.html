@@ -1,236 +1,556 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Экспорт Plaud</title>
-    <link rel="stylesheet" href="popup.css">
+    <link rel="stylesheet" href="popup.css" />
     <script src="../common/plaud-i18n-messages.js"></script>
     <script src="popup.js"></script>
-</head>
+  </head>
 
-<body>
+  <body>
     <div class="layout">
-        <header class="layout__header app-header">
-            <div class="app-header__brand">
-                <div class="brand-mark" aria-hidden="true">
-                    <span></span>
-                </div>
-                <div class="brand-copy">
-                    <h1 data-i18n="brand.title">Экспорт Plaud</h1>
-                    <p id="headerSubtitle" data-i18n="subtitles.audioSummary">Аудио и саммари</p>
-                </div>
-            </div>
-            <span id="tabStateBadge" class="badge badge-tab" data-i18n="badge.checking">Проверка…</span>
-        </header>
-
-        <div class="layout__scroll">
-            <main class="layout__main">
-                <section class="stats-quest card card--accent" id="statsQuest" aria-labelledby="statsQuestTitle">
-                    <div class="stats-quest-glow" aria-hidden="true"></div>
-                    <div class="stats-quest-inner">
-                        <div class="stats-quest-head">
-                            <div class="stats-quest-tier-cell">
-                                <span class="stats-quest-emoji" id="statsTierEmoji" aria-hidden="true">🎙️</span>
-                                <div class="stats-quest-tier-text">
-                                    <h2 id="statsQuestTitle" data-i18n="stats.questTitle">Ваш архив</h2>
-                                    <p class="stats-quest-tier-label" id="statsTierLabel" data-i18n="stats.startupLabel">Подготовка…</p>
-                                </div>
-                            </div>
-                            <button type="button" id="statsRefreshBtn" class="btn btn-outline btn-sm stats-refresh-btn"
-                                data-i18n="stats.refresh"
-                                data-i18n-title="stats.refreshTitle" title="Полный пересчёт с саммари (может занять время)">
-                                Обновить
-                            </button>
-                        </div>
-
-                        <div class="stats-score-strip">
-                            <div class="stats-score-pill">
-                                <span class="stats-score-num" id="statsRecordingsValue">—</span>
-                                <span class="stats-score-caption" data-i18n="stats.recordings">Записей</span>
-                            </div>
-                            <div class="stats-score-pill stats-score-pill-accent">
-                                <span class="stats-score-num" id="statsSummariesValue">—</span>
-                                <span class="stats-score-caption" data-i18n="stats.summaries">Саммари</span>
-                            </div>
-                        </div>
-
-                        <div class="stats-milestone">
-                            <div class="stats-milestone-track">
-                                <div class="stats-milestone-fill" id="statsMilestoneFill"></div>
-                            </div>
-                            <p class="stats-milestone-caption" id="statsMilestoneCaption"></p>
-                        </div>
-
-                        <p class="stats-footnote" id="statsFootnote"></p>
-                    </div>
-                </section>
-
-                <section id="exportStatus" class="export-status card export-status--banner" aria-live="polite"></section>
-
-                <section id="offlinePanel" class="card offline-panel" aria-labelledby="offlineTitle" hidden>
-                    <div class="card__header">
-                        <div>
-                            <h2 id="offlineTitle" class="card__title" data-i18n="offline.title">Plaud-страница не найдена</h2>
-                            <p class="card__description" data-i18n="offline.lead">Экспорт и синхронизация доступны только на вкладке Plaud Web.</p>
-                        </div>
-                    </div>
-                    <button type="button" id="offlineOpenPlaudBtn" class="btn btn-secondary w-full">
-                        <span class="btn__icon" aria-hidden="true">↗</span>
-                        <span data-i18n="btn.openPlaud">Открыть Plaud Web</span>
-                    </button>
-                </section>
-
-                <section id="currentPanel" class="card current-panel" aria-labelledby="currentTitle">
-                    <div class="card__header">
-                        <div>
-                            <h2 id="currentTitle" class="card__title" data-i18n="current.title">Текущая запись</h2>
-                            <p id="currentPanelLead" class="card__description" data-i18n="current.lead">Экспорт только открытой записи</p>
-                        </div>
-                    </div>
-                    <div class="action-stack">
-                        <button id="currentExportAllBtn" class="btn btn-secondary w-full" type="button">
-                            <span class="btn__icon" aria-hidden="true">↓</span>
-                            <span data-i18n="btn.audioAndSummary">Аудио и саммари</span>
-                        </button>
-                        <button id="currentExportAudioBtn" class="btn btn-outline" type="button">
-                            <span class="btn__icon" aria-hidden="true">♪</span>
-                            <span data-i18n="btn.audioOnly">Только аудио</span>
-                        </button>
-                        <button id="currentExportSummaryBtn" class="btn btn-outline" type="button">
-                            <span class="btn__icon" aria-hidden="true">T</span>
-                            <span data-i18n="btn.summaryOnly">Только саммари</span>
-                        </button>
-                    </div>
-                </section>
-
-                <section id="syncPanel" class="card sync-panel" aria-labelledby="syncTitle">
-                    <div class="card__header">
-                        <div>
-                            <h2 id="syncTitle" class="card__title" data-i18n="sync.title">Фоновая синхронизация</h2>
-                            <p id="syncLead" class="card__description" data-i18n="sync.lead">Умная подгрузка без дублей</p>
-                        </div>
-                    </div>
-                    <div class="sync-settings">
-                        <label class="label" for="syncFolderInput" data-i18n="sync.folderLabel">Папка внутри Downloads</label>
-                        <div class="sync-folder-row">
-                            <input id="syncFolderInput" class="input" type="text" spellcheck="false"
-                                autocomplete="off" value="PlaudExports/Sync" aria-describedby="syncFolderHelp">
-                            <button type="button" id="syncFolderSaveBtn" class="btn btn-outline btn-sm"
-                                data-i18n="sync.saveFolder">
-                                Сохранить
-                            </button>
-                        </div>
-                        <p id="syncFolderHelp" class="form-hint" data-i18n="sync.folderHelp">
-                            Chrome разрешает расширению задавать подпапку в Downloads, а не произвольный системный путь.
-                        </p>
-                        <details class="sync-icloud-tip" id="syncIcloudTip">
-                            <summary class="sync-icloud-tip__summary" data-i18n="sync.icloudTipSummary">
-                                Хочу сохранять в iCloud или другую папку
-                            </summary>
-                            <div class="sync-icloud-tip__body">
-                                <p class="form-hint" data-i18n="sync.icloudTipLead">
-                                    Расширение пишет только внутрь Downloads. На macOS можно один раз создать симлинк, и файлы будут попадать в iCloud (или любую другую папку) автоматически.
-                                </p>
-                                <ol class="sync-icloud-tip__steps form-hint">
-                                    <li data-i18n="sync.icloudTipStep1">Откройте Терминал и выполните команду:</li>
-                                </ol>
-                                <div class="sync-icloud-tip__cmd-row">
-                                    <code class="sync-icloud-tip__cmd" id="syncIcloudCmd"></code>
-                                    <button type="button" id="syncIcloudCopyBtn" class="btn btn-outline btn-sm sync-icloud-tip__copy"
-                                        data-i18n="sync.icloudTipCopy">
-                                        Скопировать
-                                    </button>
-                                </div>
-                                <p class="form-hint" data-i18n="sync.icloudTipFootnote">
-                                    После этого в поле выше укажите путь через созданный симлинк (например, iCloud/PlaudExports/Sync) и сохраните.
-                                </p>
-                            </div>
-                        </details>
-                    </div>
-                    <div class="action-stack">
-                        <button id="smartSyncBtn" class="btn btn-default w-full" type="button">
-                            <span class="btn__icon" aria-hidden="true">↻</span>
-                            <span data-i18n="sync.start">Синхронизировать в фоне</span>
-                        </button>
-                        <button id="openDownloadsBtn" class="btn btn-outline w-full" type="button">
-                            <span class="btn__icon" aria-hidden="true">⌕</span>
-                            <span data-i18n="sync.openDownloads">Открыть Downloads</span>
-                        </button>
-                    </div>
-                    <div id="syncStatus" class="sync-status" aria-live="polite"></div>
-                </section>
-
-                <section id="exportPanel" class="card export-panel" aria-labelledby="exportTitle">
-                    <details class="export-panel-details">
-                        <summary class="export-panel-summary">
-                            <span class="export-panel-summary-text">
-                                <h2 class="card__title export-panel-summary-title" id="exportTitle" data-i18n="export.title">Все записи</h2>
-                                <p class="card__description export-panel-summary-desc" id="exportSubtitle" data-i18n="export.subtitle">Экспорт всех доступных записей</p>
-                            </span>
-                            <span class="export-panel-chevron" aria-hidden="true"></span>
-                        </summary>
-
-                        <div class="export-panel-body">
-                            <div class="action-stack">
-                                <button id="exportAllBtn" class="btn btn-default w-full" type="button">
-                                    <span class="btn__icon" aria-hidden="true">↓</span>
-                                    <span data-i18n="btn.audioAndSummary">Аудио и саммари</span>
-                                </button>
-                                <button id="exportAudioBtn" class="btn btn-secondary" type="button">
-                                    <span class="btn__icon" aria-hidden="true">♪</span>
-                                    <span data-i18n="btn.audioOnly">Только аудио</span>
-                                </button>
-                                <button id="exportSummaryBtn" class="btn btn-secondary" type="button">
-                                    <span class="btn__icon" aria-hidden="true">T</span>
-                                    <span data-i18n="btn.summaryOnly">Только саммари</span>
-                                </button>
-                                <button id="exportBgBtn" class="btn btn-outline w-full" type="button">
-                                    <span class="btn__icon" aria-hidden="true">↗</span>
-                                    <span data-i18n="btn.exportBackground">Экспортировать в фоне</span>
-                                </button>
-                                <button id="stopExportBtn" class="btn btn-destructive" type="button" hidden>
-                                    <span class="btn__icon" aria-hidden="true">■</span>
-                                    <span data-i18n="btn.stop">Стоп</span>
-                                </button>
-                            </div>
-
-                            <div class="status-block">
-                                <div id="status" class="alert" aria-live="polite"></div>
-                                <button type="button" id="copyStatusBtn" class="btn btn-outline btn-sm status-copy-btn w-full" hidden
-                                    data-i18n="btn.copyError">
-                                    Копировать текст ошибки
-                                </button>
-                            </div>
-                        </div>
-                    </details>
-                </section>
-            </main>
+      <header class="layout__header app-header">
+        <div class="app-header__brand">
+          <div class="brand-mark" aria-hidden="true">
+            <span></span>
+          </div>
+          <div class="brand-copy">
+            <h1 data-i18n="brand.title">Экспорт Plaud</h1>
+            <p id="headerSubtitle" data-i18n="hero.lead">
+              Скачайте AI-саммари в Markdown
+            </p>
+          </div>
         </div>
+        <span
+          id="tabStateBadge"
+          class="badge badge-tab"
+          data-i18n="badge.checking"
+          >Проверка…</span
+        >
+      </header>
 
-        <footer class="layout__footer app-footer">
-            <div class="app-footer__inner">
-                <div class="toggle-group" role="group" id="footerLangGroup">
-                    <button type="button" id="langRuBtn" class="toggle-group__item lang-toggle-btn" data-locale="ru" data-i18n="lang.ru"
-                        aria-pressed="true">RU</button>
-                    <button type="button" id="langEnBtn" class="toggle-group__item lang-toggle-btn" data-locale="en" data-i18n="lang.en"
-                        aria-pressed="false">EN</button>
-                </div>
-                <div class="toggle-group toggle-group--dense" role="group" id="footerThemeGroup">
-                    <button type="button" id="themeSystemBtn" class="toggle-group__item toggle-group__item--narrow lang-toggle-btn" data-theme-pref="system"
-                        data-i18n="theme.system" data-i18n-title="theme.systemTitle" title="Как в системе"
-                        aria-pressed="false">Авто</button>
-                    <button type="button" id="themeLightBtn" class="toggle-group__item toggle-group__item--narrow lang-toggle-btn" data-theme-pref="light"
-                        data-i18n="theme.light" data-i18n-title="theme.lightTitle" title="Светлая тема"
-                        aria-pressed="false">Свет</button>
-                    <button type="button" id="themeDarkBtn" class="toggle-group__item toggle-group__item--narrow lang-toggle-btn" data-theme-pref="dark"
-                        data-i18n="theme.dark" data-i18n-title="theme.darkTitle" title="Тёмная тема"
-                        aria-pressed="false">Темно</button>
-                </div>
+      <div class="layout__scroll">
+        <main class="layout__main">
+          <div class="status-block status-block--global">
+            <div id="status" class="alert" aria-live="polite"></div>
+            <button
+              type="button"
+              id="copyStatusBtn"
+              class="btn btn-outline btn-sm status-copy-btn w-full"
+              hidden
+              data-i18n="btn.copyError"
+            >
+              Копировать текст ошибки
+            </button>
+          </div>
+
+          <section
+            id="exportStatus"
+            class="export-status card export-status--banner"
+            aria-live="polite"
+          ></section>
+
+          <section
+            id="offlinePanel"
+            class="card offline-panel"
+            aria-labelledby="offlineTitle"
+            hidden
+          >
+            <div class="card__header">
+              <div>
+                <h2
+                  id="offlineTitle"
+                  class="card__title"
+                  data-i18n="offline.title"
+                >
+                  Plaud-страница не найдена
+                </h2>
+                <p class="card__description" data-i18n="offline.lead">
+                  Экспорт и синхронизация доступны только на вкладке Plaud Web.
+                </p>
+              </div>
             </div>
-        </footer>
-    </div>
-</body>
+            <button
+              type="button"
+              id="offlineOpenPlaudBtn"
+              class="btn btn-secondary w-full"
+            >
+              <span class="btn__icon" aria-hidden="true">
+                <svg
+                  class="icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <path
+                    d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                  />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </span>
+              <span data-i18n="btn.openPlaud">Открыть Plaud Web</span>
+            </button>
+          </section>
 
+          <section
+            id="heroPanel"
+            class="card card--hero"
+            aria-labelledby="heroTitle"
+          >
+            <div class="card__header card__header--hero">
+              <div>
+                <h2 id="heroTitle" class="card__title" data-i18n="hero.title">
+                  Саммари
+                </h2>
+                <p class="card__description" data-i18n="hero.lead">
+                  Скачайте AI-саммари в Markdown
+                </p>
+              </div>
+            </div>
+            <div class="action-stack action-stack--hero">
+              <button
+                id="heroExportAllSummaryBtn"
+                class="btn btn-default w-full"
+                type="button"
+              >
+                <span class="btn__icon" aria-hidden="true">
+                  <svg
+                    class="icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                </span>
+                <span data-i18n="hero.downloadAll">Скачать все саммари</span>
+              </button>
+              <button
+                id="heroExportCurrentSummaryBtn"
+                class="btn btn-outline w-full"
+                type="button"
+              >
+                <span class="btn__icon" aria-hidden="true">
+                  <svg
+                    class="icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                    />
+                    <polyline points="14 2 14 8 20 8" />
+                    <line x1="16" y1="13" x2="8" y2="13" />
+                    <line x1="16" y1="17" x2="8" y2="17" />
+                  </svg>
+                </span>
+                <span data-i18n="hero.downloadCurrent"
+                  >Только текущая запись</span
+                >
+              </button>
+            </div>
+          </section>
+
+          <section id="archiveStrip" class="archive-strip" aria-live="polite">
+            <p
+              id="archiveLine"
+              class="archive-strip__line"
+              data-i18n="archive.loading"
+            >
+              Загрузка…
+            </p>
+            <button
+              type="button"
+              id="statsRefreshBtn"
+              class="btn btn-outline btn-sm archive-strip__refresh"
+              data-i18n="stats.refresh"
+              data-i18n-title="stats.refreshTitle"
+              title="Полный пересчёт с саммари (может занять время)"
+            >
+              <span class="btn__icon" aria-hidden="true">
+                <svg
+                  class="icon"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+              </span>
+              <span data-i18n="stats.refresh">Обновить</span>
+            </button>
+          </section>
+
+          <section
+            id="syncPanel"
+            class="card sync-panel"
+            aria-labelledby="syncTitle"
+          >
+            <div class="card__header">
+              <div>
+                <h2 id="syncTitle" class="card__title" data-i18n="sync.title">
+                  Синхронизация в папку
+                </h2>
+                <p
+                  id="syncLead"
+                  class="card__description"
+                  data-i18n="sync.lead"
+                >
+                  Умная подгрузка без дублей
+                </p>
+              </div>
+            </div>
+            <div class="sync-settings">
+              <label
+                class="label"
+                for="syncFolderInput"
+                data-i18n="sync.folderLabel"
+                >Папка внутри Downloads</label
+              >
+              <input
+                id="syncFolderInput"
+                class="input"
+                type="text"
+                spellcheck="false"
+                autocomplete="off"
+                value="PlaudExports/Sync"
+                aria-describedby="syncFolderHelp"
+              />
+              <p
+                id="syncFolderHelp"
+                class="form-hint"
+                data-i18n="sync.folderHelp"
+              >
+                Chrome разрешает расширению задавать подпапку в Downloads, а не
+                произвольный системный путь.
+              </p>
+              <div
+                class="segment-group"
+                role="group"
+                id="syncModeGroup"
+                aria-label="Sync mode"
+              >
+                <button
+                  type="button"
+                  id="syncModeBothBtn"
+                  class="segment-group__item segment-group__item--active"
+                  data-sync-mode="both"
+                  data-i18n="sync.modeBoth"
+                >
+                  Аудио и саммари
+                </button>
+                <button
+                  type="button"
+                  id="syncModeSummaryBtn"
+                  class="segment-group__item"
+                  data-sync-mode="summary"
+                  data-i18n="sync.modeSummary"
+                >
+                  Только саммари
+                </button>
+              </div>
+              <details class="sync-icloud-tip" id="syncIcloudTip">
+                <summary
+                  class="sync-icloud-tip__summary"
+                  data-i18n="sync.icloudTipSummary"
+                >
+                  Хочу сохранять в iCloud или другую папку
+                </summary>
+                <div class="sync-icloud-tip__body">
+                  <p class="form-hint" data-i18n="sync.icloudTipLead">
+                    Расширение пишет только внутрь Downloads. На macOS можно
+                    один раз создать симлинк, и файлы будут попадать в iCloud
+                    (или любую другую папку) автоматически.
+                  </p>
+                  <ol class="sync-icloud-tip__steps form-hint">
+                    <li data-i18n="sync.icloudTipStep1">
+                      Откройте Терминал и выполните команду:
+                    </li>
+                  </ol>
+                  <div class="sync-icloud-tip__cmd-row">
+                    <code
+                      class="sync-icloud-tip__cmd"
+                      id="syncIcloudCmd"
+                    ></code>
+                    <button
+                      type="button"
+                      id="syncIcloudCopyBtn"
+                      class="btn btn-outline btn-sm sync-icloud-tip__copy"
+                      data-i18n="sync.icloudTipCopy"
+                    >
+                      Скопировать
+                    </button>
+                  </div>
+                  <p class="form-hint" data-i18n="sync.icloudTipFootnote">
+                    После этого в поле выше укажите путь через созданный симлинк
+                    (например, iCloud/PlaudExports/Sync) и сохраните.
+                  </p>
+                </div>
+              </details>
+            </div>
+            <div class="action-stack">
+              <button
+                id="smartSyncBtn"
+                class="btn btn-default w-full"
+                type="button"
+              >
+                <span class="btn__icon" aria-hidden="true">
+                  <svg
+                    class="icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <polyline points="23 4 23 10 17 10" />
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                  </svg>
+                </span>
+                <span data-i18n="sync.start">Синхронизировать</span>
+              </button>
+              <button
+                id="openDownloadsBtn"
+                class="btn btn-outline w-full"
+                type="button"
+              >
+                <span class="btn__icon" aria-hidden="true">
+                  <svg
+                    class="icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  >
+                    <path
+                      d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+                    />
+                  </svg>
+                </span>
+                <span data-i18n="sync.openDownloads">Открыть Downloads</span>
+              </button>
+            </div>
+            <div id="syncStatus" class="sync-status" aria-live="polite"></div>
+          </section>
+
+          <section
+            id="exportPanel"
+            class="card export-panel"
+            aria-labelledby="exportTitle"
+          >
+            <details class="export-panel-details">
+              <summary class="export-panel-summary">
+                <span class="export-panel-summary-text">
+                  <h2
+                    class="card__title export-panel-summary-title"
+                    id="exportTitle"
+                    data-i18n="export.title"
+                  >
+                    Аудио и полный экспорт
+                  </h2>
+                  <p
+                    class="card__description export-panel-summary-desc"
+                    id="exportSubtitle"
+                    data-i18n="export.subtitle"
+                  >
+                    Разовая выгрузка в Downloads
+                  </p>
+                </span>
+                <span class="export-panel-chevron" aria-hidden="true"></span>
+              </summary>
+
+              <div class="export-panel-body">
+                <div
+                  class="segment-group segment-group--export"
+                  role="group"
+                  id="exportModeGroup"
+                  aria-label="Export mode"
+                >
+                  <button
+                    type="button"
+                    id="exportModeBothBtn"
+                    class="segment-group__item segment-group__item--active"
+                    data-export-mode="both"
+                    data-i18n="btn.audioAndSummary"
+                  >
+                    Аудио и саммари
+                  </button>
+                  <button
+                    type="button"
+                    id="exportModeAudioBtn"
+                    class="segment-group__item"
+                    data-export-mode="audio"
+                    data-i18n="btn.audioOnly"
+                  >
+                    Только аудио
+                  </button>
+                </div>
+                <div class="action-stack action-stack--export">
+                  <button
+                    id="exportAllBtn"
+                    class="btn btn-secondary w-full"
+                    type="button"
+                  >
+                    <span class="btn__icon" aria-hidden="true">
+                      <svg
+                        class="icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                      </svg>
+                    </span>
+                    <span data-i18n="export.allRecordings">Все записи</span>
+                  </button>
+                  <button
+                    id="exportCurrentBtn"
+                    class="btn btn-outline w-full"
+                    type="button"
+                  >
+                    <span class="btn__icon" aria-hidden="true">
+                      <svg
+                        class="icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+                        />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                    </span>
+                    <span data-i18n="export.currentRecording"
+                      >Текущая запись</span
+                    >
+                  </button>
+                  <button
+                    id="exportBgBtn"
+                    class="btn btn-outline w-full"
+                    type="button"
+                  >
+                    <span class="btn__icon" aria-hidden="true">
+                      <svg
+                        class="icon"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                      >
+                        <path
+                          d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                        />
+                        <polyline points="15 3 21 3 21 9" />
+                        <line x1="10" y1="14" x2="21" y2="3" />
+                      </svg>
+                    </span>
+                    <span data-i18n="btn.exportBackground"
+                      >Экспортировать в фоне</span
+                    >
+                  </button>
+                  <button
+                    id="stopExportBtn"
+                    class="btn btn-destructive w-full"
+                    type="button"
+                    hidden
+                  >
+                    <span class="btn__icon" aria-hidden="true">
+                      <svg class="icon" viewBox="0 0 24 24" fill="currentColor">
+                        <rect x="6" y="6" width="12" height="12" rx="1" />
+                      </svg>
+                    </span>
+                    <span data-i18n="btn.stop">Стоп</span>
+                  </button>
+                </div>
+              </div>
+            </details>
+          </section>
+        </main>
+      </div>
+
+      <footer class="layout__footer app-footer">
+        <div class="app-footer__inner">
+          <div class="toggle-group" role="group" id="footerLangGroup">
+            <button
+              type="button"
+              id="langRuBtn"
+              class="toggle-group__item lang-toggle-btn"
+              data-locale="ru"
+              data-i18n="lang.ru"
+              aria-pressed="true"
+            >
+              RU
+            </button>
+            <button
+              type="button"
+              id="langEnBtn"
+              class="toggle-group__item lang-toggle-btn"
+              data-locale="en"
+              data-i18n="lang.en"
+              aria-pressed="false"
+            >
+              EN
+            </button>
+          </div>
+          <div
+            class="toggle-group toggle-group--dense"
+            role="group"
+            id="footerThemeGroup"
+          >
+            <button
+              type="button"
+              id="themeSystemBtn"
+              class="toggle-group__item toggle-group__item--narrow lang-toggle-btn"
+              data-theme-pref="system"
+              data-i18n="theme.system"
+              data-i18n-title="theme.systemTitle"
+              title="Как в системе"
+              aria-pressed="false"
+            >
+              Авто
+            </button>
+            <button
+              type="button"
+              id="themeLightBtn"
+              class="toggle-group__item toggle-group__item--narrow lang-toggle-btn"
+              data-theme-pref="light"
+              data-i18n="theme.light"
+              data-i18n-title="theme.lightTitle"
+              title="Светлая тема"
+              aria-pressed="false"
+            >
+              Свет
+            </button>
+            <button
+              type="button"
+              id="themeDarkBtn"
+              class="toggle-group__item toggle-group__item--narrow lang-toggle-btn"
+              data-theme-pref="dark"
+              data-i18n="theme.dark"
+              data-i18n-title="theme.darkTitle"
+              title="Тёмная тема"
+              aria-pressed="false"
+            >
+              Темно
+            </button>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </body>
 </html>

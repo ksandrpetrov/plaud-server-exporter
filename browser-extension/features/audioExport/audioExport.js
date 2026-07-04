@@ -852,6 +852,8 @@ export async function runSmartSync(options = {}) {
   const requestedSubdir = sanitizeSyncSubdirectory(
     options.syncSubdirectory || DEFAULT_SYNC_SUBDIRECTORY
   );
+  const syncMode = options.syncMode === "summary" ? "summary" : "both";
+  const shouldDownloadAudio = syncMode !== "summary";
   const stats = makeSyncStats();
   const sourceUrl = getCurrentPlaudSourceUrl();
   let syncIndex = await loadSyncIndex();
@@ -859,6 +861,7 @@ export async function runSmartSync(options = {}) {
     ...syncIndex.settings,
     storageMode: "downloads_subfolder",
     syncSubdirectory: requestedSubdir,
+    syncMode,
   };
   await saveSyncIndex(syncIndex);
 
@@ -983,32 +986,34 @@ export async function runSmartSync(options = {}) {
           : [...existingRecord.summaryPaths];
 
       try {
-        const { url, titleHint } = await fetchPlaudAudioUrl(
-          session,
-          workingFile.id
-        );
-        workingFile = preferApiTitle(workingFile, titleHint);
-        candidate.audioUrl = url;
-        candidate.audioNormalizedFilename = basenameFromDownloadPath(
-          buildDownloadFilename(workingFile, url)
-        );
-        if (!audioPath) {
-          audioPath = buildCollisionSafePath(
-            syncIndex,
-            requestedSubdir,
-            "audio",
-            candidate.audioNormalizedFilename,
-            candidate.stableId,
-            candidate.folderSegment
+        if (shouldDownloadAudio) {
+          const { url, titleHint } = await fetchPlaudAudioUrl(
+            session,
+            workingFile.id
           );
+          workingFile = preferApiTitle(workingFile, titleHint);
+          candidate.audioUrl = url;
+          candidate.audioNormalizedFilename = basenameFromDownloadPath(
+            buildDownloadFilename(workingFile, url)
+          );
+          if (!audioPath) {
+            audioPath = buildCollisionSafePath(
+              syncIndex,
+              requestedSubdir,
+              "audio",
+              candidate.audioNormalizedFilename,
+              candidate.stableId,
+              candidate.folderSegment
+            );
+          }
+          const audioResponse = await downloadViaBackground(url, audioPath, {
+            conflictAction: "overwrite",
+          });
+          if (audioResponse?.downloadId) {
+            lastDownloadIds.push(audioResponse.downloadId);
+          }
+          stats.audioDownloaded++;
         }
-        const audioResponse = await downloadViaBackground(url, audioPath, {
-          conflictAction: "overwrite",
-        });
-        if (audioResponse?.downloadId) {
-          lastDownloadIds.push(audioResponse.downloadId);
-        }
-        stats.audioDownloaded++;
       } catch (audioError) {
         console.warn(
           `Smart sync: audio download failed for "${workingFile.title}":`,
@@ -1382,26 +1387,33 @@ export async function runExportAll(backgroundMode = false, options = {}) {
     return true;
   }
 
-  const directApiHandled = await tryDirectApiExport();
-  if (directApiHandled) {
-    return stats;
+  try {
+    const directApiHandled = await tryDirectApiExport();
+    if (directApiHandled) {
+      return stats;
+    }
+
+    if (options.singleFile?.id) {
+      throw new Error(
+        "Не удалось экспортировать эту запись через API. Войдите в аккаунт на Plaud Web."
+      );
+    }
+    if (shouldExportSummaries) {
+      throw new Error(
+        "Экспорт саммари нужен через API Plaud Web. Устаревший режим через страницу выгружает только аудио."
+      );
+    }
+    return await runDomExportFallback({
+      backgroundMode,
+      indicator,
+      stats,
+      processedTitles,
+      shouldStopExport,
+      updateProgress,
+    });
+  } catch (error) {
+    updateIndicator(indicator, error?.message || String(error), "error");
+    setTimeout(() => indicator.remove(), 6000);
+    throw error;
   }
-  if (options.singleFile?.id) {
-    throw new Error(
-      "Не удалось экспортировать эту запись через API. Войдите в аккаунт на Plaud Web."
-    );
-  }
-  if (shouldExportSummaries) {
-    throw new Error(
-      "Экспорт саммари нужен через API Plaud Web. Устаревший режим через страницу выгружает только аудио."
-    );
-  }
-  return await runDomExportFallback({
-    backgroundMode,
-    indicator,
-    stats,
-    processedTitles,
-    shouldStopExport,
-    updateProgress,
-  });
 }

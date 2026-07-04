@@ -11,6 +11,17 @@
     ru: {
       page: { title: "Экспорт Plaud" },
       brand: { title: "Экспорт Plaud" },
+      hero: {
+        title: "Саммари",
+        lead: "Скачайте AI-саммари в Markdown",
+        downloadAll: "Скачать все саммари",
+        downloadCurrent: "Только текущая запись",
+      },
+      archive: {
+        line: "{recordings} записей · {summaries} саммари",
+        loading: "Загрузка архива…",
+        offline: "Кэш: {recordings} записей · {summaries} саммари · {time}",
+      },
       badge: {
         checking: "Проверка…",
         onPlaudWeb: "Вы на Plaud Web",
@@ -18,71 +29,20 @@
         noTab: "Нет вкладки",
       },
       stats: {
-        title: "Ваш архив",
-        questTitle: "Ваш архив",
         refresh: "Обновить",
         refreshTitle: "Полный пересчёт с саммари (может занять время)",
-        recordings: "Записей",
-        summaries: "Саммари",
-        loading: "Загрузка…",
-        startupLabel: "Подготовка…",
-        startupFootnote:
-          "Подключаемся к вкладке и проверяем экспорт… Обычно это пара секунд. Полоска ниже двигается — процесс живой.",
-        timeout: "Таймаут",
-        needPlaudTab: "Нужна вкладка Plaud",
-        waitPlaudWeb: "Ждём Plaud Web",
-        countingSummaries: "Считаем…",
-        searchingRecordings: "Ищем…",
-        tier: {
-          newcomer: "Новичок",
-          thoughtCollector: "Сборщик мыслей",
-          archivist: "Архивариус",
-          chronicler: "Хроникёр",
-          resumeWizard: "Маг резюме",
-          legend: "Легенда Plaud",
-        },
-        milestone: {
-          final: "Финальный рубеж достигнут — закрепите победу экспортом.",
-          goalMet: "Цель «{n} записей» достигнута.",
-          until: "До рубежа {next} записей осталось {left}.",
-        },
-        motivation: {
-          m0: "Добавьте первую запись — квест архива начнётся.",
-          mNeedRefresh:
-            "Нажмите «Обновить», чтобы посчитать саммари — это может занять время.",
-          mHighSummary:
-            "Резюме кипят — текстовый слой прокачан всерьёз.",
-          mZeroSummary:
-            "Как появятся саммари — вторая цифра тоже вырастет.",
-          m50: "Библиотека уровня про — самое время сделать бэкап.",
-          mDefault: "Каждая новая запись приближает следующий ранг.",
-        },
-        foot: {
-          cachePrefix: "Кэш · {time}.",
-          cacheJustNow: "Пока кэш.",
-          updatedSuffix: "Обновлено {time}.",
-        },
         phase: {
           list: "Загружаем список записей…",
           summariesLine: "Сканируем саммари… {current}/{total}",
-          summariesCaption: "Подсчитываем AI-заметки по каждой записи.",
         },
         fullScan: "Полное сканирование AI-заметок по каждой записи…",
         loadListSummaries: "Загружаем список записей и считаем саммари…",
-        countingLabel: "Считаем саммари…",
-        loadingListLabel: "Загружаем записи…",
         timeoutFootnote:
           "Запрос статистики занял слишком много времени. Обновите вкладку Plaud (F5) и попробуйте снова или нажмите «Обновить» позже.",
         statsError: "Не удалось получить статистику.",
         retryPlaud: "Обновите страницу Plaud и попробуйте снова.",
-        fullCountHint:
-          " Полный подсчёт саммари — кнопка «Обновить».",
-        offlinePreview:
-          "Оффлайн-предпросмотр · обновлено {time}. Откройте Plaud Web для свежего подсчёта.",
         waitLogin:
-          "Откройте вкладку Plaud Web и войдите — здесь появятся цифры и ранг.",
-        exportBlocksStats: "Во время экспорта автообновление статистики отключено.",
-        syncInProgress: "Подтягиваем свежие числа…",
+          "Откройте вкладку Plaud Web и войдите — здесь появятся цифры.",
       },
       time: {
         justNow: "только что",
@@ -106,12 +66,16 @@
         lead: "Экспорт и синхронизация доступны только на вкладке Plaud Web.",
       },
       export: {
-        title: "Все записи",
-        subtitle: "Экспорт всех доступных записей",
+        title: "Аудио и полный экспорт",
+        subtitle: "Разовая выгрузка в Downloads",
+        allRecordings: "Все записи",
+        currentRecording: "Текущая запись",
       },
       sync: {
-        title: "Фоновая синхронизация",
+        title: "Синхронизация в папку",
         lead: "Умная подгрузка без дублей",
+        modeBoth: "Аудио и саммари",
+        modeSummary: "Только саммари",
         folderLabel: "Папка внутри Downloads",
         folderHelp:
           "Chrome разрешает расширению задавать подпапку в Downloads, а не произвольный системный путь.",
@@ -126,7 +90,7 @@
           "После этого в поле выше укажите путь через созданный симлинк (например, iCloud/PlaudExports/Sync) и сохраните.",
         saveFolder: "Сохранить",
         openDownloads: "Открыть Downloads",
-        start: "Синхронизировать в фоне",
+        start: "Синхронизировать",
         starting: "Подготавливаем синхронизацию…",
         started: "Синхронизация запущена.",
         busy: "Дождитесь завершения текущей операции.",
@@ -223,6 +187,10 @@
       toast: {
         exportStarted: "Запущен экспорт: {mode}.",
         currentExportStarted: "Запущен экспорт текущей записи: {mode}.",
+        exportDoneGeneric: "Экспорт завершён.",
+        exportDoneSummary: "Готово: саммари {n}, ошибок {e}.",
+        exportDoneAudio: "Готово: аудио {n}, ошибок {e}.",
+        exportDoneBoth: "Готово: аудио {audio}, саммари {summaries}, ошибок {e}.",
       },
       bg: {
         stopTitle: "Экспорт остановлен",
@@ -256,6 +224,17 @@
     en: {
       page: { title: "Plaud Export" },
       brand: { title: "Plaud Export" },
+      hero: {
+        title: "Summaries",
+        lead: "Download AI summaries as Markdown",
+        downloadAll: "Download all summaries",
+        downloadCurrent: "Current recording only",
+      },
+      archive: {
+        line: "{recordings} recordings · {summaries} summaries",
+        loading: "Loading archive…",
+        offline: "Cache: {recordings} recordings · {summaries} summaries · {time}",
+      },
       badge: {
         checking: "Checking…",
         onPlaudWeb: "You're on Plaud Web",
@@ -263,68 +242,20 @@
         noTab: "No tab",
       },
       stats: {
-        title: "Your archive",
-        questTitle: "Your archive",
         refresh: "Refresh",
         refreshTitle: "Full recount including summaries (may take a while)",
-        recordings: "Recordings",
-        summaries: "Summaries",
-        loading: "Loading…",
-        startupLabel: "Getting ready…",
-        startupFootnote:
-          "Talking to your tab and checking export status… Usually a couple of seconds. The bar below moves — work is happening.",
-        timeout: "Timed out",
-        needPlaudTab: "Plaud tab required",
-        waitPlaudWeb: "Waiting for Plaud Web",
-        countingSummaries: "Counting…",
-        searchingRecordings: "Searching…",
-        tier: {
-          newcomer: "Newcomer",
-          thoughtCollector: "Thought collector",
-          archivist: "Archivist",
-          chronicler: "Chronicler",
-          resumeWizard: "Summary wizard",
-          legend: "Plaud legend",
-        },
-        milestone: {
-          final: "Final milestone reached — seal it with an export.",
-          goalMet: "Goal of {n} recordings reached.",
-          until: "{left} more to reach {next} recordings.",
-        },
-        motivation: {
-          m0: "Add your first recording — the archive quest begins.",
-          mNeedRefresh:
-            'Click "Refresh" to count summaries — it may take a while.',
-          mHighSummary: "Summaries are flying — your text layer is levelling up.",
-          mZeroSummary: "When summaries appear, the second number will grow too.",
-          m50: "Pro-level library — a good time for a backup.",
-          mDefault: "Every new recording brings the next rank closer.",
-        },
-        foot: {
-          cachePrefix: "Cache · {time}.",
-          cacheJustNow: "Cached for now.",
-          updatedSuffix: "Updated {time}.",
-        },
         phase: {
           list: "Loading recording list…",
           summariesLine: "Scanning summaries… {current}/{total}",
-          summariesCaption: "Counting AI notes per recording…",
         },
         fullScan: "Full scan of AI notes for every recording…",
         loadListSummaries: "Loading recordings and counting summaries…",
-        countingLabel: "Counting summaries…",
-        loadingListLabel: "Loading recordings…",
         timeoutFootnote:
           "Statistics took too long. Refresh the Plaud tab (F5) and try again, or tap Refresh later.",
         statsError: "Could not load statistics.",
         retryPlaud: "Refresh the Plaud page and try again.",
-        fullCountHint: ' Full summary count — use "Refresh".',
-        offlinePreview:
-          "Offline preview · updated {time}. Open Plaud Web for fresh numbers.",
         waitLogin:
-          "Open the Plaud Web tab and sign in — numbers and rank will appear here.",
-        exportBlocksStats: "Statistics auto-refresh is off during export.",
-        syncInProgress: "Fetching fresh numbers…",
+          "Open the Plaud Web tab and sign in — numbers will appear here.",
       },
       time: {
         justNow: "just now",
@@ -348,12 +279,16 @@
         lead: "Export and sync actions are available only on a Plaud Web tab.",
       },
       export: {
-        title: "All recordings",
-        subtitle: "Export all available recordings",
+        title: "Audio and full export",
+        subtitle: "One-time download to Downloads",
+        allRecordings: "All recordings",
+        currentRecording: "Current recording",
       },
       sync: {
-        title: "Background sync",
+        title: "Sync to folder",
         lead: "Smart backfill without duplicates",
+        modeBoth: "Audio and summaries",
+        modeSummary: "Summaries only",
         folderLabel: "Folder inside Downloads",
         folderHelp:
           "Chrome lets extensions target a subfolder in Downloads, not an arbitrary system path.",
@@ -368,7 +303,7 @@
           "Then point the field above at a path through the symlink (e.g. iCloud/PlaudExports/Sync) and save.",
         saveFolder: "Save",
         openDownloads: "Open Downloads",
-        start: "Sync in background",
+        start: "Sync now",
         starting: "Preparing sync…",
         started: "Sync started.",
         busy: "Wait for the current operation to finish.",
@@ -465,6 +400,11 @@
       toast: {
         exportStarted: "Export started: {mode}.",
         currentExportStarted: "Current recording export started: {mode}.",
+        exportDoneGeneric: "Export finished.",
+        exportDoneSummary: "Done: {n} summaries, {e} errors.",
+        exportDoneAudio: "Done: {n} audio files, {e} errors.",
+        exportDoneBoth:
+          "Done: {audio} audio, {summaries} summaries, {e} errors.",
       },
       bg: {
         stopTitle: "Export stopped",
