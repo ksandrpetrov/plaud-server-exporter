@@ -68,18 +68,19 @@
 
 > Размер > 1k LOC. Любые правки — точечно, маленькими PR, чтобы не съесть весь контекст агента.
 
-| Файл                                                                                                                           | LOC  | Что в нём                                                                        |
-| ------------------------------------------------------------------------------------------------------------------------------ | ---- | -------------------------------------------------------------------------------- |
-| [`browser-extension/popup/popupExportUi.js`](browser-extension/popup/popupExportUi.js)                                         | ~760 | DOM wiring экспорта; pure helpers — `exportStatusFormat.js`, `exportControls.js` |
-| [`browser-extension/features/audioExport/plaudBrowserApi.js`](browser-extension/features/audioExport/plaudBrowserApi.js)       | ~490 | Plaud HTTP в браузере                                                            |
-| [`browser-extension/features/audioExport/extensionSmartSync.js`](browser-extension/features/audioExport/extensionSmartSync.js) | ~420 | Smart sync loop (решения — только `syncCore`)                                    |
-| [`browser-extension/common/syncCore.js`](browser-extension/common/syncCore.js)                                                 | ~560 | Shared sync contract                                                             |
+| Файл                                                                                                                     | LOC  | Что в нём                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------ | ---- | ---------------------------------------------------------------------------------------------------------------------------- |
+| [`browser-extension/popup/popupExportUi.js`](browser-extension/popup/popupExportUi.js)                                   | ~690 | DOM wiring; pure helpers — `exportStatusFormat.js`, `exportControls.js`, `exportStatusPolling.js`, `exportForegroundFlow.js` |
+| [`browser-extension/features/audioExport/plaudBrowserApi.js`](browser-extension/features/audioExport/plaudBrowserApi.js) | ~490 | Plaud HTTP; retry — `plaudFetchRetry.js`                                                                                     |
+| [`browser-extension/common/syncCore.js`](browser-extension/common/syncCore.js)                                           | ~560 | Shared sync contract                                                                                                         |
 
-Уже разбиты (точечные правки): `audioExport.js` (barrel), `popup.js` (~60), `background.js` (~130), `messageRouter.js` (registry + `background/handlers/*`), `content.js` + `content/contentHandlers.js`.
+Уже разбиты (точечные правки): `audioExport.js` (barrel), `popup.js` (~60), `background.js` (~130), `messageRouter.js` (registry + `background/handlers/*`), `content.js` + `content/contentHandlers.js`, `extensionSmartSync.js` → `extensionSyncCandidate.js` + `extensionSyncExecutor.js`.
 
 Средние (400–500 LOC) на server: [`telegram/telegramClient.js`](server/src/telegram/telegramClient.js) (facade; transport — `telegram/transport/*`), [`telegram/messages/`](server/src/telegram/messages/), [`plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`telegram/syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js). `syncRunner.js` ~300 LOC.
 
-Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js) + [`streaming/draftAvailability.js`](server/src/telegram/streaming/draftAvailability.js), [`streaming/thinkingDraft.js`](server/src/telegram/streaming/thinkingDraft.js), [`streaming/loadingPulse.js`](server/src/telegram/streaming/loadingPulse.js). API fallback markers — [`apiFallback.js`](server/src/telegram/apiFallback.js).
+Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js) + [`streaming/draftAvailability.js`](server/src/telegram/streaming/draftAvailability.js), progress — [`sync/syncProgressChannel.js`](server/src/telegram/sync/syncProgressChannel.js), tree delivery — [`treeBrowseDelivery.js`](server/src/telegram/treeBrowseDelivery.js). API fallback markers — [`apiFallback.js`](server/src/telegram/apiFallback.js).
+
+Быстрая маршрутизация для агентов: [docs/agent-routing.md](docs/agent-routing.md).
 
 ### Telegram module map (server)
 
@@ -111,12 +112,12 @@ Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](se
 | Папки Plaud / Unfiled / Trash                                               | [`plaudFolders.js`](browser-extension/common/plaudFolders.js)                                                                                                    |
 | Context резолва папок для API/live tree                                     | [`plaud/folderResolution.js`](server/src/plaud/folderResolution.js) — `buildFolderResolutionContext` (не инлайнить три вызова заново)                            |
 | `action` popup ↔ SW ↔ content                                               | [`runtimeMessages.js`](browser-extension/common/runtimeMessages.js) + `tests/runtimeMessages.test.js`; литералы в `popup.js` / `content.js`                      |
-| Live tree stableId / merge с sync-index                                     | [`liveTreeReadModel.js`](server/src/plaud/liveTreeReadModel.js) + `syncCore.buildStableId`                                                                       |
+| Live tree stableId / merge с sync-index                                     | [`liveTreeReadModel.js`](server/src/plaud/liveTreeReadModel.js) + [`stableIdentity.js`](server/src/sync/stableIdentity.js)                                       |
 | Plaud list parsing / mirror fan-out                                         | [`plaudRecordings.js`](browser-extension/common/plaudRecordings.js) + runtime HTTP in [`recordingsApi.js`](server/src/plaud/recordingsApi.js) / `audioExport.js` |
 | ID записи Plaud (extract/normalize hex)                                     | [`plaudRecordingIds.js`](browser-extension/common/plaudRecordingIds.js)                                                                                          |
 | Telegram HTML clip                                                          | [`messages/format.js`](server/src/telegram/messages/format.js) — `clipTelegramText`                                                                              |
 | Tree browse / read sync-index                                               | [`syncIndexRead.js`](server/src/sync/syncIndexRead.js) + [`treeBrowse.js`](server/src/telegram/treeBrowse.js) (тесты: `treeBrowse.test.js`)                      |
-| Sync UX в боте                                                              | [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js) → `telegram/sync/syncRunBridge.js`, `syncProgressPresenter.js`                                  |
+| Sync UX в боте                                                              | [`syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js) → `syncRunBridge`, `syncProgressChannel`, `syncProgressPresenter`                               |
 | Telegram callback + copy                                                    | [`handlers/callbacks.js`](server/src/telegram/handlers/callbacks.js) + [`messages/`](server/src/telegram/messages/) + `keyboards.js`                             |
 | Новая CLI команда                                                           | [`server/src/cli/index.js`](server/src/cli/index.js)                                                                                                             |
 | Новая env переменная                                                        | [`server/src/config/config.js`](server/src/config/config.js) + `.env.example` + `server/README.md`                                                               |
@@ -324,10 +325,12 @@ Pre-commit (`simple-git-hooks` + `lint-staged`) ставится при `npm ins
 - **Подозрение на мёртвый код** — если есть сомнение, но удалять не стал.
 - **Проверенные бизнес/UI-сценарии** — что подтверждено тестами или ручным smoke.
 
-## Backlog (вне текущего server-рефактора)
+## Backlog (низкий приоритет)
 
-| Область                        | Файлы                                                             | Заметка                                                                                               |
-| ------------------------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Extension god modules          | `popupExportUi.js`, `plaudBrowserApi.js`, `extensionSmartSync.js` | `popupExportUi` — дальше вынос pure helpers; `extensionSmartSync` — optional split executor/candidate |
-| ~~Title normalization shared~~ | —                                                                 | Вынесено в `plaudTitles.js`                                                                           |
-| Server splits                  | `syncOrchestrator.js`, `vaultTree.js`, `telegramClient.js`        | Ниже приоритет, чем extension                                                                         |
+| Область              | Файлы                               | Заметка                                     |
+| -------------------- | ----------------------------------- | ------------------------------------------- |
+| Extension HTTP/title | `plaudBrowserApi.js`                | Title heuristics vs shared `plaudTitles.js` |
+| Popup wiring         | `popupExportUi.js` (~690 LOC)       | Helpers вынесены; дальше только по задаче   |
+| Server facade        | `telegramClient.js`, `vaultTree.js` | Transport/orchestration уже разбиты         |
+
+~~Extension god modules~~, ~~server progress dual path~~, ~~stableId drift~~ — закрыто в architecture pass 2026-07 (см. [stabilization-result.md](docs/stabilization-result.md)).

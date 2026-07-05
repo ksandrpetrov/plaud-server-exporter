@@ -91,3 +91,14 @@ logrotate, `scripts/server-as-plaud.sh`).
 4. Simulated API shape break — `_errors/plaud_changed*.md`, exit 3.
 5. Two simultaneous `server:sync` — one exits 4.
 6. Chrome extension still loads (`npm run test:extension`).
+
+## Architecture pass (2026-07)
+
+Structural refactor for maintainability and agent routing (no intentional behavior change):
+
+- **Server:** `stableIdentity.js` for sync/live-tree/error `stableId`; unified `syncProgressChannel.js`; `treeBrowseDelivery.js`; `htmlFallback.js`; transport/orchestrator unit tests.
+- **Extension:** smart sync split (`extensionSyncCandidate`, `extensionSyncExecutor`); `plaudFetchRetry.js`; popup `exportStatusPolling` + `exportForegroundFlow`; content handler i18n; `messageHandlers.test.js`.
+- **Contract:** `RECORDING_*_KEYS` in `syncCore.js`; verify guard against inline timestamp arrays; legacy `plaud-exporter/` ignored in git.
+- **Docs:** [agent-routing.md](./agent-routing.md) for fast navigation.
+
+Gate: `npm run check` (341 server + 75 extension tests at time of pass).

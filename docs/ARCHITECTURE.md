@@ -229,22 +229,23 @@ docker-smoke; опциональный SSH deploy через [`scripts/ci-deploy
 - Playwright на VPS — не запускать (1 GB RAM, нет дисплея); auth только на Mac.
 - Два параллельных sync на одном vault на разных машинах — `runLock` локальный.
 
-## Backlog рефакторинга (extension)
+## Backlog рефакторинга (низкий приоритет)
 
-| Файл                                                           | ~LOC | Заметка                                                                           |
-| -------------------------------------------------------------- | ---- | --------------------------------------------------------------------------------- |
-| `browser-extension/popup/popupExportUi.js`                     | ~760 | Дальше вынос DOM-agnostic helpers (`exportStatusFormat`, `exportControls` начаты) |
-| `browser-extension/features/audioExport/plaudBrowserApi.js`    | ~490 | Крупнейший HTTP-модуль расширения                                                 |
-| `browser-extension/features/audioExport/extensionSmartSync.js` | ~420 | Optional split: candidate builder + download executor                             |
-| `browser-extension/common/syncCore.js`                         | ~560 | Shared contract — менять только с двойными тестами                                |
+| Файл                                                        | ~LOC | Заметка                                    |
+| ----------------------------------------------------------- | ---- | ------------------------------------------ |
+| `browser-extension/features/audioExport/plaudBrowserApi.js` | ~490 | Title heuristics vs `plaudTitles.js`       |
+| `browser-extension/popup/popupExportUi.js`                  | ~690 | DOM wiring; helpers вынесены               |
+| `browser-extension/common/syncCore.js`                      | ~560 | Shared contract — двойные тесты            |
+| `server/src/telegram/telegramClient.js`                     | ~430 | Facade; transport в `telegram/transport/*` |
 
-**Сделано:** `audioExport.js` → barrel; `popup.js` / `background.js` / `messageRouter.js` разбиты; server `telegramClient` transport в `telegram/transport/*`; tree browse orchestration в `treeBrowseOrchestrator.js`.
+**Сделано (2026-07):** unified `syncProgressChannel`, `treeBrowseDelivery`, `stableIdentity`, extension smart-sync split, popup polling helpers, handler tests. Карта для агентов — [agent-routing.md](./agent-routing.md).
 
 ## История и связанные документы
 
 - [`docs/server-exporter-research.md`](./server-exporter-research.md) — обоснование портирования расширения в серверный
   CLI.
 - [`docs/stabilization-audit.md`](./stabilization-audit.md), [`docs/stabilization-result.md`](./stabilization-result.md) — аудит и результат стабилизации (май 2026).
+- [`docs/agent-routing.md`](./agent-routing.md) — быстрая маршрутизация для AI-агентов (2026-07).
 - [`docs/getting-started.md`](./getting-started.md) — установка и первый запуск.
 - [`docs/server-deploy.md`](./server-deploy.md) — продакшен на VPS (systemd или Docker).
 - [`deploy/README.md`](../deploy/README.md) — Docker, Ansible, rolling deploy из CI.
