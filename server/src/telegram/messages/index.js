@@ -85,6 +85,7 @@ export {
   ERR_TREE_LOAD_HTML,
   ERR_TREE_LOAD_RICH,
   TREE_QUIET_SYNC_TOAST,
+  treeAutoSyncErrorForStatus,
   treeDocumentSentHtml,
   treeDocumentSentRich,
 } from "./errors.js";

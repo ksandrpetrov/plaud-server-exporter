@@ -27,42 +27,32 @@ import {
   buildFilesTreeFolderKeyboard,
   buildFilesTreeRootKeyboard,
   buildTreePickErrorKeyboard,
-  buildTreePickSuccessKeyboard,
 } from "./keyboards.js";
 import {
-  ERR_TREE_AUTO_SYNC_FAILED_HTML,
-  ERR_TREE_AUTO_SYNC_FAILED_RICH,
   ERR_TREE_FILE_STILL_MISSING_HTML,
   ERR_TREE_FILE_STILL_MISSING_RICH,
   ERR_TREE_LOAD_HTML,
   ERR_TREE_LOAD_RICH,
-  ERR_TREE_SEND_DOCUMENT_HTML,
-  ERR_TREE_SEND_DOCUMENT_RICH,
   filesTreeFolderHtml,
   filesTreeFolderRichMarkdown,
   filesTreeRootHtml,
   filesTreeRootRichMarkdown,
-  stripLeadingDateFromTreeTitle,
-  syncProgressHtml,
-  syncProgressRichMarkdown,
   TREE_FILE_PICK_NO_CONTEXT_HTML,
   TREE_FILE_PICK_NO_CONTEXT_RICH,
   TREE_QUIET_SYNC_TOAST,
-  treeDocumentSentHtml,
-  treeDocumentSentRich,
   treeFilePickOutOfRangeHtml,
 } from "./messages.js";
-import {
-  createSyncProgressDelivery,
-  dismissDraftBubbleBestEffort,
-} from "./streamingDelivery.js";
-import { createSyncProgressPushHandler } from "./sync/syncProgressPush.js";
 import {
   safeCallbackRichScreen,
   safeSend,
   safeSendRich,
 } from "./botMessageUtils.js";
-import { EFFECT_SPARKLES, privateMessageEffect } from "./telegramVisual.js";
+import {
+  runQuietSyncSafely,
+  treeQuietSyncFailureMessages,
+  treeSendDocumentError,
+  trySendTreeDocument,
+} from "./treeBrowseDelivery.js";
 import {
   _resetTreeBrowseOrchestratorHooksForTests,
   _setTreeBrowseOrchestratorHooksForTests,
@@ -208,7 +198,7 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
 
   const directPath = String(item.summaryPath || "").trim();
   if (directPath && (await isReadablePath(directPath))) {
-    if (await trySendDocument(ctx, chatId, directPath, item)) return;
+    if (await trySendTreeDocument(ctx, chatId, directPath, item)) return;
     // The file vanished or Telegram refused — fall through to the sync-then-retry path.
   }
 
@@ -221,10 +211,11 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
       stableId: item.stableId,
       status: syncResult.status,
     });
-    await sendTreePickError(ctx, chatId, {
-      html: ERR_TREE_AUTO_SYNC_FAILED_HTML,
-      richMarkdown: ERR_TREE_AUTO_SYNC_FAILED_RICH,
-    });
+    await sendTreePickError(
+      ctx,
+      chatId,
+      treeQuietSyncFailureMessages(syncResult.status)
+    );
     return;
   }
 
@@ -236,96 +227,7 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
     });
     return;
   }
-  if (!(await trySendDocument(ctx, chatId, freshPath, item))) {
-    await sendTreePickError(ctx, chatId, {
-      html: ERR_TREE_SEND_DOCUMENT_HTML,
-      richMarkdown: ERR_TREE_SEND_DOCUMENT_RICH,
-    });
-  }
-}
-
-async function buildDocumentCaption(item) {
-  const title = stripLeadingDateFromTreeTitle(
-    item?.date,
-    String(item?.title || "Запись")
-  );
-  const parts = [title];
-  if (item?.date) parts.push(String(item.date));
-  if (item?.folder) parts.push(String(item.folder));
-  return parts.join(" · ");
-}
-
-function documentTitle(item) {
-  return stripLeadingDateFromTreeTitle(
-    item?.date,
-    String(item?.title || "Запись")
-  );
-}
-
-async function trySendDocument(ctx, chatId, documentPath, item) {
-  try {
-    await ctx.telegram.sendDocument({
-      chatId,
-      documentPath,
-      caption: await buildDocumentCaption(item),
-      messageEffectId: privateMessageEffect(EFFECT_SPARKLES, chatId),
-    });
-    const title = documentTitle(item);
-    await safeSendRich(ctx, chatId, treeDocumentSentRich(title), {
-      fallbackHtml: treeDocumentSentHtml(title),
-      replyMarkup: buildTreePickSuccessKeyboard(),
-      animate: false,
-    });
-    return true;
-  } catch (err) {
-    logger.warn("sendDocument failed", {
-      path: documentPath,
-      error: String(err?.message || err),
-    });
-    return false;
-  }
-}
-
-async function runQuietSyncSafely(ctx, chatId) {
-  if (typeof ctx.runSyncQuiet !== "function") {
-    logger.warn(
-      "Auto-sync requested but runSyncQuiet is not wired into the bot"
-    );
-    return { status: "failed" };
-  }
-  const delivery = createSyncProgressDelivery({
-    telegram: ctx.telegram,
-    chatId,
-  });
-  const pushQuietSyncProgress = createSyncProgressPushHandler({
-    telegram: ctx.telegram,
-    chatId,
-    delivery,
-    getPayload: (stats) => ({
-      html: syncProgressHtml(stats),
-      richMarkdown: syncProgressRichMarkdown(stats),
-    }),
-  });
-
-  try {
-    const result = await ctx.runSyncQuiet({
-      chatId,
-      onProgress: (stats) => {
-        void pushQuietSyncProgress(stats);
-      },
-    });
-    return result || { status: "failed" };
-  } catch (err) {
-    logger.warn("runSyncQuiet threw", {
-      error: String(err?.message || err),
-    });
-    return { status: "failed" };
-  } finally {
-    if (delivery.isDraftMode()) {
-      await dismissDraftBubbleBestEffort({
-        telegram: ctx.telegram,
-        chatId,
-      });
-    }
+  if (!(await trySendTreeDocument(ctx, chatId, freshPath, item))) {
+    await sendTreePickError(ctx, chatId, treeSendDocumentError());
   }
 }

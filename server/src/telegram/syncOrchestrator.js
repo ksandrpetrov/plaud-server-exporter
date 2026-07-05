@@ -6,7 +6,7 @@
  *  - `sync/syncRunBridge.js` — session + silent sync
  *  - `sync/syncProgressPresenter.js` — loading / progress / final reveal
  *  - `sync/syncDraftBootstrap.js` — draft open + loading pulse
- *  - `sync/syncProgressThrottle.js` — throttled onProgress
+ *  - `sync/syncProgressChannel.js` — throttled onProgress
  */
 
 import { logger } from "../logger.js";
@@ -27,7 +27,7 @@ import {
   bootstrapSyncDraftAndPulse,
   LOADING_PULSE_FRAME_MS,
 } from "./sync/syncDraftBootstrap.js";
-import { createSyncProgressThrottle } from "./sync/syncProgressThrottle.js";
+import { createSyncProgressChannel } from "./sync/syncProgressChannel.js";
 import { handleSyncError, revealFinal } from "./sync/syncProgressPresenter.js";
 import { EFFECT_SPARKLES, privateMessageEffect } from "./telegramVisual.js";
 
@@ -105,7 +105,8 @@ export async function runSyncWithReporting(params) {
       return { status: "no_session", summaryMessageId: messageId ?? undefined };
     }
 
-    const onProgress = createSyncProgressThrottle({
+    const onProgress = createSyncProgressChannel({
+      mode: "throttled",
       delivery,
       telegram,
       chatId,

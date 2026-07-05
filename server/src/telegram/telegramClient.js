@@ -16,8 +16,10 @@
 
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
-import { isHtmlEntitiesRejected, stripUnsupportedHtml } from "./htmlFormat.js";
-import { isMessageEffectRejected } from "./telegramVisual.js";
+import {
+  retryRichSendAfterTelegramReject,
+  retrySendOrEditAfterTelegramReject,
+} from "./htmlFallback.js";
 import {
   EDIT_MESSAGE_MAX_RETRIES,
   EDIT_MESSAGE_TIMEOUT_MS,
@@ -341,15 +343,17 @@ export class TelegramClient {
         maxRetries,
       });
     } catch (err) {
-      if (!(err instanceof TelegramError)) throw err;
-      if (isMessageEffectRejected(err)) {
-        return this._call(methodName, {
-          data: buildData(markdown, { dropEffect: true }),
-          timeoutMs,
-          maxRetries: 0,
-        });
-      }
-      throw err;
+      return retryRichSendAfterTelegramReject({
+        err,
+        markdown,
+        buildData,
+        retry: (data) =>
+          this._call(methodName, {
+            data,
+            timeoutMs,
+            maxRetries: 0,
+          }),
+      });
     }
   }
 
@@ -367,25 +371,17 @@ export class TelegramClient {
         maxRetries,
       });
     } catch (err) {
-      if (!(err instanceof TelegramError)) throw err;
-      if (isHtmlEntitiesRejected(err)) {
-        const stripped = stripUnsupportedHtml(text);
-        if (stripped !== text) {
-          return this._call(methodName, {
-            data: buildData(stripped),
+      return retrySendOrEditAfterTelegramReject({
+        err,
+        text,
+        buildData,
+        retry: (data) =>
+          this._call(methodName, {
+            data,
             timeoutMs,
             maxRetries: 0,
-          });
-        }
-      }
-      if (isMessageEffectRejected(err)) {
-        return this._call(methodName, {
-          data: buildData(text, { dropEffect: true }),
-          timeoutMs,
-          maxRetries: 0,
-        });
-      }
-      throw err;
+          }),
+      });
     }
   }
 
