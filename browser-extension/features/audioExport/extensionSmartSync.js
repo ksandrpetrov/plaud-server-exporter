@@ -18,6 +18,8 @@ import {
   determineSyncAction,
   getRawField,
   hashSummary,
+  RECORDING_CREATED_AT_KEYS,
+  RECORDING_UPDATED_AT_KEYS,
   refineSyncActionForDisk,
   sanitizeSyncSubdirectory,
   SYNC_ACTION_ALREADY_SYNCED,
@@ -71,14 +73,7 @@ async function buildSyncCandidate(file, summaryExports, sourceUrl) {
     title: file.title,
     sourceUrl,
     summaryMarkdown: summaryBundle,
-    createdAt: getRawField(file.raw, [
-      "created_at",
-      "createdAt",
-      "create_time",
-      "createTime",
-      "start_time",
-      "startTime",
-    ]),
+    createdAt: getRawField(file.raw, RECORDING_CREATED_AT_KEYS),
   });
   const firstSummary = Array.isArray(summaryExports) ? summaryExports[0] : null;
   const summaryTitle =
@@ -108,22 +103,8 @@ async function buildSyncCandidate(file, summaryExports, sourceUrl) {
         maxBaseLength: 132,
       }
     ),
-    createdAt: getRawField(file.raw, [
-      "created_at",
-      "createdAt",
-      "create_time",
-      "createTime",
-      "start_time",
-      "startTime",
-    ]),
-    updatedAt: getRawField(file.raw, [
-      "updated_at",
-      "updatedAt",
-      "update_time",
-      "updateTime",
-      "modified_at",
-      "modifiedAt",
-    ]),
+    createdAt: getRawField(file.raw, RECORDING_CREATED_AT_KEYS),
+    updatedAt: getRawField(file.raw, RECORDING_UPDATED_AT_KEYS),
     folderSegment: String(file.folderSegment || PLAUD_FOLDER_UNFILED).trim(),
   };
 }

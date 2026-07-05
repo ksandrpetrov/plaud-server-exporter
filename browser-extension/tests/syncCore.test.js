@@ -8,6 +8,8 @@ import {
   refineSyncActionForDisk,
   getRawField,
   hashSummary,
+  RECORDING_CREATED_AT_KEYS,
+  RECORDING_UPDATED_AT_KEYS,
   resolveSyncNotificationsEnabled,
   sanitizeSyncSubdirectory,
   SYNC_ACTION_ALREADY_SYNCED,
@@ -244,4 +246,25 @@ test("buildAudioSignature changes when id or size changes", () => {
   const otherSize = buildAudioSignature({ id: "abc", raw: { size: 200 } });
   assert.notEqual(base, otherId);
   assert.notEqual(base, otherSize);
+});
+
+test("RECORDING_CREATED_AT_KEYS reads snake_case and camelCase", () => {
+  assert.equal(
+    getRawField(
+      { created_at: "2026-01-01T00:00:00.000Z" },
+      RECORDING_CREATED_AT_KEYS
+    ),
+    "2026-01-01T00:00:00.000Z"
+  );
+  assert.equal(
+    getRawField(
+      { createdAt: "2026-02-01T00:00:00.000Z" },
+      RECORDING_CREATED_AT_KEYS
+    ),
+    "2026-02-01T00:00:00.000Z"
+  );
+  assert.equal(
+    getRawField({ updated_at: "2026-03-01" }, RECORDING_UPDATED_AT_KEYS),
+    "2026-03-01"
+  );
 });

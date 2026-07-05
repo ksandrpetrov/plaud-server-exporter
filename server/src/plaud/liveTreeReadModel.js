@@ -4,17 +4,14 @@
  */
 
 import { logger } from "../logger.js";
-import { buildStableId } from "../../../browser-extension/common/syncCore.js";
+import { buildLiveTreeStableIdentity } from "../sync/stableIdentity.js";
 import { resolveFileFolderSegment } from "./plaudFolders.js";
 import { buildFolderResolutionContext } from "./folderResolution.js";
 import {
   fetchPlaudFiletagList,
   listRecordingsForBotTree,
 } from "./plaudApiClient.js";
-import {
-  getRecordingCreatedAtIso,
-  getRecordingCreatedAtRaw,
-} from "./recordingTimestamps.js";
+import { getRecordingCreatedAtIso } from "./recordingTimestamps.js";
 
 export const LIVE_TREE_CACHE_TTL_MS = 15_000;
 
@@ -91,15 +88,8 @@ export async function loadPlaudLiveSyncTree({
   const records = {};
   for (const file of files || []) {
     if (!file || typeof file !== "object") continue;
-    const createdAtRaw = getRecordingCreatedAtRaw(file.raw);
     const createdAtIso = getRecordingCreatedAtIso(file.raw);
-    const identity = buildStableId({
-      ...file,
-      raw: file.raw,
-      title: String(file.title || "").trim(),
-      // Match syncRunner: raw Plaud timestamp for fingerprint parity.
-      createdAt: createdAtRaw,
-    });
+    const identity = buildLiveTreeStableIdentity(file);
     if (identity.identityKind === "missing" || !identity.stableId) continue;
     const stableId = identity.stableId;
     const folderSegment = resolveFileFolderSegment({

@@ -6,25 +6,13 @@
  * Use `getRecordingCreatedAtIso` only for display fields such as `lastSyncedAt`.
  */
 
-import { getRawField } from "../../../browser-extension/common/syncCore.js";
+import {
+  getRawField,
+  RECORDING_CREATED_AT_KEYS,
+  RECORDING_UPDATED_AT_KEYS,
+} from "../../../browser-extension/common/syncCore.js";
 
-export const RECORDING_CREATED_AT_KEYS = [
-  "created_at",
-  "createdAt",
-  "create_time",
-  "createTime",
-  "start_time",
-  "startTime",
-];
-
-export const RECORDING_UPDATED_AT_KEYS = [
-  "updated_at",
-  "updatedAt",
-  "update_time",
-  "updateTime",
-  "modified_at",
-  "modifiedAt",
-];
+export { RECORDING_CREATED_AT_KEYS, RECORDING_UPDATED_AT_KEYS };
 
 /**
  * @param {object | null | undefined} raw

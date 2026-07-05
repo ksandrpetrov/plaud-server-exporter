@@ -4,7 +4,6 @@ import { redactError } from "../security/redact.js";
 import { reportError } from "../errors/errorReporter.js";
 import { PlaudChangedError } from "../plaud/errors.js";
 import {
-  buildStableId,
   detectDuplicate,
   determineSyncAction,
   refineSyncActionForDisk,
@@ -18,6 +17,7 @@ import {
   SYNC_STATUS_UPDATED,
   updateExistingRecord,
 } from "../../../browser-extension/common/syncCore.js";
+import { buildErrorRecordStableIdentity } from "./stableIdentity.js";
 import { fetchSummaries, listAllRecordings } from "../plaud/plaudApiClient.js";
 import { loadSyncIndex, saveSyncIndex } from "./serverSyncIndex.js";
 import { buildMarkdownDocument, writeMarkdownFile } from "./obsidianWriter.js";
@@ -253,7 +253,7 @@ async function runSyncCore({ session, onProgress, dryRun, runId, stats }) {
       });
       markPlaudChangedIfNeeded(stats, reported);
       if (!dryRun) {
-        const identity = buildStableId(file);
+        const identity = buildErrorRecordStableIdentity(file);
         if (identity.stableId) {
           syncIndex.records[identity.stableId] = {
             ...(syncIndex.records[identity.stableId] || {}),

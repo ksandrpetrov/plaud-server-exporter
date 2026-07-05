@@ -111,7 +111,30 @@ const commonBoundaryOk = await walkAndCheckCommonImports(
   SERVER_SRC,
   sharedCommonBasenames()
 );
+const timestampKeysOk = checkNoInlineTimestampKeyArrays();
 
-if (filesOk && importsOk && commonBoundaryOk) {
+if (filesOk && importsOk && commonBoundaryOk && timestampKeysOk) {
   console.log("verify-shared-contract: OK");
+}
+
+/** Fail when consumers inline Plaud timestamp key lists instead of syncCore constants. */
+function checkNoInlineTimestampKeyArrays() {
+  const watched = [
+    "server/src/sync/syncCandidate.js",
+    "browser-extension/features/audioExport/extensionSmartSync.js",
+  ];
+  const inlineArrayRe = /getRawField\s*\([^,]+,\s*\[\s*["']created_at["']\s*,/s;
+  let ok = true;
+  for (const rel of watched) {
+    const full = resolve(root, rel);
+    if (!existsSync(full)) continue;
+    const text = readFileSync(full, "utf8");
+    if (inlineArrayRe.test(text)) {
+      fail(
+        `${rel} inlines timestamp key arrays; use RECORDING_CREATED_AT_KEYS / RECORDING_UPDATED_AT_KEYS from syncCore.js`
+      );
+      ok = false;
+    }
+  }
+  return ok;
 }

@@ -43,6 +43,9 @@ build/
 tmp/
 *.tsbuildinfo
 
+# Legacy local copy of extension (do not edit; use browser-extension/)
+plaud-exporter/
+
 # Backups
 *.bak
 *.orig

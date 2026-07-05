@@ -2,10 +2,10 @@ import { stat } from "node:fs/promises";
 import { config } from "../config/config.js";
 import {
   buildAudioSignature,
-  buildStableId,
   buildSummaryBundle,
   hashSummary,
 } from "../../../browser-extension/common/syncCore.js";
+import { buildSyncStableIdentity } from "./stableIdentity.js";
 import { PLAUD_FOLDER_UNFILED } from "../plaud/plaudFolders.js";
 import {
   getRecordingCreatedAtRaw,
@@ -54,12 +54,9 @@ export async function buildCandidate(file, summaries) {
     createdAt: getRecordingCreatedAtRaw(file.raw),
   });
 
-  const identity = buildStableId({
-    ...file,
-    raw: file.raw,
-    title: meetingTitle,
-    summaryMarkdown: summaryBundle,
-    createdAt: getRecordingCreatedAtRaw(file.raw),
+  const identity = buildSyncStableIdentity(file, {
+    summaries,
+    meetingTitle,
   });
 
   return {

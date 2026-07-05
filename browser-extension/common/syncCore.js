@@ -122,6 +122,25 @@ export function getRawField(raw, keys) {
   return "";
 }
 
+/** Plaud recording timestamps vary by endpoint (snake_case vs camelCase). */
+export const RECORDING_CREATED_AT_KEYS = [
+  "created_at",
+  "createdAt",
+  "create_time",
+  "createTime",
+  "start_time",
+  "startTime",
+];
+
+export const RECORDING_UPDATED_AT_KEYS = [
+  "updated_at",
+  "updatedAt",
+  "update_time",
+  "updateTime",
+  "modified_at",
+  "modifiedAt",
+];
+
 const AUDIO_SIGNATURE_KEYS = {
   size: ["size", "file_size", "fileSize", "audio_size", "audioSize", "bytes"],
   duration: [
