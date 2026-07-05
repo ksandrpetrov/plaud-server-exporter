@@ -19,6 +19,7 @@
       sheet: {
         title: "Ещё",
         open: "Настройки и расширенные действия",
+        close: "Закрыть",
         summaries: "Все саммари",
         archive: "Архив",
         advanced: "Расширенный экспорт",
@@ -68,6 +69,7 @@
       },
       export: {
         subtitle: "Разовая выгрузка в Downloads",
+        modeGroupAria: "Режим экспорта",
         allRecordings: "Все записи",
         currentRecording: "Текущая запись",
       },
@@ -76,6 +78,7 @@
         lead: "Умная подгрузка без дублей",
         modeBoth: "Аудио и саммари",
         modeSummary: "Только саммари",
+        modeGroupAria: "Режим синхронизации",
         folderLabel: "Папка внутри Downloads",
         folderHelp:
           "Chrome разрешает расширению задавать подпапку в Downloads, а не произвольный системный путь.",
@@ -161,6 +164,7 @@
         stopFailed: "Остановка не удалась: {msg}",
         stopNoTab: "Остановка не удалась: не найдена вкладка экспорта.",
         stopAfterFile: "Экспорт остановится после завершения текущего файла.",
+        beforeunloadExport: "Идёт экспорт. Покинуть страницу?",
         stopFailedGeneric: "Остановка не удалась: {msg}",
         contentExportModuleLoadFailed:
           "Не удалось загрузить модуль экспорта. Обновите страницу Plaud Web.",
@@ -250,6 +254,7 @@
       sheet: {
         title: "More",
         open: "Settings and advanced actions",
+        close: "Close",
         summaries: "All summaries",
         archive: "Archive",
         advanced: "Advanced export",
@@ -299,6 +304,7 @@
       },
       export: {
         subtitle: "One-time download to Downloads",
+        modeGroupAria: "Export mode",
         allRecordings: "All recordings",
         currentRecording: "Current recording",
       },
@@ -307,6 +313,7 @@
         lead: "Smart backfill without duplicates",
         modeBoth: "Audio and summaries",
         modeSummary: "Summaries only",
+        modeGroupAria: "Sync mode",
         folderLabel: "Folder inside Downloads",
         folderHelp:
           "Chrome lets extensions target a subfolder in Downloads, not an arbitrary system path.",
@@ -392,6 +399,7 @@
         stopFailed: "Stop failed: {msg}",
         stopNoTab: "Stop failed: export tab not found.",
         stopAfterFile: "Export will stop after the current file finishes.",
+        beforeunloadExport: "Export in progress. Leave this page?",
         stopFailedGeneric: "Stop failed: {msg}",
         contentExportModuleLoadFailed:
           "Could not load the export module. Refresh the Plaud Web page.",

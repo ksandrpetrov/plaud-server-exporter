@@ -7,13 +7,9 @@
    * @param {ReturnType<typeof PP.createState>} ctx
    */
   PP.initExport = function initExport(ctx) {
-    ctx.getExportModeLabel = function getExportModeLabel(exportMode) {
-      if (exportMode === ctx.EXPORT_MODE_AUDIO)
-        return ctx.tr("exportMode.audio");
-      if (exportMode === ctx.EXPORT_MODE_SUMMARY)
-        return ctx.tr("exportMode.summary");
-      return ctx.tr("exportMode.both");
-    };
+    if (!ctx.getExportModeLabel) {
+      throw new Error("ctx.getExportModeLabel must be set before initExport");
+    }
 
     ctx.updateAdvancedExportModeUi = function updateAdvancedExportModeUi() {
       const { exportModeBothBtn, exportModeAudioBtn } = ctx.els;

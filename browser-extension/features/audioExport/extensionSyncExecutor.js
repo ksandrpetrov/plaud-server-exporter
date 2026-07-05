@@ -14,7 +14,7 @@ import {
   SYNC_STATUS_UPDATED,
   updateExistingRecord,
 } from "../../common/syncCore.js";
-import { preferApiTitle } from "./plaudBrowserApi.js";
+import { preferApiTitle } from "../../common/plaudTitles.js";
 import {
   basenameFromDownloadPath,
   buildCollisionSafePath,

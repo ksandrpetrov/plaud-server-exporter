@@ -86,3 +86,5 @@ export function buildMainMenuRichMarkdown(status) {
     `# ${EMOJI_BRAND} Plaud-экспортер\n\n${lastSyncSummaryLinePlain(status)}\n\nВыбери действие:`
   );
 }
+
+export const STALE_CALLBACK_TOAST = "Кнопка устарела — открой /menu";

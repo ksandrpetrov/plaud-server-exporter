@@ -3,7 +3,12 @@
  * Summary markdown assembly and media URL / summary export fetching.
  */
 import { extractTitleFromMarkdown } from "../../common/exportPathUtils.js";
-import { normalizeHumanTitle } from "../../common/plaudTitles.js";
+import {
+  extractTitleForFileFromPayload,
+  isPlausibleRecordingTitle,
+  normalizeHumanTitle,
+  titleLooksLikeRawId,
+} from "../../common/plaudTitles.js";
 import {
   findSummaryNotes,
   getNoteDataLink,
@@ -14,13 +19,10 @@ import {
 } from "../../common/plaudSummaries.js";
 import {
   describePayloadShape,
-  extractTitleForFileFromPayload,
   fetchPlaudApi,
   fetchUrlTextWithRetries,
-  isPlausibleRecordingTitle,
   plaudExportDebug,
   redactUrlForLog,
-  titleLooksLikeRawId,
 } from "./plaudBrowserApi.js";
 
 export function buildSummaryMarkdownForFile(file, content, noteTitle = "") {

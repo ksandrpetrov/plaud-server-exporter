@@ -43,7 +43,7 @@
           !ctx.activeTabIsPlaud;
       }
       if (syncFolderInput) {
-        syncFolderInput.disabled = ctx.smartSyncActive;
+        syncFolderInput.disabled = blockExportActions;
       }
       if (openDownloadsBtn) {
         openDownloadsBtn.disabled = false;

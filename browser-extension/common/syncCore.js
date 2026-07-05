@@ -85,7 +85,7 @@ function canonicalUrl(value, includeQuery = false) {
   }
 }
 
-export function stableStringify(value) {
+function stableStringify(value) {
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value);
   }

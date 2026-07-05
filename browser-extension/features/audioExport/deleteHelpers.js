@@ -127,8 +127,5 @@ export async function resetDomState() {
   window.scrollBy(0, 1);
   window.scrollBy(0, -1);
 
-  // Instead of fixed delay, maybe wait briefly for any potential menu to disappear?
-  // Or rely on the next action's waitForElement. For now, removing the delay.
-  // await delay(100); // Optional tiny delay if needed.
   console.log("Сброс интерфейса выполнен.");
 }

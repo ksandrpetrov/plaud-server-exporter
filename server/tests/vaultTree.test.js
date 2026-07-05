@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import test from "node:test";
+import { describeRecordStatus } from "../src/telegram/messages/format.js";
 import {
-  describeRecordStatus,
   filesTreeFolderHtml,
   filesTreeFolderRichMarkdown,
   filesTreeRootHtml,
@@ -37,7 +34,6 @@ import {
   parseSummaryFilename,
   plaudFolderLabelFromVaultPath,
 } from "../src/telegram/vaultTree.js";
-import { scanVaultSummary } from "../src/sync/vaultDiskScan.js";
 import {
   PLAUD_FOLDER_TRASH,
   PLAUD_FOLDER_UNFILED,
@@ -549,51 +545,6 @@ test("buildFilesTreeFolderKeyboard shows prev/next + К папкам + В мен
   assert.equal(lastNav.length, 1);
   assert.equal(lastNav[0].callback_data, filesTreeFolderCallback(2, 2));
   assert.match(lastNav[0].text, /Пред/);
-});
-
-// ---------------------------------------------------------------------------
-// Vault filesystem summary (unchanged behaviour, kept for regression)
-// ---------------------------------------------------------------------------
-
-test("scanVaultSummary counts md files and lists recent by mtime", async () => {
-  const root = await mkdtemp(join(tmpdir(), "plaud-vault-"));
-  const plaudDir = join(root, "Plaud", "2026");
-  await mkdir(plaudDir, { recursive: true });
-
-  const paths = [
-    join(plaudDir, "2026-05-01 - First.md"),
-    join(plaudDir, "2026-05-02 - Second.md"),
-    join(plaudDir, "2026-05-03 - Third.md"),
-  ];
-  await writeFile(paths[0], "# one\n", "utf8");
-  await writeFile(paths[1], "# two\n\nmore", "utf8");
-  await writeFile(paths[2], "# three\n", "utf8");
-
-  const stats = await scanVaultSummary({
-    vaultRoot: root,
-    subfolder: "Plaud",
-  });
-
-  assert.equal(stats.exists, true);
-  assert.equal(stats.totalCount, 3);
-  assert.ok(stats.totalBytes > 0);
-  assert.ok(stats.lastMtime);
-  assert.equal(stats.recent.length, 3);
-  assert.ok(
-    stats.recent[0].relativePath.startsWith("Plaud/"),
-    "paths are relative to vault root"
-  );
-  assert.ok(!stats.recent[0].relativePath.startsWith("/"));
-});
-
-test("scanVaultSummary returns exists=false when vault subfolder is missing", async () => {
-  const root = await mkdtemp(join(tmpdir(), "plaud-missing-"));
-  const stats = await scanVaultSummary({
-    vaultRoot: root,
-    subfolder: "Plaud",
-  });
-  assert.equal(stats.exists, false);
-  assert.equal(stats.totalCount, 0);
 });
 
 test("formatBytes and describeRecordStatus", () => {

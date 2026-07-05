@@ -245,7 +245,7 @@ export function statusScreenHtml(status) {
       `${EMOJI_WARNING} Последняя ошибка авторизации: ${escapeHtml(status.lastAuthError.message)}`
     );
   }
-  return lines.join("\n");
+  return clipTelegramText(lines.join("\n"));
 }
 
 /**

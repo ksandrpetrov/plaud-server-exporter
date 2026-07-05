@@ -94,3 +94,21 @@ export function settingsScreenRichMarkdown({
   ].join("\n");
   return clipRichMarkdown(md);
 }
+
+/**
+ * @param {number} intervalMin
+ * @returns {string}
+ */
+export function intervalSetToast(intervalMin) {
+  return `Интервал: ${humanIntervalLabel(intervalMin)}`;
+}
+
+/**
+ * @param {boolean} visible
+ * @returns {string}
+ */
+export function scheduledSummaryToggleToast(visible) {
+  return visible
+    ? "Уведомлять об автосинке: да"
+    : "Уведомлять об автосинке: нет";
+}

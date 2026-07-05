@@ -1,6 +1,5 @@
 import {
-  EXPORT_MODE_AUDIO,
-  EXPORT_MODE_SUMMARY,
+  getExportModeLabel as resolveExportModeLabel,
   normalizeExportMode,
 } from "../common/exportPathUtils.js";
 import { plaudT } from "./bgLocale.js";
@@ -22,6 +21,26 @@ import {
 /** One keep-alive timeout chain per tab (avoid duplicates after session restore + start). */
 const keepAliveChainStarted = new Set();
 
+/**
+ * @param {number} tabId
+ * @returns {boolean} false when a chain is already active for this tab
+ */
+export function tryStartKeepAliveChain(tabId) {
+  if (keepAliveChainStarted.has(tabId)) return false;
+  keepAliveChainStarted.add(tabId);
+  return true;
+}
+
+/** @param {number} tabId */
+export function dropKeepAliveChain(tabId) {
+  keepAliveChainStarted.delete(tabId);
+}
+
+/** Visible for unit tests only. */
+export function _resetKeepAliveChainsForTests() {
+  keepAliveChainStarted.clear();
+}
+
 export async function verifyExportTabAlive(tabId) {
   try {
     const pong = await sendTabMessage(tabId, {
@@ -33,10 +52,10 @@ export async function verifyExportTabAlive(tabId) {
   }
 }
 
-export function getExportModeLabel(mode) {
-  if (mode === EXPORT_MODE_AUDIO) return plaudT("exportMode.shortAudio");
-  if (mode === EXPORT_MODE_SUMMARY) return plaudT("exportMode.shortSummary");
-  return plaudT("exportMode.shortBoth");
+export function getExportModeLabel(mode, { style = "short" } = {}) {
+  return resolveExportModeLabel(mode, plaudT, {
+    style: /** @type {"inline"|"short"} */ (style),
+  });
 }
 
 function sendRunExportMessageWithRecovery(tabId, exportMode) {
@@ -101,8 +120,7 @@ export async function startBackgroundExport(tabId, requestedExportMode) {
  */
 export async function keepTabAlive(tabId, fromChain = false) {
   if (!fromChain) {
-    if (keepAliveChainStarted.has(tabId)) return;
-    keepAliveChainStarted.add(tabId);
+    if (!tryStartKeepAliveChain(tabId)) return;
   }
   try {
     if (!activeTabIds.has(tabId)) {
@@ -164,8 +182,4 @@ export async function keepTabAlive(tabId, fromChain = false) {
     clearStallNotifyState(tabId);
     persistExportStateToSession();
   }
-}
-
-export function dropKeepAliveChain(tabId) {
-  keepAliveChainStarted.delete(tabId);
 }

@@ -24,7 +24,7 @@
 
 Монорепозиторий с двумя средами выполнения и одним общим контрактом:
 
-- `server/` — Node 20+ ESM CLI + Telegram-бот (long-polling). Точка входа: [`server/src/cli/index.js`](server/src/cli/index.js); бот: [`server/src/telegram/index.js`](server/src/telegram/index.js).
+- `server/` — Node 22+ ESM CLI + Telegram-бот (long-polling). Точка входа: [`server/src/cli/index.js`](server/src/cli/index.js); бот: [`server/src/telegram/index.js`](server/src/telegram/index.js).
 - `browser-extension/` — Chrome MV3 расширение. **Не** git-submodule, вендорный код в монорепо. Точки входа:
   `background.js`, `content.js`, `popup/`.
 - `docs/`, `deploy/`, `scripts/` — документация, systemd/Docker/Ansible, верификация, `ci-deploy-remote.sh`.
@@ -47,15 +47,15 @@
 
 Формальный контракт между server и extension. Меняешь один — обновляешь оба consumer'а и **оба** набора тестов.
 
-| Файл                                                                                             | Меняешь — обновляй                                                                                                                                          |
+| Файл | Меняешь — обновляй |
 | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| [`browser-extension/common/syncCore.js`](browser-extension/common/syncCore.js)                   | Тесты в `browser-extension/tests/syncCore.test.js` **и** `server/tests/syncRunner*.test.js`                                                                 |
-| [`browser-extension/common/exportPathUtils.js`](browser-extension/common/exportPathUtils.js)     | `browser-extension/tests/exportPathUtils.test.js` + `server/tests/filenamePlanner.test.js`                                                                  |
-| [`browser-extension/common/plaudFolders.js`](browser-extension/common/plaudFolders.js)           | `browser-extension/tests/plaudFolders.test.js` + `server/tests/plaudFolders.test.js`                                                                        |
+| [`browser-extension/common/syncCore.js`](browser-extension/common/syncCore.js) | Тесты в `browser-extension/tests/syncCore.test.js` **и** `server/tests/syncRunner*.test.js` |
+| [`browser-extension/common/exportPathUtils.js`](browser-extension/common/exportPathUtils.js) | `browser-extension/tests/exportPathUtils.test.js` + `server/tests/filenamePlanner.test.js` |
+| [`browser-extension/common/plaudFolders.js`](browser-extension/common/plaudFolders.js) | `browser-extension/tests/plaudFolders.test.js` + `server/tests/plaudFolders.test.js` |
 | [`browser-extension/common/plaudRecordingIds.js`](browser-extension/common/plaudRecordingIds.js) | `browser-extension/tests/plaudRecordingIds.test.js` + `server/tests/plaudRecordingIds.test.js`; consumers: `recordingsApi.js`, `plaudRecordingIdScraper.js` |
-| [`browser-extension/common/plaudTitles.js`](browser-extension/common/plaudTitles.js)             | `browser-extension/tests/plaudTitles.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js`, `summariesApi.js`    |
-| [`browser-extension/common/plaudSummaries.js`](browser-extension/common/plaudSummaries.js)       | `browser-extension/tests/plaudSummaries.test.js` + `server/tests/plaudApiClient.test.js`; consumers: `summariesApi.js`, `audioExport.js`                    |
-| [`browser-extension/common/plaudRecordings.js`](browser-extension/common/plaudRecordings.js)     | Парсинг `/file/simple/web`, pagination, ingest/fan-out, нормализация записей                                                                                | `browser-extension/tests/plaudRecordings.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js` |
+| [`browser-extension/common/plaudTitles.js`](browser-extension/common/plaudTitles.js) | `browser-extension/tests/plaudTitles.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js`, `summariesApi.js` |
+| [`browser-extension/common/plaudSummaries.js`](browser-extension/common/plaudSummaries.js) | `browser-extension/tests/plaudSummaries.test.js` + `server/tests/plaudApiClient.test.js`; consumers: `summariesApi.js`, `audioExport.js` |
+| [`browser-extension/common/plaudRecordings.js`](browser-extension/common/plaudRecordings.js) | Парсинг `/file/simple/web`, pagination, ingest/fan-out, нормализация записей | `browser-extension/tests/plaudRecordings.test.js` + `server/tests/recordingsApi.test.js`; consumers: `recordingsApi.js`, `audioExport.js` |
 
 Список захардкожен в [`scripts/verify-shared-contract.js`](scripts/verify-shared-contract.js). `npm run verify` проверяет
 существование файлов и что все относительные импорты `server/src/...` резолвятся.
@@ -215,7 +215,7 @@ Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](se
 | status.json последний run         | schema, `lastAuthError` `{ message, at }`, merge без потери stats     | `syncStatusWriter.js`, `statusReader.js`, `statusSchema.js`                                                    | `syncStatusWriter.test.js`, `statusReader.test.js`                                         |
 
 TODO: уточнить — у части браузерных сценариев нет авто-покрытия: e2e попапа/`content.js` в CI отсутствует;
-sync-lock в `content/contentHandlers.js` без юнит-теста; MV3 timer-based cleanup в `exportOrchestrator.js` — ручной smoke после правок.
+`exportOrchestrator` keep-alive chain покрыт unit-тестом `tryStartKeepAliveChain`; полный MV3 timer smoke — ручной.
 
 ## UI/UX инварианты
 
@@ -327,10 +327,9 @@ Pre-commit (`simple-git-hooks` + `lint-staged`) ставится при `npm ins
 
 ## Backlog (низкий приоритет)
 
-| Область              | Файлы                               | Заметка                                     |
-| -------------------- | ----------------------------------- | ------------------------------------------- |
-| Extension HTTP/title | `plaudBrowserApi.js`                | Title heuristics vs shared `plaudTitles.js` |
-| Popup wiring         | `popupExportUi.js` (~690 LOC)       | Helpers вынесены; дальше только по задаче   |
-| Server facade        | `telegramClient.js`, `vaultTree.js` | Transport/orchestration уже разбиты         |
+| Область       | Файлы                               | Заметка                                   |
+| ------------- | ----------------------------------- | ----------------------------------------- |
+| Popup wiring  | `popupExportUi.js` (~690 LOC)       | Helpers вынесены; дальше только по задаче |
+| Server facade | `telegramClient.js`, `vaultTree.js` | Transport/orchestration уже разбиты       |
 
-~~Extension god modules~~, ~~server progress dual path~~, ~~stableId drift~~ — закрыто в architecture pass 2026-07 (см. [stabilization-result.md](docs/stabilization-result.md)).
+~~Extension god modules~~, ~~server progress dual path~~, ~~stableId drift~~, ~~title heuristics drift~~, ~~getExportModeLabel triple copy~~ — закрыто в architecture pass 2026-07 (см. [stabilization-result.md](docs/stabilization-result.md)).

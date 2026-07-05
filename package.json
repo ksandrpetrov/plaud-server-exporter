@@ -5,7 +5,7 @@
   "description": "Server-side Plaud.ai exporter: direct internal API client + Playwright auth, writes Obsidian-friendly Markdown.",
   "type": "module",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "workspaces": [
     "server"
@@ -38,10 +38,10 @@
   },
   "devDependencies": {
     "eslint-config-prettier": "^10.1.8",
-    "lint-staged": "^17.0.5",
-    "markdownlint-cli2": "^0.22.1",
-    "prettier": "^3.8.3",
+    "lint-staged": "^17.0.8",
+    "markdownlint-cli2": "^0.23.0",
+    "prettier": "^3.9.4",
     "simple-git-hooks": "^2.13.1",
-    "typescript": "^5.9.3"
+    "typescript": "^6.0.3"
   }
 }

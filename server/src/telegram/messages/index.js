@@ -5,7 +5,6 @@ export {
   safeSliceHtml,
   TELEGRAM_HTML_MAX_LEN,
   formatBytes,
-  describeRecordStatus,
   describeStatusVerdict,
 } from "./format.js";
 
@@ -34,6 +33,7 @@ export {
   MENU_HEADER,
   lastSyncSummaryLine,
   buildMainMenuRichMarkdown,
+  STALE_CALLBACK_TOAST,
 } from "./menu.js";
 
 export {
@@ -56,7 +56,12 @@ export {
   statusScreenRichMarkdown,
 } from "./sync.js";
 
-export { settingsScreenHtml, settingsScreenRichMarkdown } from "./settings.js";
+export {
+  settingsScreenHtml,
+  settingsScreenRichMarkdown,
+  intervalSetToast,
+  scheduledSummaryToggleToast,
+} from "./settings.js";
 
 export {
   FILES_TREE_EMPTY,

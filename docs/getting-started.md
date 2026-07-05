@@ -19,7 +19,7 @@ Telegram-бота на сервере. Общее описание проект�
 | Что                                                              | Зачем                                                                        |
 | ---------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | **Mac**                                                          | Один раз войти в Plaud и сохранить файл доступа (логин на сервере не делаем) |
-| **Node.js 20+**                                                  | Запуск программы (`npm install`, команды `server:*`)                         |
+| **Node.js 22+**                                                  | Запуск программы (`npm install`, команды `server:*`)                         |
 | **Терминал**                                                     | Все команды ниже вводятся текстом (на Mac — «Терминал»)                      |
 | **VPS** (Ubuntu 22.04+, ~1 CPU / 1 GB RAM)                       | Только для схемы «сервер + бот»; для проверки на Mac не нужен                |
 | **Telegram-бот** (токен от [@BotFather](https://t.me/BotFather)) | Только если хотите уведомления и кнопку «синхронизировать» в чате            |
@@ -99,7 +99,7 @@ OAuth использует официальный API Plaud **без папок*
 
 ### B. Первый sync на сервере (после установки)
 
-Предполагается, что сервер уже подготовлен: Node 20, пользователь `plaud`, репозиторий в `/srv/plaud-exporter`, `.env` и
+Предполагается, что сервер уже подготовлен: Node 24, пользователь `plaud`, репозиторий в `/srv/plaud-exporter`, `.env` и
 каталог `exports` — блок [Сервер](#сервер) ниже.
 
 **На Mac** (из корня локального клона):
@@ -222,9 +222,9 @@ npm run server:status        # проверка доступа и путей
 
 ```bash
 sudo apt update && sudo apt install -y curl ca-certificates git
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
 sudo apt install -y nodejs
-node -v && npm -v   # v20+ и npm обязательны
+node -v && npm -v   # v22+ и npm обязательны
 
 id plaud &>/dev/null || sudo useradd --system --create-home --home-dir /srv/plaud-exporter --shell /usr/sbin/nologin plaud
 sudo mkdir -p /var/log/plaud-exporter && sudo chown plaud:plaud /var/log/plaud-exporter
@@ -375,7 +375,7 @@ systemctl --no-pager status plaud-exporter.service   # Active: active (running)
 | exit `3`                       | [troubleshooting.md](troubleshooting.md)                                                                                 |
 | `Missing script: "server:bot"` | Устаревший клон на сервере — `sudo -u plaud git -C /srv/plaud-exporter pull --ff-only` (с Mac предварительно `git push`) |
 | `scp … Permission denied`      | Проверить пароль через `ssh`, [troubleshooting.md](troubleshooting.md#scp-permission-denied)                             |
-| `npm: command not found`       | Поставить Node 20 (блок «Сервер» выше)                                                                                   |
+| `npm: command not found`       | Поставить Node 24 (блок «Сервер» выше)                                                                                   |
 | `dubious ownership`            | Команды только `sudo -u plaud`, не от root в `/srv/plaud-exporter`                                                       |
 | `EACCES` … `sync.lock`         | [troubleshooting.md](troubleshooting.md#eacces-synclock-на-сервере)                                                      |
 

@@ -6,7 +6,7 @@ on:
       node-version:
         description: Node.js version to run checks against
         type: string
-        default: "22.x"
+        default: "24.x"
 
 permissions:
   contents: read
@@ -47,19 +47,19 @@ jobs:
         run: npm run verify:extension
 
       - name: Test server (no coverage)
-        if: inputs.node-version != '22.x'
+        if: inputs.node-version != '24.x'
         run: npm test
 
       - name: Test extension (no coverage)
-        if: inputs.node-version != '22.x'
+        if: inputs.node-version != '24.x'
         run: npm run test:extension
 
       - name: Test with coverage + thresholds
-        if: inputs.node-version == '22.x'
+        if: inputs.node-version == '24.x'
         run: npm run test:coverage
 
       - name: Upload coverage artifact
-        if: inputs.node-version == '22.x'
+        if: inputs.node-version == '24.x'
         uses: actions/upload-artifact@v6
         with:
           name: coverage-lcov
@@ -87,13 +87,13 @@ jobs:
       # pull_request events only — on push to main/tags the Deploy workflow builds
       # and pushes the real image, so rebuilding here would just burn Actions
       # minutes. Restricted to the primary Node version to avoid duplicating
-      # buildx setup across the 20.x/22.x matrix.
+      # buildx setup across the 22.x/24.x matrix.
       - name: Set up Docker Buildx
-        if: inputs.node-version == '22.x' && github.event_name == 'pull_request'
+        if: inputs.node-version == '24.x' && github.event_name == 'pull_request'
         uses: docker/setup-buildx-action@v3
 
       - name: Docker build (load locally) + smoke
-        if: inputs.node-version == '22.x' && github.event_name == 'pull_request'
+        if: inputs.node-version == '24.x' && github.event_name == 'pull_request'
         env:
           IMAGE: plaud-exporter:pr-${{ github.sha }}
         run: |

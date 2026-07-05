@@ -10,6 +10,7 @@ import {
   syncProgressHtml,
   syncProgressRichMarkdown,
   syncSummaryRichMarkdown,
+  statusScreenHtml,
 } from "../src/telegram/messages/sync.js";
 import { clipRichMarkdown } from "../src/telegram/richFormat.js";
 
@@ -78,4 +79,23 @@ test("clipRichMarkdown preserves table and details blocks", () => {
   );
   assert.match(md, /\| A \| B \|/);
   assert.match(md, /<details>/);
+});
+
+test("statusScreenHtml clips long lastAuthError under TELEGRAM_HTML_MAX_LEN", () => {
+  const html = statusScreenHtml({
+    lastSyncAt: "2026-05-01T12:00:00.000Z",
+    lastSyncStats: {
+      status: "completed",
+      new: 0,
+      updated: 0,
+      unchanged: 1,
+      skipped: 0,
+      errors: 0,
+    },
+    lastAuthError: {
+      message: "x".repeat(5000),
+      at: "2026-05-01T11:00:00.000Z",
+    },
+  });
+  assert.ok(html.length <= TELEGRAM_HTML_MAX_LEN);
 });

@@ -26,6 +26,34 @@ export function normalizeExportMode(mode) {
     : EXPORT_MODE_BOTH;
 }
 
+/**
+ * @param {"both"|"audio"|"summary"} normalized
+ * @param {"inline"|"short"} style
+ * @returns {string}
+ */
+function exportModeI18nKey(normalized, style) {
+  if (style === "short") {
+    if (normalized === EXPORT_MODE_AUDIO) return "exportMode.shortAudio";
+    if (normalized === EXPORT_MODE_SUMMARY) return "exportMode.shortSummary";
+    return "exportMode.shortBoth";
+  }
+  if (normalized === EXPORT_MODE_AUDIO) return "exportMode.audio";
+  if (normalized === EXPORT_MODE_SUMMARY) return "exportMode.summary";
+  return "exportMode.both";
+}
+
+/**
+ * @param {string} mode
+ * @param {(key: string, params?: Record<string, unknown>) => string} t
+ * @param {{ style?: "inline"|"short" }} [options]
+ * @returns {string}
+ */
+export function getExportModeLabel(mode, t, { style = "inline" } = {}) {
+  const normalized = normalizeExportMode(mode);
+  const key = exportModeI18nKey(normalized, style);
+  return typeof t === "function" ? t(key) : key;
+}
+
 const RESERVED_WINDOWS_NAMES = new Set([
   "CON",
   "PRN",

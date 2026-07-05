@@ -10,9 +10,13 @@ import {
   EXPORT_MODE_AUDIO,
   EXPORT_MODE_BOTH,
   EXPORT_MODE_SUMMARY,
+  getExportModeLabel,
   normalizeExportMode,
 } from "../../common/exportPathUtils.js";
-import { normalizeHumanTitle } from "../../common/plaudTitles.js";
+import {
+  normalizeHumanTitle,
+  preferApiTitle,
+} from "../../common/plaudTitles.js";
 import { normalizeHexRecordingId } from "../../common/plaudRecordingIds.js";
 import { PLAUD_FOLDER_UNFILED } from "../../common/plaudFolders.js";
 import {
@@ -21,10 +25,8 @@ import {
 } from "../../common/runtimeMessages.js";
 import {
   fetchPlaudFilesFromApi,
-  getExportModeLabel,
   PLAUD_API_MAX_FILES,
   plaudExportDebug,
-  preferApiTitle,
 } from "./plaudBrowserApi.js";
 import {
   describePlaudSessionStorage,
@@ -62,15 +64,21 @@ import { runDomExportFallback } from "./domExportFallback.js";
  */
 export async function runExportAll(backgroundMode = false, options = {}) {
   const exportMode = normalizeExportMode(options.exportMode);
+  const tr =
+    options.tr ??
+    ((key) => {
+      const I = globalThis.PlaudI18n;
+      if (!I) return key;
+      return I.t(I.getDefaultLocaleFromNavigator(), key);
+    });
+  const modeLabel = (mode) => getExportModeLabel(mode, tr);
   const shouldExportAudio =
     exportMode === EXPORT_MODE_BOTH || exportMode === EXPORT_MODE_AUDIO;
   const shouldExportSummaries =
     exportMode === EXPORT_MODE_BOTH || exportMode === EXPORT_MODE_SUMMARY;
   const indicator = createStatusIndicator();
   console.log(
-    `Запуск экспорта Plaud (${getExportModeLabel(
-      exportMode
-    )}, фон: ${backgroundMode})…`
+    `Запуск экспорта Plaud (${modeLabel(exportMode)}, фон: ${backgroundMode})…`
   );
   const stats = {
     exportMode,
@@ -203,10 +211,8 @@ export async function runExportAll(backgroundMode = false, options = {}) {
 
     stats.filesTotal = files.length;
     const intro = options.singleFile?.id
-      ? `Текущая запись. Загрузка (${getExportModeLabel(exportMode)})…`
-      : `Найдено файлов: ${files.length}. Загрузка (${getExportModeLabel(
-          exportMode
-        )})…`;
+      ? `Текущая запись. Загрузка (${modeLabel(exportMode)})…`
+      : `Найдено файлов: ${files.length}. Загрузка (${modeLabel(exportMode)})…`;
     updateIndicator(indicator, intro);
     console.log(`Прямой экспорт по API: ${files.length} файл(ов).`);
 

@@ -34,6 +34,12 @@
         var key = el.getAttribute("data-i18n-title");
         if (key) el.setAttribute("title", ctx.tr(key));
       });
+      document
+        .querySelectorAll("[data-i18n-aria-label]")
+        .forEach(function (el) {
+          var key = el.getAttribute("data-i18n-aria-label");
+          if (key) el.setAttribute("aria-label", ctx.tr(key));
+        });
       var footerLangGroup = document.getElementById("footerLangGroup");
       if (footerLangGroup)
         footerLangGroup.setAttribute("aria-label", ctx.tr("footer.language"));

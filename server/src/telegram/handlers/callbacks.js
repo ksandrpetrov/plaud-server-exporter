@@ -19,10 +19,12 @@ import { buildBackToMenuKeyboard } from "../keyboards.js";
 import {
   BOT_HELP_HTML,
   BOT_HELP_RICH_MARKDOWN,
-  humanIntervalLabel,
+  STALE_CALLBACK_TOAST,
   statusScreenHtml,
   statusScreenRichMarkdown,
   syncBusyText,
+  intervalSetToast,
+  scheduledSummaryToggleToast,
 } from "../messages.js";
 import {
   loadBotSettings,
@@ -94,7 +96,7 @@ async function handleIntervalCallback({
     intervalMin,
   });
   await answerBestEffort(ctx, callback, {
-    text: `Интервал: ${humanIntervalLabel(intervalMin)}`,
+    text: intervalSetToast(intervalMin),
   });
   return false;
 }
@@ -126,7 +128,7 @@ async function handleToggleSummaryCallback({
     scheduledSummaryVisible: next,
   });
   await answerBestEffort(ctx, callback, {
-    text: next ? "Уведомлять об автосинке: да" : "Уведомлять об автосинке: нет",
+    text: scheduledSummaryToggleToast(next),
   });
   return false;
 }
@@ -184,7 +186,7 @@ export async function routeCallback(ctx, params) {
 
   logger.info("Unknown callback_data", { data });
   await answerBestEffort(ctx, callback, {
-    text: "Кнопка устарела — открой /menu",
+    text: STALE_CALLBACK_TOAST,
     showAlert: true,
   });
   return true;

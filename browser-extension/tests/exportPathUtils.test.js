@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   AUDIO_SUBDIRECTORY,
+  EXPORT_MODE_AUDIO,
   EXPORT_MODE_BOTH,
+  EXPORT_MODE_SUMMARY,
   extractTitleFromMarkdown,
+  getExportModeLabel,
   normalizeFilename,
   normalizeExportMode,
   sanitizeDownloadFilename,
@@ -25,6 +28,16 @@ test("normalizeExportMode keeps valid modes and defaults unknown to both", () =>
   assert.equal(normalizeExportMode(""), EXPORT_MODE_BOTH);
   assert.equal(normalizeExportMode(undefined), EXPORT_MODE_BOTH);
   assert.equal(normalizeExportMode("invalid"), EXPORT_MODE_BOTH);
+});
+
+test("getExportModeLabel maps modes to i18n keys", () => {
+  const t = (key) => key;
+  assert.equal(getExportModeLabel(EXPORT_MODE_AUDIO, t), "exportMode.audio");
+  assert.equal(
+    getExportModeLabel(EXPORT_MODE_SUMMARY, t, { style: "short" }),
+    "exportMode.shortSummary"
+  );
+  assert.equal(getExportModeLabel("invalid", t), "exportMode.both");
 });
 
 test("sanitizeDownloadSegment strips risky characters", () => {

@@ -25,13 +25,8 @@ import { createMessageAnimator } from "./messageAnimator.js";
 import { logPersistenceDiagnostics } from "./persistenceDiagnostics.js";
 import { BotScheduler } from "./scheduler.js";
 import { TelegramClient } from "./telegramClient.js";
-import {
-  SYNC_ACTION_SCHEDULED,
-  syncActionKey,
-  syncRunGuard,
-} from "./syncGuards.js";
-import { syncBusyText } from "./messages.js";
 import { runSyncSilent, runSyncWithReporting } from "./syncOrchestrator.js";
+import { runScheduledSync as runScheduledSyncBridge } from "./sync/scheduledSyncBridge.js";
 
 const MENU_COMMANDS = [
   { command: "menu", description: "Главное меню" },
@@ -85,45 +80,17 @@ export async function runBot() {
 
   const runScheduledSync = async ({ chatId }) => {
     const summaryVisible = await loadEffectiveScheduledSummaryVisible();
-    if (!syncRunGuard.tryAcquire(chatId, SYNC_ACTION_SCHEDULED)) {
-      logger.info(
-        "Skipping scheduled sync — ActionGuard busy or post-success cooldown"
-      );
-      if (!summaryVisible) return;
-      try {
-        await messageAnimator.send({
-          chatId,
-          text: syncBusyText("scheduled"),
-        });
-      } catch (err) {
-        logger.debug?.("Scheduled sync busy notice failed", {
-          error: String(err?.message || err),
-        });
-      }
-      return;
-    }
-    if (summaryVisible) {
-      return runSyncWithReporting({
-        telegram,
-        chatId,
-        loadingMessageId: null,
-        source: "scheduled",
-      });
-    }
-    // Silent path: the user opted out of chat notifications for scheduled
-    // syncs. `runSyncSilent` would acquire its own (manual) guard if we
-    // passed a chatId — we already hold SYNC_ACTION_SCHEDULED, so we pass
-    // null and release it ourselves below.
-    let sentOk = false;
-    try {
-      const result = await runSyncSilent({ chatId: null });
-      sentOk = result?.status === "ok";
-      return result;
-    } finally {
-      syncRunGuard.release(chatId, syncActionKey("scheduled"), {
-        sent: sentOk,
-      });
-    }
+    return runScheduledSyncBridge({
+      chatId,
+      scheduledSummaryVisible: summaryVisible,
+      runSyncWithReporting: (args) =>
+        runSyncWithReporting({
+          telegram,
+          ...args,
+        }),
+      runSyncSilent,
+      messageAnimator,
+    });
   };
 
   const runSyncQuiet = async (

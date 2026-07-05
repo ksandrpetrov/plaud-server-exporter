@@ -2,6 +2,10 @@
  * Content-script message handlers (ES module, loaded from content.js).
  */
 
+import { smartSyncBusyErrorKey } from "./contentSyncLocks.js";
+
+export { smartSyncBusyErrorKey } from "./contentSyncLocks.js";
+
 /**
  * @param {object} state
  * @param {(key: string, params?: object) => string} contentTr
@@ -116,7 +120,7 @@ function handleRunExportAll(state, request, sender, sendResponse, contentTr) {
 
     let foregroundResult = null;
     state
-      .runExportAll(state.isBackgroundExporting, { exportMode })
+      .runExportAll(state.isBackgroundExporting, { exportMode, tr: contentTr })
       .then((result) => {
         foregroundResult = result;
         if (state.isBackgroundExporting) {
@@ -225,7 +229,7 @@ function handleRunExportCurrentPage(
 
       let foregroundResult = null;
       state
-        .runExportAll(false, { exportMode, singleFile: file })
+        .runExportAll(false, { exportMode, singleFile: file, tr: contentTr })
         .then((result) => {
           foregroundResult = result;
         })
@@ -370,17 +374,11 @@ function handleRunSmartSync(state, request, sendResponse, contentTr) {
       });
       return;
     }
-    if (state.exportRunLock) {
+    const busyKey = smartSyncBusyErrorKey(state);
+    if (busyKey) {
       reply({
         success: false,
-        error: contentTr("sync.busy"),
-      });
-      return;
-    }
-    if (state.smartSyncLock) {
-      reply({
-        success: false,
-        error: contentTr("sync.alreadyRunning"),
+        error: contentTr(busyKey),
       });
       return;
     }

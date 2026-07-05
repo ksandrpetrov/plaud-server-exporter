@@ -64,7 +64,7 @@ Plaud записывает встречи и голосовые заметки, 
 | Нужно выгружать аудио               | [browser-extension/README.md](browser-extension/README.md)                   |
 | Читать саммари в Obsidian на Mac    | [docs/obsidian-sync.md](docs/obsidian-sync.md)                               |
 
-Что понадобится: Node.js 20+; для полной схемы — любой небольшой VPS (Ubuntu 22.04+, хватает 1 CPU и 1 GB RAM).
+Что понадобится: Node.js 22+; для полной схемы — любой небольшой VPS (Ubuntu 22.04+, хватает 1 CPU и 1 GB RAM).
 Вход в Plaud выполняется **только на Mac** — на сервер копируется лишь файл доступа.
 
 ## Основные команды
@@ -183,8 +183,8 @@ markdown) — формальный контракт между сервером 
 ### CI и деплой
 
 - [`.github/workflows/ci.yml`](.github/workflows/ci.yml) → переиспользует reusable
-  [`checks.yml`](.github/workflows/checks.yml) на матрице Node 20.x + 22.x при push/PR в `main`: lint, typecheck,
-  format, verify, tests, coverage (на 22.x), npm audit, Docker PR build, smoke.
+  [`checks.yml`](.github/workflows/checks.yml) на матрице Node 22.x + 24.x при push/PR в `main`: lint, typecheck,
+  format, verify, tests, coverage (на 24.x), npm audit, Docker PR build, smoke.
 - [`.github/workflows/infra-lint.yml`](.github/workflows/infra-lint.yml) — actionlint, shellcheck, hadolint,
   markdownlint в параллельных job-ах.
 - [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) и

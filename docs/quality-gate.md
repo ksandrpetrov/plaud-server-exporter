@@ -21,7 +21,7 @@ flowchart TD
   PreCommit[pre-commit: lint-staged] -->|local| Push
   Push --> CI[ci.yml]
   PR[pull_request → main] --> CI
-  CI -->|matrix 20.x + 22.x| Reusable[checks.yml]
+  CI -->|matrix 22.x + 24.x| Reusable[checks.yml]
   Reusable --> Lint[eslint --max-warnings 0]
   Reusable --> Format[prettier --check]
   Reusable --> Types[tsc --checkJs --noEmit]
@@ -49,8 +49,8 @@ flowchart TD
 
 | Check name (GitHub UI)                                     | Source                             |
 | ---------------------------------------------------------- | ---------------------------------- |
-| `CI / Checks (Node 20.x) / Lint, verify, test (Node 20.x)` | `.github/workflows/ci.yml` matrix  |
 | `CI / Checks (Node 22.x) / Lint, verify, test (Node 22.x)` | `.github/workflows/ci.yml` matrix  |
+| `CI / Checks (Node 24.x) / Lint, verify, test (Node 24.x)` | `.github/workflows/ci.yml` matrix  |
 | `Infra lint / actionlint (workflows)`                      | `.github/workflows/infra-lint.yml` |
 | `Infra lint / shellcheck (scripts/, deploy/)`              | `.github/workflows/infra-lint.yml` |
 | `Infra lint / hadolint (Dockerfile)`                       | `.github/workflows/infra-lint.yml` |

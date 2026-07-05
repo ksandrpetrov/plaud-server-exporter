@@ -6,9 +6,12 @@ document.addEventListener("DOMContentLoaded", async function () {
     return;
   }
 
+  const { getExportModeLabel } = await import("../common/exportPathUtils.js");
+
   const ctx = PP.createState();
   ctx.uiLocale = await PlaudI18n.getEffectiveLocale();
   ctx.themePref = await PlaudI18n.getEffectiveThemePreference();
+  ctx.getExportModeLabel = (mode) => getExportModeLabel(mode, ctx.tr);
 
   PP.initTheme(ctx);
   PP.initI18n(ctx);

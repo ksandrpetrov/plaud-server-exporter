@@ -76,7 +76,7 @@ if (window.__plaudExporterContentLoaded) {
   window.addEventListener("beforeunload", function (e) {
     if (state.isBackgroundExporting) {
       e.preventDefault();
-      e.returnValue = "Идёт экспорт. Покинуть страницу?";
+      e.returnValue = contentTr("error.beforeunloadExport");
       return e.returnValue;
     }
   });
