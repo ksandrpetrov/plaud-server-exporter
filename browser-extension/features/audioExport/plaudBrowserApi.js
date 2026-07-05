@@ -25,6 +25,7 @@ import {
   runPlaudRecordingFanout,
 } from "../../common/plaudRecordings.js";
 import { buildPlaudHeaders, normalizeApiBase } from "./plaudBrowserSession.js";
+import { shouldRetryPlaudFetchAttempt } from "./plaudFetchRetry.js";
 
 export const PLAUD_API_PAGE_LIMIT = 100;
 export const PLAUD_API_MAX_FILES = 5000;
@@ -154,38 +155,6 @@ async function fetchPlaudApiOnce(session, path, options = {}) {
   }
 
   return payload;
-}
-
-function shouldRetryPlaudFetchAttempt(error, httpStatusFromMessage) {
-  const msg = String(error?.message || error || "");
-  if (/\bHTTP\s+401\b/.test(msg) || /\bHTTP\s+403\b/.test(msg)) {
-    return false;
-  }
-  if (error?.name === "AbortError") return true;
-  if (/таймаут запроса к API Plaud/i.test(msg)) return true;
-  if (
-    /\bHTTP\s+429\b/.test(msg) ||
-    /\bHTTP\s+502\b/.test(msg) ||
-    /\bHTTP\s+503\b/.test(msg) ||
-    /\bHTTP\s+504\b/.test(msg)
-  ) {
-    return true;
-  }
-  if (
-    /Failed to fetch/i.test(msg) ||
-    /NetworkError/i.test(msg) ||
-    /network request failed/i.test(msg) ||
-    /Load failed/i.test(msg)
-  ) {
-    return true;
-  }
-  if (
-    httpStatusFromMessage &&
-    [429, 502, 503, 504].includes(httpStatusFromMessage)
-  ) {
-    return true;
-  }
-  return false;
 }
 
 export async function fetchPlaudApi(session, path, options = {}) {

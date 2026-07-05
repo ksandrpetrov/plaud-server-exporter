@@ -162,6 +162,24 @@
         stopNoTab: "Остановка не удалась: не найдена вкладка экспорта.",
         stopAfterFile: "Экспорт остановится после завершения текущего файла.",
         stopFailedGeneric: "Остановка не удалась: {msg}",
+        contentExportModuleLoadFailed:
+          "Не удалось загрузить модуль экспорта. Обновите страницу Plaud Web.",
+        contentExportModuleNotReady:
+          "Модуль экспорта не готов. Обновите страницу.",
+        contentExportLockBusy:
+          "Экспорт уже выполняется на этой вкладке. Дождитесь завершения или остановите процесс.",
+        contentExportStarting: "Запуск экспорта…",
+        contentModuleLoadFailed:
+          "Не удалось загрузить модуль. Обновите страницу Plaud Web.",
+        contentStatsModuleNotReady:
+          "Модуль статистики не готов. Обновите страницу.",
+        contentStatsLockBusy:
+          "Подсчёт архива уже выполняется на этой вкладке.",
+        contentSyncModuleLoadFailed:
+          "Не удалось загрузить модуль синхронизации. Обновите страницу Plaud Web.",
+        contentSyncModuleNotReady:
+          "Модуль синхронизации не готов. Обновите страницу.",
+        contentSyncStarting: "Синхронизация запущена…",
       },
       help: {
         openRepeat: "Откройте {url} и повторите: {action}.",
@@ -375,6 +393,24 @@
         stopNoTab: "Stop failed: export tab not found.",
         stopAfterFile: "Export will stop after the current file finishes.",
         stopFailedGeneric: "Stop failed: {msg}",
+        contentExportModuleLoadFailed:
+          "Could not load the export module. Refresh the Plaud Web page.",
+        contentExportModuleNotReady:
+          "Export module is not ready. Refresh the page.",
+        contentExportLockBusy:
+          "Export is already running on this tab. Wait for it to finish or stop it.",
+        contentExportStarting: "Starting export…",
+        contentModuleLoadFailed:
+          "Could not load the module. Refresh the Plaud Web page.",
+        contentStatsModuleNotReady:
+          "Statistics module is not ready. Refresh the page.",
+        contentStatsLockBusy:
+          "Library stats are already running on this tab.",
+        contentSyncModuleLoadFailed:
+          "Could not load the sync module. Refresh the Plaud Web page.",
+        contentSyncModuleNotReady:
+          "Sync module is not ready. Refresh the page.",
+        contentSyncStarting: "Sync started…",
       },
       help: {
         openRepeat: "Open {url} and try again: {action}.",

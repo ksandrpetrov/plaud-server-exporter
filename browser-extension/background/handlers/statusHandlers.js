@@ -16,6 +16,28 @@ import {
 import { verifyExportTabAlive } from "../exportOrchestrator.js";
 import { ensureSessionRestored } from "../sessionBootstrap.js";
 
+/**
+ * @param {{
+ *   entry: { status?: string; lastUpdateTime?: number } | null | undefined;
+ *   tabTracked: boolean;
+ *   tabAlive: boolean;
+ *   nowMs: number;
+ *   staleAfterMs: number;
+ * }} params
+ */
+export function shouldEvictStaleRunningExport({
+  entry,
+  tabTracked,
+  tabAlive,
+  nowMs,
+  staleAfterMs,
+}) {
+  if (!tabTracked || entry?.status !== "running") return false;
+  if (tabAlive) return false;
+  const last = Number(entry.lastUpdateTime) || 0;
+  return !last || nowMs - last > staleAfterMs;
+}
+
 export function createStatusHandlers() {
   return {
     [ACTION_GET_EXPORT_STATUS](message, _sender, sendResponse) {
@@ -26,21 +48,26 @@ export function createStatusHandlers() {
         const tabTracked = activeTabIds.has(tabId);
         if (tabTracked && data?.status === "running") {
           const ok = await verifyExportTabAlive(tabId);
-          if (!ok) {
-            const last = Number(data.lastUpdateTime) || 0;
-            if (!last || Date.now() - last > PING_STALE_AFTER_MS) {
-              activeTabIds.delete(tabId);
-              stopFlags.delete(tabId);
-              delete activeExports[tabId];
-              clearStallNotifyState(tabId);
-              persistExportStateToSession();
-              sendResponse({
-                success: true,
-                isRunning: false,
-                exportData: null,
-              });
-              return;
-            }
+          if (
+            shouldEvictStaleRunningExport({
+              entry: data,
+              tabTracked,
+              tabAlive: ok,
+              nowMs: Date.now(),
+              staleAfterMs: PING_STALE_AFTER_MS,
+            })
+          ) {
+            activeTabIds.delete(tabId);
+            stopFlags.delete(tabId);
+            delete activeExports[tabId];
+            clearStallNotifyState(tabId);
+            persistExportStateToSession();
+            sendResponse({
+              success: true,
+              isRunning: false,
+              exportData: null,
+            });
+            return;
           }
         }
         const entry = activeExports[tabId] || null;
@@ -62,16 +89,21 @@ export function createStatusHandlers() {
           const entry = activeExports[tid];
           if (entry?.status !== "running") continue;
           const ok = await verifyExportTabAlive(tid);
-          if (!ok) {
-            const last = Number(entry.lastUpdateTime) || 0;
-            if (!last || Date.now() - last > PING_STALE_AFTER_MS) {
-              activeTabIds.delete(tid);
-              stopFlags.delete(tid);
-              delete activeExports[tid];
-              clearStallNotifyState(tid);
-              persistExportStateToSession();
-              continue;
-            }
+          if (
+            shouldEvictStaleRunningExport({
+              entry,
+              tabTracked: true,
+              tabAlive: ok,
+              nowMs: Date.now(),
+              staleAfterMs: PING_STALE_AFTER_MS,
+            })
+          ) {
+            activeTabIds.delete(tid);
+            stopFlags.delete(tid);
+            delete activeExports[tid];
+            clearStallNotifyState(tid);
+            persistExportStateToSession();
+            continue;
           }
           sendResponse({
             success: true,

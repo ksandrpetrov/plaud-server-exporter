@@ -44,7 +44,7 @@ export function registerContentMessageHandlers(state, contentTr) {
     }
 
     if (request.action === "runExportAll") {
-      handleRunExportAll(state, request, sender, sendResponse);
+      handleRunExportAll(state, request, sender, sendResponse, contentTr);
       return true;
     }
 
@@ -73,7 +73,7 @@ export function registerContentMessageHandlers(state, contentTr) {
   });
 }
 
-function handleRunExportAll(state, request, sender, sendResponse) {
+function handleRunExportAll(state, request, sender, sendResponse, contentTr) {
   const senderTabId = sender.tab?.id;
   (async () => {
     try {
@@ -83,14 +83,14 @@ function handleRunExportAll(state, request, sender, sendResponse) {
         success: false,
         error:
           state.initError?.message ||
-          "Не удалось загрузить модуль экспорта. Обновите страницу Plaud Web.",
+          contentTr("error.contentExportModuleLoadFailed"),
       });
       return;
     }
     if (!state.runExportAll) {
       sendResponse({
         success: false,
-        error: "Модуль экспорта не готов. Обновите страницу.",
+        error: contentTr("error.contentExportModuleNotReady"),
       });
       return;
     }
@@ -98,8 +98,7 @@ function handleRunExportAll(state, request, sender, sendResponse) {
     if (state.exportRunLock) {
       sendResponse({
         success: false,
-        error:
-          "Экспорт уже выполняется на этой вкладке. Дождитесь завершения или остановите процесс.",
+        error: contentTr("error.contentExportLockBusy"),
       });
       return;
     }
@@ -110,7 +109,10 @@ function handleRunExportAll(state, request, sender, sendResponse) {
     state.shouldStopExport = false;
 
     state.exportRunLock = true;
-    sendResponse({ success: true, message: "Запуск экспорта…" });
+    sendResponse({
+      success: true,
+      message: contentTr("error.contentExportStarting"),
+    });
 
     let foregroundResult = null;
     state
@@ -183,14 +185,14 @@ function handleRunExportCurrentPage(
         success: false,
         error:
           state.initError?.message ||
-          "Не удалось загрузить модули. Обновите страницу Plaud Web.",
+          contentTr("error.contentModuleLoadFailed"),
       });
       return;
     }
     if (!state.runExportAll || !state.resolveCurrentRecording) {
       sendResponse({
         success: false,
-        error: "Модуль экспорта не готов. Обновите страницу.",
+        error: contentTr("error.contentExportModuleNotReady"),
       });
       return;
     }
@@ -198,8 +200,7 @@ function handleRunExportCurrentPage(
     if (state.exportRunLock) {
       sendResponse({
         success: false,
-        error:
-          "Экспорт уже выполняется на этой вкладке. Дождитесь завершения или остановите процесс.",
+        error: contentTr("error.contentExportLockBusy"),
       });
       return;
     }
@@ -217,7 +218,10 @@ function handleRunExportCurrentPage(
       state.isBackgroundExporting = false;
       state.shouldStopExport = false;
       state.exportRunLock = true;
-      sendResponse({ success: true, message: "Запуск экспорта…" });
+      sendResponse({
+        success: true,
+        message: contentTr("error.contentExportStarting"),
+      });
 
       let foregroundResult = null;
       state
@@ -277,14 +281,14 @@ function handleRunLibraryStats(state, request, sendResponse, contentTr) {
         success: false,
         error:
           state.initError?.message ||
-          "Не удалось загрузить модуль. Обновите страницу Plaud Web.",
+          contentTr("error.contentModuleLoadFailed"),
       });
       return;
     }
     if (!state.runLibraryStats) {
       reply({
         success: false,
-        error: "Модуль статистики не готов. Обновите страницу.",
+        error: contentTr("error.contentStatsModuleNotReady"),
       });
       return;
     }
@@ -300,7 +304,7 @@ function handleRunLibraryStats(state, request, sendResponse, contentTr) {
     if (state.libraryStatsLock) {
       reply({
         success: false,
-        error: "Подсчёт архива уже выполняется на этой вкладке.",
+        error: contentTr("error.contentStatsLockBusy"),
       });
       return;
     }
@@ -355,14 +359,14 @@ function handleRunSmartSync(state, request, sendResponse, contentTr) {
         success: false,
         error:
           state.initError?.message ||
-          "Не удалось загрузить модуль синхронизации. Обновите страницу Plaud Web.",
+          contentTr("error.contentSyncModuleLoadFailed"),
       });
       return;
     }
     if (!state.runSmartSync) {
       reply({
         success: false,
-        error: "Модуль синхронизации не готов. Обновите страницу.",
+        error: contentTr("error.contentSyncModuleNotReady"),
       });
       return;
     }
@@ -382,7 +386,7 @@ function handleRunSmartSync(state, request, sendResponse, contentTr) {
     }
 
     state.smartSyncLock = true;
-    reply({ success: true, message: "Синхронизация запущена…" });
+    reply({ success: true, message: contentTr("error.contentSyncStarting") });
     try {
       const result = await state.runSmartSync({
         syncSubdirectory: request.syncSubdirectory,
