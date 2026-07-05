@@ -24,9 +24,10 @@ plaud-server-exporter/
 ├── browser-extension/           Chrome MV3 extension
 │   ├── common/                  Shared (3) + extension-only (см. ниже)
 │   ├── background/              Модули SW: downloads, tabs, locale
-│   ├── background.js            Service worker (~1k LOC, оркестрация)
-│   ├── features/audioExport/    Plaud API + smart sync (browser)
-│   ├── content.js               onMessage → audioExport
+│   ├── background.js            Service worker (~130 LOC, bootstrap)
+│   ├── background/handlers/     onMessage handlers (export, sync, settings, status)
+│   ├── features/audioExport/    Plaud API + smart sync (barrel audioExport.js)
+│   ├── content.js               Bootstrap; handlers — content/contentHandlers.js
 │   └── popup/                   UI расширения
 ├── docs/                        Документация (RU)
 ├── deploy/                      systemd, logrotate, docker-compose, Ansible
@@ -230,11 +231,14 @@ docker-smoke; опциональный SSH deploy через [`scripts/ci-deploy
 
 ## Backlog рефакторинга (extension)
 
-| Файл                                                    | ~LOC  | Заметка                                                              |
-| ------------------------------------------------------- | ----- | -------------------------------------------------------------------- |
-| `browser-extension/features/audioExport/audioExport.js` | 1.7k+ | Вынести Plaud API client; не дублировать sync-решения вне `syncCore` |
-| `browser-extension/popup/popup.js`                      | 1.9k+ | Модули UI или build step для ESM                                     |
-| `browser-extension/background.js`                       | 1k+   | Роутер `onMessage` и state machines в `background/*`                 |
+| Файл                                                           | ~LOC | Заметка                                                                           |
+| -------------------------------------------------------------- | ---- | --------------------------------------------------------------------------------- |
+| `browser-extension/popup/popupExportUi.js`                     | ~760 | Дальше вынос DOM-agnostic helpers (`exportStatusFormat`, `exportControls` начаты) |
+| `browser-extension/features/audioExport/plaudBrowserApi.js`    | ~490 | Крупнейший HTTP-модуль расширения                                                 |
+| `browser-extension/features/audioExport/extensionSmartSync.js` | ~420 | Optional split: candidate builder + download executor                             |
+| `browser-extension/common/syncCore.js`                         | ~560 | Shared contract — менять только с двойными тестами                                |
+
+**Сделано:** `audioExport.js` → barrel; `popup.js` / `background.js` / `messageRouter.js` разбиты; server `telegramClient` transport в `telegram/transport/*`; tree browse orchestration в `treeBrowseOrchestrator.js`.
 
 ## История и связанные документы
 

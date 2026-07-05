@@ -291,6 +291,14 @@ test("loadPlaudLiveSyncTree matches sync-runner stableId for unix createdAt", as
   assert.equal(live.records[stableId].status, "success");
 });
 
+test("loadPlaudLiveSyncTree returns null when sessionLoader is missing", async () => {
+  _resetPlaudLiveTreeCache();
+  const result = await loadPlaudLiveSyncTree({
+    forceRefresh: true,
+  });
+  assert.equal(result, null);
+});
+
 test("loadPlaudLiveSyncTree returns null when no session is available", async () => {
   _resetPlaudLiveTreeCache();
   const result = await loadPlaudLiveSyncTree({

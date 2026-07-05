@@ -18,10 +18,9 @@
  * and route through `botMessageUtils.js`, so they never throw.
  */
 
-import { access } from "node:fs/promises";
 import { config, effectiveVaultRoot } from "../config/config.js";
+import { createPlaudSessionLoader } from "../auth/loadPlaudSession.js";
 import { logger } from "../logger.js";
-import { getRecordByStableId, loadIndexForBot } from "../sync/syncIndexRead.js";
 import {
   buildBackToFilesKeyboard,
   buildFilesTreeEmptyKeyboard,
@@ -56,16 +55,21 @@ import {
 import {
   createSyncProgressDelivery,
   dismissDraftBubbleBestEffort,
-  tryOpenDraft,
-  tryOpenRichDraft,
 } from "./streamingDelivery.js";
+import { createSyncProgressPushHandler } from "./sync/syncProgressPush.js";
 import {
   safeCallbackRichScreen,
   safeSend,
   safeSendRich,
 } from "./botMessageUtils.js";
 import { EFFECT_SPARKLES, privateMessageEffect } from "./telegramVisual.js";
-import { loadPlaudLiveSyncTree } from "../plaud/liveTreeReadModel.js";
+import {
+  _resetTreeBrowseOrchestratorHooksForTests,
+  _setTreeBrowseOrchestratorHooksForTests,
+  isReadablePath,
+  loadTreeSource as loadTreeSourceOrchestrator,
+  resolveSummaryPathAfterSync,
+} from "./treeBrowseOrchestrator.js";
 import {
   clearTreeBrowseState,
   getTreeBrowseState,
@@ -77,41 +81,19 @@ import {
   buildSyncIndexTreeRoot,
 } from "./vaultTree.js";
 
-/** @type {{ loadIndex?: () => Promise<object>, loadLive?: (args: object) => Promise<object|null> } | null} */
-let _testHooks = null;
+const liveTreeSessionLoader = createPlaudSessionLoader("liveTreeReadModel");
 
 /** @param {{ loadIndex?: () => Promise<object>, loadLive?: (args: object) => Promise<object|null> } | null} hooks */
 export function _setTreeBrowseHooksForTests(hooks) {
-  _testHooks = hooks;
+  _setTreeBrowseOrchestratorHooksForTests(hooks);
 }
 
 export function _resetTreeBrowseHooksForTests() {
-  _testHooks = null;
+  _resetTreeBrowseOrchestratorHooksForTests();
 }
 
-/**
- * Returns a sync-index-shaped object to feed the tree builders. Prefers a
- * live Plaud snapshot (so folder counts match Plaud's sidebar verbatim) and
- * falls back to the on-disk sync-index when Plaud is unreachable or no
- * session is stored. Live records carry the real `folderSegment` from the
- * filetag list, so legacy data with empty `folderSegment` still buckets
- * correctly.
- */
 export async function loadTreeSource() {
-  const real = _testHooks?.loadIndex
-    ? await _testHooks.loadIndex()
-    : await loadIndexForBot();
-  try {
-    const loadLive =
-      _testHooks?.loadLive || ((args) => loadPlaudLiveSyncTree(args));
-    const live = await loadLive({ syncIndex: real });
-    if (live && Object.keys(live.records || {}).length > 0) return live;
-  } catch (err) {
-    logger.warn("Live Plaud tree failed; using sync-index", {
-      error: String(err?.message || err),
-    });
-  }
-  return real;
+  return loadTreeSourceOrchestrator({ sessionLoader: liveTreeSessionLoader });
 }
 
 export async function showFilesTreeRoot(ctx, { chatId, messageId }) {
@@ -225,7 +207,7 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
   }
 
   const directPath = String(item.summaryPath || "").trim();
-  if (directPath && (await isReadable(directPath))) {
+  if (directPath && (await isReadablePath(directPath))) {
     if (await trySendDocument(ctx, chatId, directPath, item)) return;
     // The file vanished or Telegram refused — fall through to the sync-then-retry path.
   }
@@ -280,15 +262,6 @@ function documentTitle(item) {
   );
 }
 
-async function isReadable(path) {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function trySendDocument(ctx, chatId, documentPath, item) {
   try {
     await ctx.telegram.sendDocument({
@@ -324,38 +297,15 @@ async function runQuietSyncSafely(ctx, chatId) {
     telegram: ctx.telegram,
     chatId,
   });
-  let draftActivated = false;
-
-  const pushQuietSyncProgress = async (stats) => {
-    const payload = {
+  const pushQuietSyncProgress = createSyncProgressPushHandler({
+    telegram: ctx.telegram,
+    chatId,
+    delivery,
+    getPayload: (stats) => ({
       html: syncProgressHtml(stats),
       richMarkdown: syncProgressRichMarkdown(stats),
-    };
-    if (!draftActivated) {
-      draftActivated = true;
-      const richOpened = await tryOpenRichDraft({
-        telegram: ctx.telegram,
-        chatId,
-        draftId: delivery.draftId,
-        initialMarkdown: payload.richMarkdown,
-      });
-      if (richOpened) {
-        delivery.markRichDraftActive();
-        return;
-      }
-      const textOpened = await tryOpenDraft({
-        telegram: ctx.telegram,
-        chatId,
-        draftId: delivery.draftId,
-        initialText: payload.html,
-      });
-      if (textOpened) {
-        delivery.markDraftActive();
-        return;
-      }
-    }
-    await delivery.pushProgress(payload);
-  };
+    }),
+  });
 
   try {
     const result = await ctx.runSyncQuiet({
@@ -378,17 +328,4 @@ async function runQuietSyncSafely(ctx, chatId) {
       });
     }
   }
-}
-
-async function resolveSummaryPathAfterSync(stableId) {
-  const id = String(stableId || "").trim();
-  if (!id) return null;
-  const idx = _testHooks?.loadIndex
-    ? await _testHooks.loadIndex()
-    : await loadIndexForBot();
-  const record = getRecordByStableId(idx, id);
-  const path = String(record?.summaryPath || "").trim();
-  if (!path) return null;
-  if (!(await isReadable(path))) return null;
-  return path;
 }

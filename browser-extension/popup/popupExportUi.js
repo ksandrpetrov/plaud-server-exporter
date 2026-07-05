@@ -34,26 +34,7 @@
     ctx.formatForegroundExportResult = function formatForegroundExportResult(
       data
     ) {
-      if (!data) return ctx.tr("toast.exportDoneGeneric");
-      if (data.error) {
-        return ctx.tr("error.exportError", { msg: data.error });
-      }
-      const summaries = Number(data.summariesExported) || 0;
-      const audio = Number(data.audioExported) || 0;
-      const errors =
-        (Number(data.filesErrored) || 0) + (Number(data.summaryErrors) || 0);
-      const mode = data.exportMode || ctx.EXPORT_MODE_BOTH;
-      if (mode === ctx.EXPORT_MODE_SUMMARY) {
-        return ctx.tr("toast.exportDoneSummary", { n: summaries, e: errors });
-      }
-      if (mode === ctx.EXPORT_MODE_AUDIO) {
-        return ctx.tr("toast.exportDoneAudio", { n: audio, e: errors });
-      }
-      return ctx.tr("toast.exportDoneBoth", {
-        audio,
-        summaries,
-        e: errors,
-      });
+      return PP.formatForegroundExportResult(data, ctx);
     };
 
     ctx.updateDownloadBusyUi = function updateDownloadBusyUi() {
@@ -140,34 +121,17 @@
       ctx.updateActivityIndicators();
 
       const startedAt = Number(data.startTime) || Date.now();
-      const elapsedSeconds = Math.max(
-        0,
-        Math.floor((Date.now() - startedAt) / 1000)
-      );
-      const minutes = Math.floor(elapsedSeconds / 60);
-      const seconds = elapsedSeconds % 60;
-      const timeString = ctx.tr("time.exportElapsed", {
-        m: minutes,
-        s: seconds,
-      });
+      const timeString = PP.formatExportElapsed(startedAt, ctx.tr.bind(ctx));
 
-      function finiteOr(value, fallback) {
-        if (value === undefined || value === null || value === "")
-          return fallback;
-        const n = Number(value);
-        return Number.isFinite(n) ? n : fallback;
-      }
-
-      const processed = finiteOr(data.filesProcessed, 0);
-      const audio = finiteOr(data.audioExported, 0);
-      const errored = finiteOr(data.filesErrored, 0);
-      const summaries = finiteOr(data.summariesExported, 0);
-      const summaryErrors = finiteOr(data.summaryErrors, 0);
-      const total = finiteOr(data.filesTotal, 0);
-      const progress =
-        total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
-      const processedLabel =
-        total > 0 ? `${processed}/${total}` : String(processed);
+      const metrics = PP.computeExportStatusMetrics(data);
+      const {
+        audio,
+        errored,
+        summaries,
+        summaryErrors,
+        progress,
+        processedLabel,
+      } = metrics;
 
       if (!exportStatusContainer.dataset.exportUiBuilt) {
         exportStatusContainer.innerHTML = `
@@ -263,46 +227,7 @@
     };
 
     ctx.updateExportControls = function updateExportControls() {
-      const {
-        stopExportBtn,
-        statsRefreshBtn,
-        syncFolderInput,
-        openDownloadsBtn,
-      } = ctx.els;
-      const blockExportActions =
-        ctx.exportActive || ctx.foregroundExportBusy || ctx.smartSyncActive;
-      if (blockExportActions) {
-        ctx.exportActionButtons.forEach((button) => {
-          if (button) button.disabled = true;
-        });
-      } else {
-        ctx.exportActionButtons.forEach((button) => {
-          if (button) button.disabled = !ctx.activeTabIsPlaud;
-        });
-      }
-      if (stopExportBtn) {
-        if (ctx.exportActive) {
-          stopExportBtn.disabled = false;
-          stopExportBtn.hidden = false;
-        } else {
-          stopExportBtn.disabled = true;
-          stopExportBtn.hidden = true;
-        }
-      }
-      if (statsRefreshBtn) {
-        statsRefreshBtn.disabled =
-          ctx.statsFetchInFlight ||
-          ctx.exportActive ||
-          ctx.foregroundExportBusy ||
-          ctx.smartSyncActive ||
-          !ctx.activeTabIsPlaud;
-      }
-      if (syncFolderInput) {
-        syncFolderInput.disabled = ctx.smartSyncActive;
-      }
-      if (openDownloadsBtn) {
-        openDownloadsBtn.disabled = false;
-      }
+      PP.applyExportControlStates(ctx);
       ctx.updateDownloadBusyUi();
       ctx.updateActivityIndicators();
       ctx.syncForegroundBusyPolling();

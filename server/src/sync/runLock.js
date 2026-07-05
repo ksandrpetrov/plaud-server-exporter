@@ -66,7 +66,7 @@ async function isStaleLock(path) {
     if (info.host && info.host !== hostname()) return false;
     return !pidIsAlive(info.pid);
   }
-  return false;
+  return true;
 }
 
 export class SyncLockError extends Error {

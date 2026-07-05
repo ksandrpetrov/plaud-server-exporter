@@ -5,6 +5,8 @@
  * conservatively at RICH_MARKDOWN_MAX_LEN on line boundaries.
  */
 
+export { isRichMessageUnavailable } from "./apiFallback.js";
+
 /** @type {number} */
 export const RICH_MARKDOWN_MAX_LEN = 30000;
 
@@ -14,27 +16,7 @@ export const RICH_MARKDOWN_MAX_LEN = 30000;
  */
 export const RICH_THINKING_MARKDOWN = "<tg-thinking></tg-thinking>";
 
-const RICH_UNAVAILABLE_MARKERS = [
-  "sendrichmessage",
-  "sendrichmessagedraft",
-  "rich_message",
-  "richmessage",
-  "method is not found",
-  "method not found",
-  "unknown method",
-  "not implemented",
-];
-
 const UTF8_BOM = "\uFEFF";
-
-/**
- * @param {unknown} err
- * @returns {boolean}
- */
-export function isRichMessageUnavailable(err) {
-  const text = String(/** @type {any} */ (err)?.message || err).toLowerCase();
-  return RICH_UNAVAILABLE_MARKERS.some((m) => text.includes(m));
-}
 
 /**
  * @param {string} text

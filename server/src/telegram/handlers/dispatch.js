@@ -1,5 +1,6 @@
 import { logger } from "../../logger.js";
 import { answerBestEffort } from "../botMessageUtils.js";
+import { ERR_CALLBACK_HANDLER_TOAST } from "../messages/errors.js";
 import { routeCallback } from "./callbacks.js";
 import { handleMessage } from "./inboundMessages.js";
 import { guardAuthorizedPrivateUpdate } from "./privateUpdateGate.js";
@@ -62,22 +63,24 @@ async function handleCallbackQuery(ctx, callback) {
     return;
   }
 
-  let callbackAnswered = false;
   try {
-    callbackAnswered = await routeCallback(ctx, {
+    const answered = await routeCallback(ctx, {
       chatId,
       messageId,
       data,
       callback,
     });
+    if (!answered) {
+      await answerBestEffort(ctx, callback);
+    }
   } catch (err) {
     logger.error("Callback handler failed", {
       data,
       error: String(err?.message || err),
     });
-  } finally {
-    if (!callbackAnswered) {
-      await answerBestEffort(ctx, callback);
-    }
+    await answerBestEffort(ctx, callback, {
+      text: ERR_CALLBACK_HANDLER_TOAST,
+      showAlert: true,
+    });
   }
 }

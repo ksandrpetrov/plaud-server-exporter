@@ -42,14 +42,7 @@ export function stripExpandableBlockquote(htmlText) {
  * @param {unknown} err
  * @returns {boolean}
  */
-export function isHtmlEntitiesRejected(err) {
-  const text = String(/** @type {any} */ (err)?.message || err).toLowerCase();
-  return (
-    text.includes("can't parse entities") ||
-    text.includes("cant parse entities") ||
-    (text.includes("expandable") && text.includes("blockquote"))
-  );
-}
+export { isHtmlEntitiesRejected } from "./apiFallback.js";
 
 /**
  * @param {string} htmlText

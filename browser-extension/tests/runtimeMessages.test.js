@@ -25,6 +25,9 @@ const CLASSIC_SCRIPT_FILES = [
   "content.js",
 ];
 
+/** ESM handlers wired from classic content.js via dynamic import. */
+const MODULE_SCRIPT_FILES = ["content/contentHandlers.js"];
+
 /**
  * Actions that classic scripts are allowed NOT to reference. (They're sent or
  * received only by the ES-module side: background.js / audioExport.js.)
@@ -34,10 +37,14 @@ const ACTIONS_NOT_USED_BY_CLASSIC_SCRIPTS = new Set([
   "ACTION_EXPORT_PROGRESS_UPDATE",
 ]);
 
+function readCorpus(relativePaths) {
+  return relativePaths
+    .map((rel) => readFileSync(resolve(root, rel), "utf8"))
+    .join("\n");
+}
+
 test("every registry action either appears in a classic-script file or is allow-listed", () => {
-  const corpus = CLASSIC_SCRIPT_FILES.map((rel) =>
-    readFileSync(resolve(root, rel), "utf8")
-  ).join("\n");
+  const corpus = readCorpus([...CLASSIC_SCRIPT_FILES, ...MODULE_SCRIPT_FILES]);
 
   for (const [name, value] of Object.entries(RUNTIME_MESSAGE_ACTIONS)) {
     if (ACTIONS_NOT_USED_BY_CLASSIC_SCRIPTS.has(name)) continue;
@@ -53,7 +60,7 @@ test("every registry action either appears in a classic-script file or is allow-
 test("classic-script action: literals all correspond to a known registry key", () => {
   const knownValues = new Set(Object.values(RUNTIME_MESSAGE_ACTIONS));
   const re = /action\s*:\s*"([^"]+)"|action\s*===\s*"([^"]+)"/g;
-  for (const rel of CLASSIC_SCRIPT_FILES) {
+  for (const rel of [...CLASSIC_SCRIPT_FILES, ...MODULE_SCRIPT_FILES]) {
     const text = readFileSync(resolve(root, rel), "utf8");
     let match;
     while ((match = re.exec(text)) !== null) {
@@ -65,4 +72,13 @@ test("classic-script action: literals all correspond to a known registry key", (
       );
     }
   }
+});
+
+test("popupTheme DEFAULT_SYNC_SUBDIRECTORY matches exportPathUtils", async () => {
+  const { DEFAULT_SYNC_SUBDIRECTORY } =
+    await import("../common/exportPathUtils.js");
+  const themeSrc = readFileSync(resolve(root, "popup/popupTheme.js"), "utf8");
+  const match = themeSrc.match(/DEFAULT_SYNC_SUBDIRECTORY:\s*"([^"]+)"/);
+  assert.ok(match, "popupTheme.js must define DEFAULT_SYNC_SUBDIRECTORY");
+  assert.equal(match[1], DEFAULT_SYNC_SUBDIRECTORY);
 });

@@ -3,7 +3,6 @@
  * Used by Telegram tree browse; presentation stays in telegram/.
  */
 
-import { createPlaudSessionLoader } from "../auth/loadPlaudSession.js";
 import { logger } from "../logger.js";
 import { buildStableId } from "../../../browser-extension/common/syncCore.js";
 import { resolveFileFolderSegment } from "./plaudFolders.js";
@@ -20,8 +19,6 @@ import {
 export const LIVE_TREE_CACHE_TTL_MS = 15_000;
 
 const STATUS_NOT_SYNCED = "not_synced";
-
-const defaultSessionLoader = createPlaudSessionLoader("liveTreeReadModel");
 
 let cache = null;
 let cachedAtMs = 0;
@@ -59,12 +56,13 @@ export function _resetPlaudLiveTreeCache() {
  */
 export async function loadPlaudLiveSyncTree({
   syncIndex = null,
-  sessionLoader = defaultSessionLoader,
+  sessionLoader,
   fetchTags = fetchPlaudFiletagList,
   fetchRecordings = listRecordingsForBotTree,
   now = Date.now(),
   forceRefresh = false,
 } = {}) {
+  if (!sessionLoader) return null;
   if (!forceRefresh && cache && now - cachedAtMs < LIVE_TREE_CACHE_TTL_MS) {
     return mergeWithSyncIndex(cache, syncIndex);
   }

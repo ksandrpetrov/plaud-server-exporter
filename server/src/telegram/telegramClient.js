@@ -16,25 +16,28 @@
 
 import { readFile } from "node:fs/promises";
 import { basename } from "node:path";
-import { Agent } from "node:https";
 import { isHtmlEntitiesRejected, stripUnsupportedHtml } from "./htmlFormat.js";
 import { isMessageEffectRejected } from "./telegramVisual.js";
+import {
+  EDIT_MESSAGE_MAX_RETRIES,
+  EDIT_MESSAGE_TIMEOUT_MS,
+  LONG_POLL_METHOD,
+  SEND_MESSAGE_MAX_RETRIES,
+  SEND_MESSAGE_TIMEOUT_MS,
+  TELEGRAM_API,
+} from "./transport/constants.js";
+import { createTelegramErrorSanitizer } from "./transport/errorSanitizer.js";
+import {
+  createTelegramHttpAgents,
+  destroyTelegramHttpAgents,
+} from "./transport/httpAgents.js";
+import {
+  executeTelegramRetryFetch,
+  stringifyTelegramForm,
+} from "./transport/retryPolicy.js";
+import { TelegramError } from "./transport/telegramErrors.js";
 
-const TELEGRAM_API = "https://api.telegram.org";
-
-const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
-const SEND_MESSAGE_TIMEOUT_MS = 8000;
-const SEND_MESSAGE_MAX_RETRIES = 1;
-const EDIT_MESSAGE_TIMEOUT_MS = 3000;
-const EDIT_MESSAGE_MAX_RETRIES = 0;
-const LONG_POLL_METHOD = "getUpdates";
-
-export class TelegramError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "TelegramError";
-  }
-}
+export { TelegramError } from "./transport/telegramErrors.js";
 
 export class TelegramClient {
   /**
@@ -65,30 +68,18 @@ export class TelegramClient {
       options.sleep ||
       ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
 
-    this._defaultAgent = new Agent({
-      keepAlive: true,
-      maxSockets: 16,
-      keepAliveMsecs: 30000,
-    });
-    this._longPollAgent = new Agent({
-      keepAlive: true,
-      maxSockets: 2,
-      keepAliveMsecs: 60000,
-    });
+    const agents = createTelegramHttpAgents();
+    this._defaultAgent = agents.defaultAgent;
+    this._longPollAgent = agents.longPollAgent;
+    this._sanitize = createTelegramErrorSanitizer(botToken, this._baseUrl);
   }
 
   /** Closes underlying keep-alive sockets. Safe to call multiple times. */
   close() {
-    try {
-      this._defaultAgent.destroy();
-    } catch {
-      // best-effort
-    }
-    try {
-      this._longPollAgent.destroy();
-    } catch {
-      // best-effort
-    }
+    destroyTelegramHttpAgents({
+      defaultAgent: this._defaultAgent,
+      longPollAgent: this._longPollAgent,
+    });
   }
 
   /**
@@ -99,18 +90,8 @@ export class TelegramClient {
    * @returns {string}
    */
   sanitize(text) {
-    if (!text) return text;
-    let safe = String(text);
-    if (this._token) {
-      safe = safe.split(this._token).join("<telegram-token>");
-    }
-    safe = safe
-      .split(this._baseUrl)
-      .join(`${TELEGRAM_API}/bot<telegram-token>`);
-    return safe;
+    return this._sanitize(text);
   }
-
-  // --- public API --------------------------------------------------------
 
   /**
    * @param {{
@@ -261,10 +242,6 @@ export class TelegramClient {
   }
 
   /**
-   * Closes the "loading clock" on an inline button. Best-effort: Telegram
-   * shows the spinner for up to 30 s if we don't answer, but if we already
-   * edited the message we just want to make the indicator go away.
-   *
    * @param {{ callbackQueryId: string; text?: string | null; showAlert?: boolean }} params
    */
   async answerCallbackQuery(params) {
@@ -279,8 +256,6 @@ export class TelegramClient {
   }
 
   /**
-   * Best-effort removal of a stale progress bubble after the final message lands.
-   *
    * @param {{ chatId: number | string; messageId: number }} params
    */
   async deleteMessage(params) {
@@ -295,8 +270,6 @@ export class TelegramClient {
   }
 
   /**
-   * Sends a file as a Telegram document (e.g. vault .md unchanged).
-   *
    * @param {{
    *   chatId: number | string;
    *   documentPath: string;
@@ -353,8 +326,6 @@ export class TelegramClient {
     });
     return Array.isArray(result) ? result : [];
   }
-
-  // --- internals ---------------------------------------------------------
 
   async _sendRichWithFallback({
     methodName,
@@ -419,204 +390,46 @@ export class TelegramClient {
   }
 
   async _callMultipart(methodName, { form, timeoutMs, maxRetries }) {
-    // `FormData` already sets the multipart boundary on the request body, so
-    // we explicitly clear any `content-type` the transport would add.
-    return this._retryingFetch(methodName, {
+    return executeTelegramRetryFetch({
+      methodName,
+      baseUrl: this._baseUrl,
+      fetchImpl: this._fetch,
+      sanitize: this._sanitize,
+      sleep: this._sleep,
+      backoffBaseMs: this._backoffBaseMs,
+      backoffCapMs: this._backoffCapMs,
+      requestTimeoutMs: this._requestTimeoutMs,
+      maxRetries: this._maxRetries,
       buildInit: () => ({ method: "POST", body: form }),
       agent: this._defaultAgent,
       timeoutMs,
-      maxRetries,
+      maxRetriesOverride: maxRetries,
     });
   }
 
   async _call(methodName, { data, timeoutMs, maxRetries }) {
-    // Node's undici fetch reads `dispatcher`, but `agent` is still honored by
-    // some test mocks; we set both so neither pool gets mixed up in
-    // production or in tests using `node:http` shims.
     const agent =
       methodName === LONG_POLL_METHOD
         ? this._longPollAgent
         : this._defaultAgent;
-    return this._retryingFetch(methodName, {
+    return executeTelegramRetryFetch({
+      methodName,
+      baseUrl: this._baseUrl,
+      fetchImpl: this._fetch,
+      sanitize: this._sanitize,
+      sleep: this._sleep,
+      backoffBaseMs: this._backoffBaseMs,
+      backoffCapMs: this._backoffCapMs,
+      requestTimeoutMs: this._requestTimeoutMs,
+      maxRetries: this._maxRetries,
       buildInit: () => ({
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams(stringifyForm(data)).toString(),
+        body: new URLSearchParams(stringifyTelegramForm(data)).toString(),
       }),
       agent,
       timeoutMs,
-      maxRetries,
+      maxRetriesOverride: maxRetries,
     });
   }
-
-  /**
-   * Shared retry loop for both URL-encoded and multipart calls. Owns
-   * timeout, abort, response classification, and back-off — the only thing
-   * the caller varies is the request body (`buildInit`) and the connection
-   * pool (`agent`).
-   *
-   * @param {string} methodName
-   * @param {{
-   *   buildInit: () => { method?: string; headers?: Record<string, string>; body: unknown };
-   *   agent: import("node:https").Agent;
-   *   timeoutMs?: number;
-   *   maxRetries?: number;
-   * }} params
-   */
-  async _retryingFetch(
-    methodName,
-    { buildInit, agent, timeoutMs, maxRetries }
-  ) {
-    const url = `${this._baseUrl}/${methodName}`;
-    const effectiveTimeout = timeoutMs || this._requestTimeoutMs;
-    const effectiveMaxRetries = Math.max(0, maxRetries ?? this._maxRetries);
-
-    let attempt = 0;
-    while (true) {
-      attempt++;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), effectiveTimeout);
-
-      let response;
-      try {
-        response = await this._fetch(
-          url,
-          /** @type {any} */ ({
-            ...buildInit(),
-            signal: controller.signal,
-            agent,
-          })
-        );
-      } catch (err) {
-        clearTimeout(timer);
-        const safeError = this.sanitize(String(err?.message || err));
-        if (attempt > effectiveMaxRetries) {
-          throw new TelegramError(
-            `${methodName}: network error after ${effectiveMaxRetries} retries: ${safeError}`
-          );
-        }
-        await this._sleep(this._computeBackoffMs(attempt));
-        continue;
-      } finally {
-        clearTimeout(timer);
-      }
-
-      const parsed = await this._parseResponse(response, methodName);
-      if (parsed.kind === "ok") return parsed.result;
-      if (parsed.kind === "rate_limited") {
-        if (attempt > effectiveMaxRetries) {
-          throw new TelegramError(
-            `${methodName}: still rate-limited after ${effectiveMaxRetries} retries`
-          );
-        }
-        await this._sleep(parsed.waitMs);
-        continue;
-      }
-      if (parsed.kind === "retryable") {
-        if (attempt > effectiveMaxRetries) {
-          throw new TelegramError(
-            `${methodName}: HTTP ${parsed.status} after ${effectiveMaxRetries} retries`
-          );
-        }
-        await this._sleep(this._computeBackoffMs(attempt));
-        continue;
-      }
-      throw new TelegramError(
-        `${methodName}: HTTP ${parsed.status}: ${this.sanitize(parsed.bodySnippet)}`
-      );
-    }
-  }
-
-  async _parseResponse(response, methodName) {
-    const status = response.status;
-    if (status === 200) {
-      let payload;
-      try {
-        payload = await response.json();
-      } catch (err) {
-        throw new TelegramError(
-          `${methodName}: invalid JSON response: ${this.sanitize(String(err?.message || err))}`
-        );
-      }
-      if (!payload || payload.ok !== true) {
-        throw new TelegramError(
-          `${methodName} failed: ${this.sanitize(JSON.stringify(payload))}`
-        );
-      }
-      return { kind: "ok", result: payload.result };
-    }
-    if (status === 429) {
-      const waitMs = await this._waitAfter429Ms(response);
-      return { kind: "rate_limited", waitMs };
-    }
-    if (RETRYABLE_STATUS.has(status)) {
-      // Drain body to free the socket; we don't need its content.
-      try {
-        await response.text();
-      } catch {
-        // best-effort
-      }
-      return { kind: "retryable", status };
-    }
-    let bodySnippet;
-    try {
-      bodySnippet = (await response.text()).slice(0, 500);
-    } catch {
-      bodySnippet = "";
-    }
-    return { kind: "fatal", status, bodySnippet };
-  }
-
-  async _waitAfter429Ms(response) {
-    let retryAfterSec = 0;
-    try {
-      const text = await response.clone().text();
-      const parsed = JSON.parse(text);
-      if (parsed && typeof parsed === "object") {
-        const ra = Number(parsed?.parameters?.retry_after);
-        if (Number.isFinite(ra) && ra > 0) retryAfterSec = ra;
-      }
-    } catch {
-      retryAfterSec = 0;
-    }
-    if (retryAfterSec <= 0) {
-      const header = response.headers?.get?.("Retry-After");
-      if (header) {
-        const ra = Number(header);
-        if (Number.isFinite(ra) && ra > 0) retryAfterSec = ra;
-      }
-    }
-    if (retryAfterSec <= 0) {
-      retryAfterSec = this._backoffBaseMs / 1000;
-    }
-    const jitter = Math.random() * 500;
-    return Math.min(retryAfterSec * 1000 + jitter, this._backoffCapMs);
-  }
-
-  _computeBackoffMs(attempt) {
-    const delay = Math.min(
-      this._backoffBaseMs * Math.pow(2, attempt - 1),
-      this._backoffCapMs
-    );
-    return delay + Math.random() * 500;
-  }
-}
-
-/**
- * @param {Record<string, unknown> | null | undefined} data
- * @returns {Record<string, string>}
- */
-function stringifyForm(data) {
-  /** @type {Record<string, string>} */
-  const out = {};
-  if (!data) return out;
-  for (const [key, value] of Object.entries(data)) {
-    if (value == null) continue;
-    if (typeof value === "object") {
-      out[key] = JSON.stringify(value);
-    } else {
-      out[key] = String(value);
-    }
-  }
-  return out;
 }

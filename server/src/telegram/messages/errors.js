@@ -41,6 +41,9 @@ export const ERR_TREE_LOAD_RICH = clipRichMarkdown(
 
 export const TREE_QUIET_SYNC_TOAST = "🔍 Файла нет на диске — синхронизирую…";
 
+export const ERR_CALLBACK_HANDLER_TOAST =
+  "Не удалось выполнить действие. Открой /menu и попробуй снова.";
+
 /**
  * @param {string} title
  * @returns {string}

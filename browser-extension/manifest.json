@@ -40,7 +40,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["features/audioExport/*.js", "common/*.js"],
+      "resources": ["features/audioExport/*.js", "common/*.js", "content/*.js"],
       "matches": ["https://app.plaud.ai/*", "https://web.plaud.ai/*"]
     }
   ]

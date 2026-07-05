@@ -68,16 +68,18 @@
 
 > Размер > 1k LOC. Любые правки — точечно, маленькими PR, чтобы не съесть весь контекст агента.
 
-| Файл                                                                                                             | LOC   | Что в нём                                                                                      |
-| ---------------------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------- |
-| [`browser-extension/features/audioExport/audioExport.js`](browser-extension/features/audioExport/audioExport.js) | ~1.4k | Plaud HTTP в браузере + `runExportAll` + `runSmartSync`                                        |
-| [`browser-extension/popup/popup.js`](browser-extension/popup/popup.js)                                           | ~1.9k | Весь UI попапа и его состояние                                                                 |
-| [`browser-extension/background.js`](browser-extension/background.js)                                             | ~1k   | MV3 service worker: оркестрация export/sync (downloads — `background/chromeDownloadBridge.js`) |
+| Файл                                                                                                                           | LOC  | Что в нём                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------ | ---- | -------------------------------------------------------------------------------- |
+| [`browser-extension/popup/popupExportUi.js`](browser-extension/popup/popupExportUi.js)                                         | ~760 | DOM wiring экспорта; pure helpers — `exportStatusFormat.js`, `exportControls.js` |
+| [`browser-extension/features/audioExport/plaudBrowserApi.js`](browser-extension/features/audioExport/plaudBrowserApi.js)       | ~490 | Plaud HTTP в браузере                                                            |
+| [`browser-extension/features/audioExport/extensionSmartSync.js`](browser-extension/features/audioExport/extensionSmartSync.js) | ~420 | Smart sync loop (решения — только `syncCore`)                                    |
+| [`browser-extension/common/syncCore.js`](browser-extension/common/syncCore.js)                                                 | ~560 | Shared sync contract                                                             |
 
-Средние (500–600 LOC) тоже лучше править прицельно: [`server/src/telegram/messages/`](server/src/telegram/messages/) (
-barrel: `messages.js`), [`server/src/telegram/vaultTree.js`](server/src/telegram/vaultTree.js), [`server/src/plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`server/src/sync/syncRunner.js`](server/src/sync/syncRunner.js), [`server/src/telegram/syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js).
+Уже разбиты (точечные правки): `audioExport.js` (barrel), `popup.js` (~60), `background.js` (~130), `messageRouter.js` (registry + `background/handlers/*`), `content.js` + `content/contentHandlers.js`.
 
-Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js), [`streaming/thinkingDraft.js`](server/src/telegram/streaming/thinkingDraft.js), [`streaming/loadingPulse.js`](server/src/telegram/streaming/loadingPulse.js).
+Средние (400–500 LOC) на server: [`telegram/telegramClient.js`](server/src/telegram/telegramClient.js) (facade; transport — `telegram/transport/*`), [`telegram/messages/`](server/src/telegram/messages/), [`plaud/recordingsApi.js`](server/src/plaud/recordingsApi.js), [`telegram/syncOrchestrator.js`](server/src/telegram/syncOrchestrator.js). `syncRunner.js` ~300 LOC.
+
+Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js) + [`streaming/draftAvailability.js`](server/src/telegram/streaming/draftAvailability.js), [`streaming/thinkingDraft.js`](server/src/telegram/streaming/thinkingDraft.js), [`streaming/loadingPulse.js`](server/src/telegram/streaming/loadingPulse.js). API fallback markers — [`apiFallback.js`](server/src/telegram/apiFallback.js).
 
 ### Telegram module map (server)
 
@@ -198,22 +200,21 @@ Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](se
 
 Короткие business invariants (из тестов и README). Что не должно ломаться и минимальная проверка после правок в зоне.
 
-| Сценарий                          | Что не должно ломаться                                                | Какие зоны участвуют                                                              | Минимальная проверка                                                                       |
-| --------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Auth на Mac → session на VPS      | re-auth UX, `session.json` `chmod 600`, exit `2` без сессии           | `auth/playwrightAuth.js`, `loadPlaudSession.js`, `sessionStore.js`                | `loadPlaudSession.test.js`, `sessionParser.test.js`; ручной `server:auth` при правках auth |
-| CLI sync саммари → vault          | new / skip unchanged / content update / rename-only, atomic index     | `syncRunner.js`, `syncCore.js`, `obsidianWriter.js`, `serverSyncIndex.js`         | `syncRunner.integration.test.js`; при правке shared — `syncCore.test.js`                   |
-| Server summary-only               | `runSync` не качает аудио (нет `/file/temp-url`)                      | `syncRunner.js`                                                                   | `syncAudioDefault.test.js`                                                                 |
-| Lock / busy                       | параллельный sync → exit `4` / «занят» в боте; dry-run обходит lock   | `sync/runLock.js`, `syncFailureMapper.js`, `syncOrchestrator.js`                  | `syncRunner.errors.test.js`, `syncOrchestrator.test.js`                                    |
-| Plaud API изменился               | exit `3`, отчёт в `_errors/`                                          | `recordingsApi.js`, `plaudApiClient.js`, `errorClassifier.js`                     | `syncRunner.errors.test.js`, `recordingsApi.test.js`                                       |
-| Telegram owner-only + ручной sync | только владелец; чужие/группы молча игнор; progress → итог            | `privateUpdateGate.js`, `dispatch.js`, `syncOrchestrator.js`, streaming/\*        | `telegramAuth.test.js`, `telegramDispatch.test.js`, `syncOrchestrator.test.js`             |
-| Автосинк по расписанию            | интервал, по умолчанию молчит в чат (`scheduledSummaryVisible=false`) | `scheduler.js`, `botSettings.js`, `syncOrchestrator.js`                           | `scheduler.test.js`, `botSettings.test.js`                                                 |
-| Files tree pick-by-number         | stableId, отдать `.md`, тихий resync при отсутствии файла             | `treeBrowse.js`, `liveTreeReadModel.js`, `syncIndexRead.js`, `treeBrowseState.js` | `treeBrowse.test.js`, `plaudLiveTree.test.js`, `treeBrowseState.test.js`                   |
-| Extension smart sync              | skip unchanged, metadata-only rename; lock от параллельных прогонов   | `features/audioExport/audioExport.js`, `common/syncCore.js`, `content.js`         | `browser-extension/tests/syncCore.test.js`, `runtimeMessages.test.js`; ручной smoke попапа |
-| status.json последний run         | schema, `lastAuthError` `{ message, at }`, merge без потери stats     | `syncStatusWriter.js`, `statusReader.js`, `statusSchema.js`                       | `syncStatusWriter.test.js`, `statusReader.test.js`                                         |
+| Сценарий                          | Что не должно ломаться                                                | Какие зоны участвуют                                                                                           | Минимальная проверка                                                                       |
+| --------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Auth на Mac → session на VPS      | re-auth UX, `session.json` `chmod 600`, exit `2` без сессии           | `auth/playwrightAuth.js`, `loadPlaudSession.js`, `sessionStore.js`                                             | `loadPlaudSession.test.js`, `sessionParser.test.js`; ручной `server:auth` при правках auth |
+| CLI sync саммари → vault          | new / skip unchanged / content update / rename-only, atomic index     | `syncRunner.js`, `syncCore.js`, `obsidianWriter.js`, `serverSyncIndex.js`                                      | `syncRunner.integration.test.js`; при правке shared — `syncCore.test.js`                   |
+| Server summary-only               | `runSync` не качает аудио (нет `/file/temp-url`)                      | `syncRunner.js`                                                                                                | `syncAudioDefault.test.js`                                                                 |
+| Lock / busy                       | параллельный sync → exit `4` / «занят» в боте; dry-run обходит lock   | `sync/runLock.js`, `syncFailureMapper.js`, `syncOrchestrator.js`                                               | `syncRunner.errors.test.js`, `syncOrchestrator.test.js`                                    |
+| Plaud API изменился               | exit `3`, отчёт в `_errors/`                                          | `recordingsApi.js`, `plaudApiClient.js`, `errorClassifier.js`                                                  | `syncRunner.errors.test.js`, `recordingsApi.test.js`                                       |
+| Telegram owner-only + ручной sync | только владелец; чужие/группы молча игнор; progress → итог            | `privateUpdateGate.js`, `dispatch.js`, `syncOrchestrator.js`, streaming/\*                                     | `telegramAuth.test.js`, `telegramDispatch.test.js`, `syncOrchestrator.test.js`             |
+| Автосинк по расписанию            | интервал, по умолчанию молчит в чат (`scheduledSummaryVisible=false`) | `scheduler.js`, `botSettings.js`, `syncOrchestrator.js`                                                        | `scheduler.test.js`, `botSettings.test.js`                                                 |
+| Files tree pick-by-number         | stableId, отдать `.md`, тихий resync при отсутствии файла             | `treeBrowse.js`, `treeBrowseOrchestrator.js`, `liveTreeReadModel.js`, `syncIndexRead.js`, `treeBrowseState.js` | `treeBrowse.test.js`, `plaudLiveTree.test.js`, `treeBrowseState.test.js`                   |
+| Extension smart sync              | skip unchanged, metadata-only rename; lock от параллельных прогонов   | `features/audioExport/audioExport.js`, `common/syncCore.js`, `content.js`                                      | `browser-extension/tests/syncCore.test.js`, `runtimeMessages.test.js`; ручной smoke попапа |
+| status.json последний run         | schema, `lastAuthError` `{ message, at }`, merge без потери stats     | `syncStatusWriter.js`, `statusReader.js`, `statusSchema.js`                                                    | `syncStatusWriter.test.js`, `statusReader.test.js`                                         |
 
 TODO: уточнить — у части браузерных сценариев нет авто-покрытия: e2e попапа/`content.js` в CI отсутствует;
-sync-lock в `content.js` без юнит-теста; stale-lock reclaim (`runLock`, dead PID / >2h) описан в коде и
-[docs/troubleshooting.md](docs/troubleshooting.md), но без отдельного теста — после правок этих зон делать ручной smoke.
+sync-lock в `content/contentHandlers.js` без юнит-теста; MV3 timer-based cleanup в `exportOrchestrator.js` — ручной smoke после правок.
 
 ## UI/UX инварианты
 
@@ -325,8 +326,8 @@ Pre-commit (`simple-git-hooks` + `lint-staged`) ставится при `npm ins
 
 ## Backlog (вне текущего server-рефактора)
 
-| Область                        | Файлы                                                      | Заметка                                                     |
-| ------------------------------ | ---------------------------------------------------------- | ----------------------------------------------------------- |
-| Extension god modules          | `audioExport.js`, `popup.js`, `background.js`              | Разбивать отдельными PR; popup может потребовать build step |
-| ~~Title normalization shared~~ | —                                                          | Вынесено в `plaudTitles.js`                                 |
-| Server splits                  | `syncOrchestrator.js`, `vaultTree.js`, `telegramClient.js` | Ниже приоритет, чем extension                               |
+| Область                        | Файлы                                                             | Заметка                                                                                               |
+| ------------------------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Extension god modules          | `popupExportUi.js`, `plaudBrowserApi.js`, `extensionSmartSync.js` | `popupExportUi` — дальше вынос pure helpers; `extensionSmartSync` — optional split executor/candidate |
+| ~~Title normalization shared~~ | —                                                                 | Вынесено в `plaudTitles.js`                                                                           |
+| Server splits                  | `syncOrchestrator.js`, `vaultTree.js`, `telegramClient.js`        | Ниже приоритет, чем extension                                                                         |
