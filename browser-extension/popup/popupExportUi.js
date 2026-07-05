@@ -248,7 +248,10 @@
             (sendError, response) => {
               if (sendError) {
                 ctx.exportPollTransientErrors += 1;
-                if (ctx.exportPollTransientErrors >= 4) {
+                if (
+                  ctx.exportPollTransientErrors >=
+                  PP.MAX_EXPORT_POLL_TRANSIENT_ERRORS
+                ) {
                   ctx.stopStatusPolling();
                   ctx.exportActive = false;
                   ctx.currentExportTabId = null;
@@ -305,33 +308,12 @@
             resolved,
             { action: "runExportAll", background: false, exportMode },
             (sendError, response) => {
-              if (sendError) {
-                ctx.updateStatus(
-                  ctx.tr("error.startExportFailed", {
-                    url: ctx.PLAUD_URL_HINT,
-                  }),
-                  "error"
-                );
-                ctx.updateExportControls();
-                return;
-              }
-              if (response && response.success) {
-                ctx.foregroundExportBusy = true;
-                ctx.updateStatus(
-                  ctx.tr("toast.exportStarted", {
-                    mode: ctx.getExportModeLabel(exportMode),
-                  }),
-                  "info"
-                );
-              } else {
-                ctx.updateStatus(
-                  ctx.tr("error.exportError", {
-                    msg: response?.error || ctx.tr("error.unknown"),
-                  }),
-                  "error"
-                );
-              }
-              ctx.updateExportControls();
+              PP.handleForegroundExportSendResult(
+                ctx,
+                exportMode,
+                sendError,
+                response
+              );
             }
           );
         });
@@ -366,41 +348,12 @@
             resolved,
             { action: "runExportCurrentPage", exportMode },
             (sendError, response) => {
-              if (sendError) {
-                const hint =
-                  sendError.message &&
-                  !sendError.message.includes("Receiving end does not exist") &&
-                  !sendError.message.includes("Could not establish connection")
-                    ? ` (${sendError.message})`
-                    : "";
-                ctx.updateStatus(
-                  ctx.tr("error.connectPage", {
-                    hint: hint,
-                    url: ctx.PLAUD_URL_HINT,
-                  }),
-                  "error"
-                );
-                ctx.updateExportControls();
-                return;
-              }
-              if (response && response.success) {
-                ctx.foregroundExportBusy = true;
-                ctx.updateStatus(
-                  ctx.tr("toast.currentExportStarted", {
-                    mode: ctx.getExportModeLabel(exportMode),
-                  }),
-                  "info"
-                );
-              } else {
-                ctx.updateStatus(
-                  ctx.contentErrorMessage(
-                    response,
-                    "error.couldNotStartCurrent"
-                  ),
-                  "error"
-                );
-              }
-              ctx.updateExportControls();
+              PP.handleCurrentPageExportSendResult(
+                ctx,
+                exportMode,
+                sendError,
+                response
+              );
             }
           );
         });
@@ -433,12 +386,12 @@
               ctx.applyContentBusyFromPing
             );
 
-            const statusTabId =
-              ctx.exportActive && ctx.currentExportTabId != null
-                ? ctx.currentExportTabId
-                : ctx.isPlaudTab(focusedResolved)
-                  ? focusedResolved.id
-                  : null;
+            const statusTabId = PP.resolveExportStatusTabId({
+              exportActive: ctx.exportActive,
+              currentExportTabId: ctx.currentExportTabId,
+              focusedTab: focusedResolved,
+              isPlaudTab: ctx.isPlaudTab.bind(ctx),
+            });
 
             if (statusTabId == null) {
               ctx.sendRuntimeMessage(
@@ -446,9 +399,7 @@
                 function (sendErr, anyResp) {
                   if (
                     !sendErr &&
-                    anyResp?.success &&
-                    anyResp.isRunning &&
-                    anyResp.tabId != null
+                    PP.shouldResumeFromAnyRunningExport(anyResp)
                   ) {
                     ctx.exportActive = true;
                     ctx.currentExportTabId = anyResp.tabId;
@@ -472,46 +423,38 @@
               return;
             }
 
-            let exportStatusFinalized = false;
-            let exportStatusFallbackTimer = null;
-
-            function finalizeExportStatus(sendError, response) {
-              if (exportStatusFinalized) return;
-              exportStatusFinalized = true;
-              if (exportStatusFallbackTimer !== null) {
-                clearTimeout(exportStatusFallbackTimer);
-                exportStatusFallbackTimer = null;
-              }
-              if (sendError) {
-                ctx.updateExportControls();
-                return;
-              }
-              if (response && response.success) {
-                ctx.exportActive = response.isRunning;
-                ctx.currentExportTabId = ctx.exportActive ? statusTabId : null;
-                if (ctx.exportActive && response.exportData) {
-                  ctx.updateExportStatus(response.exportData);
-                  ctx.startStatusPolling();
-                } else {
-                  ctx.stopStatusPolling();
-                  ctx.exportPollTransientErrors = 0;
-                  ctx.updateExportStatus(null);
+            const finalizer = PP.createExportStatusFinalizer({
+              timeoutMs: PP.EXPORT_STATUS_TIMEOUT_MS,
+              onFinalize(sendError, response) {
+                if (sendError) {
+                  ctx.updateExportControls();
+                  return;
                 }
-                ctx.updateActivityIndicators();
-                ctx.updateExportControls();
-              } else {
-                ctx.updateExportControls();
-              }
-            }
-
-            exportStatusFallbackTimer = setTimeout(function () {
-              finalizeExportStatus(new Error("getExportStatus timeout"), null);
-            }, 1200);
+                if (response && response.success) {
+                  ctx.exportActive = response.isRunning;
+                  ctx.currentExportTabId = ctx.exportActive
+                    ? statusTabId
+                    : null;
+                  if (ctx.exportActive && response.exportData) {
+                    ctx.updateExportStatus(response.exportData);
+                    ctx.startStatusPolling();
+                  } else {
+                    ctx.stopStatusPolling();
+                    ctx.exportPollTransientErrors = 0;
+                    ctx.updateExportStatus(null);
+                  }
+                  ctx.updateActivityIndicators();
+                  ctx.updateExportControls();
+                } else {
+                  ctx.updateExportControls();
+                }
+              },
+            });
 
             ctx.sendRuntimeMessage(
               { action: "getExportStatus", tabId: statusTabId },
               function (sendError, response) {
-                finalizeExportStatus(sendError, response);
+                finalizer.finalize(sendError, response);
               }
             );
           });
