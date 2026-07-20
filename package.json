@@ -38,9 +38,9 @@
   },
   "devDependencies": {
     "eslint-config-prettier": "^10.1.8",
-    "lint-staged": "^17.0.8",
-    "markdownlint-cli2": "^0.23.0",
-    "prettier": "^3.9.4",
+    "lint-staged": "^17.1.0",
+    "markdownlint-cli2": "^0.23.1",
+    "prettier": "^3.9.5",
     "simple-git-hooks": "^2.13.1",
     "typescript": "^6.0.3"
   }
