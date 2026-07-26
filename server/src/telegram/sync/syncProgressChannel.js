@@ -7,7 +7,7 @@ export const PROGRESS_THROTTLE_LARGE_MS = 1500;
 export const LARGE_SYNC_TOTAL = 50;
 
 /**
- * @param {object} stats
+ * @param {Record<string, any>} stats
  * @returns {{ html: string; richMarkdown: string }}
  */
 export function defaultSyncProgressPayload(stats) {
@@ -23,7 +23,7 @@ export function defaultSyncProgressPayload(stats) {
  *
  * @param {{
  *   mode: "throttled" | "immediate";
- *   delivery: ReturnType<import("../streamingDelivery.js").createSyncProgressDelivery>;
+ *   delivery: ReturnType<typeof import("../streaming/draftChannel.js").createSyncProgressDelivery>;
  *   telegram: import("../telegramClient.js").TelegramClient;
  *   chatId: number;
  *   messageId?: number | null;
@@ -69,7 +69,7 @@ export function createSyncProgressChannel(params) {
 }
 
 /**
- * @param {object} params
+ * @param {Record<string, any>} params
  */
 function createThrottledProgressChannel({
   delivery,
@@ -105,7 +105,7 @@ function createThrottledProgressChannel({
 }
 
 /**
- * @param {object} params
+ * @param {Record<string, any>} params
  */
 function createImmediateProgressChannel({
   telegram,

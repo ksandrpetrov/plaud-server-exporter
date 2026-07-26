@@ -7,8 +7,8 @@ import { smartSyncBusyErrorKey } from "./contentSyncLocks.js";
 export { smartSyncBusyErrorKey } from "./contentSyncLocks.js";
 
 /**
- * @param {object} state
- * @param {(key: string, params?: object) => string} contentTr
+ * @param {ContentRuntimeState} state
+ * @param {(key: string, params?: Record<string, unknown>) => string} contentTr
  */
 export function registerContentMessageHandlers(state, contentTr) {
   chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -77,6 +77,13 @@ export function registerContentMessageHandlers(state, contentTr) {
   });
 }
 
+/**
+ * @param {ContentRuntimeState} state
+ * @param {Extract<RuntimeMessage, { action: "runExportAll" }>} request
+ * @param {chrome.runtime.MessageSender} sender
+ * @param {(response: RuntimeResponse) => void} sendResponse
+ * @param {(key: string, params?: Record<string, unknown>) => string} contentTr
+ */
 function handleRunExportAll(state, request, sender, sendResponse, contentTr) {
   const senderTabId = sender.tab?.id;
   (async () => {
@@ -173,6 +180,13 @@ function handleRunExportAll(state, request, sender, sendResponse, contentTr) {
   })();
 }
 
+/**
+ * @param {ContentRuntimeState} state
+ * @param {Extract<RuntimeMessage, { action: "runExportCurrentPage" }>} request
+ * @param {chrome.runtime.MessageSender} sender
+ * @param {(response: RuntimeResponse) => void} sendResponse
+ * @param {(key: string, params?: Record<string, unknown>) => string} contentTr
+ */
 function handleRunExportCurrentPage(
   state,
   request,
@@ -263,6 +277,12 @@ function handleRunExportCurrentPage(
   })();
 }
 
+/**
+ * @param {ContentRuntimeState} state
+ * @param {Extract<RuntimeMessage, { action: "runLibraryStats" }>} request
+ * @param {(response: RuntimeResponse) => void} sendResponse
+ * @param {(key: string, params?: Record<string, unknown>) => string} contentTr
+ */
 function handleRunLibraryStats(state, request, sendResponse, contentTr) {
   let responded = false;
   function reply(payload) {
@@ -343,6 +363,12 @@ function handleRunLibraryStats(state, request, sendResponse, contentTr) {
   })();
 }
 
+/**
+ * @param {ContentRuntimeState} state
+ * @param {Extract<RuntimeMessage, { action: "runSmartSync" }>} request
+ * @param {(response: RuntimeResponse) => void} sendResponse
+ * @param {(key: string, params?: Record<string, unknown>) => string} contentTr
+ */
 function handleRunSmartSync(state, request, sendResponse, contentTr) {
   let responded = false;
   function reply(payload) {

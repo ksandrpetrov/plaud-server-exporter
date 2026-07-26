@@ -27,8 +27,8 @@ export function resolveApiMode(session) {
 /**
  * Apply resolved apiMode onto a session object (mutates copy).
  *
- * @param {object} session
- * @returns {object}
+ * @param {Record<string, any>} session
+ * @returns {Record<string, any>}
  */
 export function withResolvedApiMode(session) {
   return {

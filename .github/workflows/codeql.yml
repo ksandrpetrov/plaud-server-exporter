@@ -27,21 +27,21 @@ jobs:
       actions: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
           # Standard query suite + extended for security audits.
           queries: security-and-quality
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+        uses: github/codeql-action/autobuild@v4
 
       - name: Analyze
         id: analyze
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:javascript-typescript"
           # Private repo without GHAS cannot upload to Code scanning; SARIF → artifact below.
@@ -52,7 +52,7 @@ jobs:
 
       - name: Upload SARIF artifact
         if: always() && steps.analyze.conclusion != 'skipped'
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: codeql-javascript-sarif
           path: ${{ steps.analyze.outputs.sarif-output }}

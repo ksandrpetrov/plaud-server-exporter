@@ -69,7 +69,7 @@ export function createSmartSyncHandlers() {
     [ACTION_SMART_SYNC_COMPLETE](message, sender, sendResponse) {
       const tabId = sender.tab?.id;
       if (tabId != null) {
-        const data = message.data || {};
+        const data = /** @type {Record<string, any>} */ (message.data || {});
         const isError = data.status === "error" || !!data.error;
         activeSmartSyncs[tabId] = {
           ...(activeSmartSyncs[tabId] || {}),

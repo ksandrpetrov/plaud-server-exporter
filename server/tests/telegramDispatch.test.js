@@ -71,6 +71,10 @@ function ctx(telegram, overrides = {}) {
     allowedUserId: 100,
     runManualSync: async () => ({ status: "ok" }),
     runSyncQuiet: async () => ({ status: "ok" }),
+    treeBrowse: {
+      loadTreeSource: async () => ({ records: {} }),
+      resolveSummaryPathAfterSync: async () => null,
+    },
     ...overrides,
   };
 }

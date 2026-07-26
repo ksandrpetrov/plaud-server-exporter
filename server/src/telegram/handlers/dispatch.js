@@ -26,12 +26,17 @@ import { guardAuthorizedPrivateUpdate } from "./privateUpdateGate.js";
  *   allowedUserId: number | null;
  *   runManualSync: (params: { chatId: number; loadingMessageId: number | null }) => Promise<unknown>;
  *   runSyncQuiet?: () => Promise<{ status: string }>;
+ *   treeBrowse?: {
+ *     loadTreeSource?: () => Promise<Record<string, any>>;
+ *     isReadablePath?: (path: string) => Promise<boolean>;
+ *     resolveSummaryPathAfterSync?: (stableId: string) => Promise<string | null>;
+ *   };
  * }} HandlerContext
  */
 
 /**
  * @param {HandlerContext} ctx
- * @param {object} update
+ * @param {Record<string, any>} update
  */
 export async function dispatchUpdate(ctx, update) {
   if (update?.message) {

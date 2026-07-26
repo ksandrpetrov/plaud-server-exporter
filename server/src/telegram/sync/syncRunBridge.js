@@ -17,7 +17,7 @@ export const defaultSessionLoader = createPlaudSessionLoader("syncRunBridge");
 
 /**
  * @param {{
- *   sessionLoader?: () => Promise<object | null>;
+ *   sessionLoader?: () => Promise<import("../../auth/plaudSessionExtractor.js").PlaudSession | null>;
  *   syncRunner?: typeof runSync;
  *   chatId?: number | null;
  *   onProgress?: (stats: object) => void;

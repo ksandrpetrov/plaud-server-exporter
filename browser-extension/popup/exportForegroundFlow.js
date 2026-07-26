@@ -4,10 +4,10 @@
   global.PlaudPopup = global.PlaudPopup || {};
 
   /**
-   * @param {object} ctx
-   * @param {string} exportMode
+   * @param {PopupContext} ctx
+   * @param {PlaudExportMode} exportMode
    * @param {Error | null} sendError
-   * @param {object | null | undefined} response
+   * @param {RuntimeResponse | null | undefined} response
    */
   global.PlaudPopup.handleForegroundExportSendResult =
     function handleForegroundExportSendResult(
@@ -44,10 +44,10 @@
     };
 
   /**
-   * @param {object} ctx
-   * @param {string} exportMode
+   * @param {PopupContext} ctx
+   * @param {PlaudExportMode} exportMode
    * @param {Error | null} sendError
-   * @param {object | null | undefined} response
+   * @param {RuntimeResponse | null | undefined} response
    */
   global.PlaudPopup.handleCurrentPageExportSendResult =
     function handleCurrentPageExportSendResult(

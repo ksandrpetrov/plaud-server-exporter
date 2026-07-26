@@ -5,8 +5,6 @@ import { join } from "node:path";
 import test from "node:test";
 import { PLAUD_FOLDER_UNFILED } from "../src/plaud/plaudFolders.js";
 import {
-  _resetTreeBrowseHooksForTests,
-  _setTreeBrowseHooksForTests,
   handleTreeFilePick,
   loadTreeSource,
   showFilesTreeRoot,
@@ -55,6 +53,7 @@ function fakeCtx(overrides = {}) {
     drafts,
     deletes,
     runSyncQuiet: overrides.runSyncQuiet,
+    treeBrowse: overrides.treeBrowse,
     telegram: {
       sendMessageDraft: async ({ chatId, draftId, text }) => {
         drafts.push({ chatId, draftId, text });
@@ -90,46 +89,42 @@ function fakeCtx(overrides = {}) {
 }
 
 test.afterEach(() => {
-  _resetTreeBrowseHooksForTests();
   _resetTreeBrowseStateForTests();
 });
 
 test("loadTreeSource prefers non-empty live index over disk index", async () => {
-  _setTreeBrowseHooksForTests({
+  const source = await loadTreeSource({
     loadIndex: async () => DISK_INDEX,
     loadLive: async () => LIVE_INDEX,
   });
-  const source = await loadTreeSource();
   assert.equal(source.records["plaud:live"]?.title, "From Plaud");
   assert.equal(source.records["plaud:disk"], undefined);
 });
 
 test("loadTreeSource falls back to disk when live fetch throws", async () => {
-  _setTreeBrowseHooksForTests({
+  const source = await loadTreeSource({
     loadIndex: async () => DISK_INDEX,
     loadLive: async () => {
       throw new Error("network down");
     },
   });
-  const source = await loadTreeSource();
   assert.equal(source.records["plaud:disk"]?.title, "Disk only");
 });
 
 test("loadTreeSource falls back when live index is empty", async () => {
-  _setTreeBrowseHooksForTests({
+  const source = await loadTreeSource({
     loadIndex: async () => DISK_INDEX,
     loadLive: async () => ({ records: {} }),
   });
-  const source = await loadTreeSource();
   assert.equal(source.records["plaud:disk"]?.title, "Disk only");
 });
 
 test("showFilesTreeRoot edits menu with folder list from tree source", async () => {
-  _setTreeBrowseHooksForTests({
-    loadIndex: async () => LIVE_INDEX,
-    loadLive: async () => null,
+  const ctx = fakeCtx({
+    treeBrowse: {
+      loadTreeSource: async () => LIVE_INDEX,
+    },
   });
-  const ctx = fakeCtx();
   await showFilesTreeRoot(ctx, { chatId: 42, messageId: 99 });
 
   assert.equal(ctx.deletes.length, 1);
@@ -139,11 +134,11 @@ test("showFilesTreeRoot edits menu with folder list from tree source", async () 
 });
 
 test("showFilesTreeRoot does not open a thinking draft (inline edit only)", async () => {
-  _setTreeBrowseHooksForTests({
-    loadIndex: async () => LIVE_INDEX,
-    loadLive: async () => null,
+  const ctx = fakeCtx({
+    treeBrowse: {
+      loadTreeSource: async () => LIVE_INDEX,
+    },
   });
-  const ctx = fakeCtx();
   await showFilesTreeRoot(ctx, { chatId: 42, messageId: 99 });
 
   assert.equal(
@@ -202,16 +197,6 @@ test("handleTreeFilePick runs quiet sync when file is missing", async () => {
   await mkdir(root, { recursive: true });
 
   let syncRuns = 0;
-  _setTreeBrowseHooksForTests({
-    loadIndex: async () => ({
-      records: {
-        "plaud:sync": {
-          stableId: "plaud:sync",
-          summaryPath: mdPath,
-        },
-      },
-    }),
-  });
 
   await setTreeBrowseState(77, {
     folderIndex: 0,
@@ -229,6 +214,10 @@ test("handleTreeFilePick runs quiet sync when file is missing", async () => {
       });
       await writeFile(mdPath, "# synced\n", "utf8");
       return { status: "ok" };
+    },
+    treeBrowse: {
+      resolveSummaryPathAfterSync: async (stableId) =>
+        stableId === "plaud:sync" ? mdPath : null,
     },
   });
 

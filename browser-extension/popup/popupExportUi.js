@@ -162,7 +162,9 @@
       );
       if (heading) heading.textContent = ctx.tr("status.exportRunning");
       const bar = exportStatusContainer.querySelector(".progress-bar");
-      if (bar) bar.style.width = `${progress}%`;
+      if (bar) {
+        /** @type {HTMLElement} */ (bar).style.width = `${progress}%`;
+      }
 
       const lblAudio = exportStatusContainer.querySelector(".export-lbl-audio");
       const lblSummary = exportStatusContainer.querySelector(

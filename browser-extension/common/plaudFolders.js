@@ -43,7 +43,7 @@ export function extractTagName(tag) {
 }
 
 /**
- * @param {object} raw
+ * @param {Record<string, any>} raw
  * @returns {string[]}
  */
 export function extractFiletagIdsFromRaw(raw) {
@@ -174,7 +174,7 @@ export function mergeFiletagsById(tagArrays) {
   return [...byId.values()];
 }
 
-/** @param {object[]} tags */
+/** @param {Array<Record<string, any>>} tags */
 export function collectUnfiledFiletagIds(tags) {
   const ids = new Set();
 
@@ -276,7 +276,7 @@ const ALL_FILES_NAME_PATTERNS = [
 const ALL_FILES_SYSTEM_KINDS = ["all", "all_files", "all-files"];
 
 /**
- * @param {object | null | undefined} tag
+ * @param {Record<string, any> | null | undefined} tag
  * @returns {boolean}
  */
 export function isAllFilesMetaTag(tag) {
@@ -297,7 +297,7 @@ export function isAllFilesMetaTag(tag) {
   return ALL_FILES_NAME_PATTERNS.some((re) => re.test(name));
 }
 
-/** @param {object[]} tags */
+/** @param {Array<Record<string, any>>} tags */
 export function collectAllFilesFiletagIds(tags) {
   const ids = [];
   if (!Array.isArray(tags)) return ids;
@@ -310,7 +310,7 @@ export function collectAllFilesFiletagIds(tags) {
 }
 
 /**
- * @param {object} raw
+ * @param {Record<string, any>} raw
  * @returns {boolean}
  */
 export function isRecordingInTrash(raw) {
@@ -381,8 +381,8 @@ export function resolveFileFolderSegment({
 }
 
 /**
- * @param {object[]} tags
- * @returns {Map<string, object>}
+ * @param {Array<Record<string, any>>} tags
+ * @returns {Map<string, Record<string, any>>}
  */
 export function buildTagByIdMap(tags) {
   const map = new Map();
@@ -398,7 +398,7 @@ export function buildTagByIdMap(tags) {
  * Sets `folderSegment` on each file from `/filetag/` metadata (Unfiled, Trash, user folders).
  *
  * @param {Array<{ folderIds?: string[]; raw?: object; folderSegment?: string }>} files
- * @param {object[]} tags
+ * @param {Array<Record<string, any>>} tags
  */
 export function attachFolderSegmentsToFiles(files, tags) {
   const tagById = buildTagByIdMap(tags);

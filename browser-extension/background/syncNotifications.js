@@ -22,7 +22,7 @@ export async function refreshSyncNotificationSetting() {
 }
 
 /**
- * @param {object} options
+ * @param {chrome.notifications.NotificationCreateOptions} options
  */
 export function createSyncNotification(options) {
   if (!syncNotificationsEnabled()) return;

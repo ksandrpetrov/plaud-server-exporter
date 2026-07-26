@@ -336,6 +336,9 @@ async function fetchPlaudFilesOneListVariant(session, fixedParams, opts = {}) {
 /**
  * Полный список записей workspace: активные + корзина + обход папок (включая Unfiled).
  * На странице Plaud Web prefetch вызывает `/file/simple/web` с **is_trash=2** (не 0 и не пустой query).
+ *
+ * @param {PlaudBrowserSession} session
+ * @returns {Promise<PlaudRecording[]>}
  */
 export async function fetchPlaudFilesFromApi(session) {
   let tags;
@@ -358,5 +361,7 @@ export async function fetchPlaudFilesFromApi(session) {
     },
   });
 
-  return attachFolderSegmentsToFiles(files, tags);
+  return /** @type {PlaudRecording[]} */ (
+    attachFolderSegmentsToFiles(files, tags)
+  );
 }

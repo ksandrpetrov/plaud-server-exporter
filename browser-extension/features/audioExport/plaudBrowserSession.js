@@ -484,6 +484,7 @@ export function getPlaudApiBase(userId) {
  *   workspaceAuthHeader: string;
  *   workspaceId: string;
  *   sortBy: string;
+ *   tokenSource?: string;
  * }} PlaudBrowserSession
  */
 

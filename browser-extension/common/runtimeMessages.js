@@ -60,7 +60,7 @@ export const ACTION_STOP_EXPORT_PROCESS = "stopExportProcess";
 /** content (audioExport poll) -> background (should I stop?) */
 export const ACTION_CHECK_SHOULD_STOP = "checkShouldStop";
 
-/** content -> background (DOM-only export finished) */
+/** content -> background (background export finished) */
 export const ACTION_EXPORT_COMPLETE = "exportComplete";
 /** content -> background (foreground export finished) */
 export const ACTION_FOREGROUND_EXPORT_COMPLETE = "foregroundExportComplete";

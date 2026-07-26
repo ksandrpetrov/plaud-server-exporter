@@ -31,7 +31,8 @@ COPY server/src server/src
 COPY browser-extension/common browser-extension/common
 COPY scripts/smoke_container.mjs scripts/smoke_container.mjs
 
-RUN mkdir -p /app/server/.data /app/exports \
+RUN chmod -R a+rX /app/server/src /app/browser-extension/common /app/scripts \
+    && mkdir -p /app/server/.data /app/exports \
     && chown -R node:node /app/server/.data /app/exports
 
 USER node

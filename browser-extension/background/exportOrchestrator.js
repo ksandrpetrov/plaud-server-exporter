@@ -66,7 +66,28 @@ function sendRunExportMessageWithRecovery(tabId, exportMode) {
   });
 }
 
-export async function startBackgroundExport(tabId, requestedExportMode) {
+/**
+ * @param {number} tabId
+ * @param {string} requestedExportMode
+ * @param {{
+ *   sendRunExportMessageWithRecovery?: typeof sendRunExportMessageWithRecovery;
+ *   persistExportStateToSession?: typeof persistExportStateToSession;
+ *   createSyncNotification?: typeof createSyncNotification;
+ *   keepTabAlive?: typeof keepTabAlive;
+ * }} [_deps]
+ */
+export async function startBackgroundExport(
+  tabId,
+  requestedExportMode,
+  _deps = {}
+) {
+  const deps = {
+    sendRunExportMessageWithRecovery,
+    persistExportStateToSession,
+    createSyncNotification,
+    keepTabAlive,
+    ..._deps,
+  };
   if (activeTabIds.has(tabId) && activeExports[tabId]?.status === "running") {
     throw new Error(plaudT("bg.exportAlreadyRunning"));
   }
@@ -87,7 +108,10 @@ export async function startBackgroundExport(tabId, requestedExportMode) {
   };
 
   try {
-    const response = await sendRunExportMessageWithRecovery(tabId, exportMode);
+    const response = await deps.sendRunExportMessageWithRecovery(
+      tabId,
+      exportMode
+    );
     if (!response?.success) {
       throw new Error(response?.error || plaudT("bg.exportRejected"));
     }
@@ -96,13 +120,13 @@ export async function startBackgroundExport(tabId, requestedExportMode) {
     stopFlags.delete(tabId);
     delete activeExports[tabId];
     clearStallNotifyState(tabId);
-    persistExportStateToSession();
+    deps.persistExportStateToSession();
     throw error;
   }
 
-  persistExportStateToSession();
+  deps.persistExportStateToSession();
 
-  createSyncNotification({
+  deps.createSyncNotification({
     type: "basic",
     iconUrl: "assets/icons/icon128.png",
     title: plaudT("bg.startedTitle", { mode: getExportModeLabel(exportMode) }),
@@ -110,7 +134,7 @@ export async function startBackgroundExport(tabId, requestedExportMode) {
     priority: 2,
   });
 
-  keepTabAlive(tabId);
+  deps.keepTabAlive(tabId);
   return { success: true, message: plaudT("bg.startedSuccess") };
 }
 

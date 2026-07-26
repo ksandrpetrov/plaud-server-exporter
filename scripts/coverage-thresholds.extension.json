@@ -1,6 +1,43 @@
 {
-  "include": "common/",
-  "lines": 85,
-  "branches": 75,
-  "functions": 90
+  "requiredFiles": [
+    "background/chromeDownloadBridge.js",
+    "background/exportOrchestrator.js",
+    "background/handlers/exportHandlers.js",
+    "background/handlers/smartSyncHandlers.js",
+    "background/smartSyncOrchestrator.js",
+    "content/contentHandlers.js",
+    "features/audioExport/extensionDownloadBridge.js",
+    "features/audioExport/extensionExportAll.js",
+    "features/audioExport/extensionSmartSync.js",
+    "features/audioExport/extensionSyncExecutor.js",
+    "features/audioExport/plaudBrowserSession.js"
+  ],
+  "scopes": [
+    {
+      "name": "shared common contract",
+      "include": "common/",
+      "lines": 85,
+      "branches": 75,
+      "functions": 90
+    },
+    {
+      "name": "critical extension workflows",
+      "include": [
+        "background/chromeDownloadBridge.js",
+        "background/exportOrchestrator.js",
+        "background/handlers/exportHandlers.js",
+        "background/handlers/smartSyncHandlers.js",
+        "background/smartSyncOrchestrator.js",
+        "content/contentHandlers.js",
+        "features/audioExport/extensionDownloadBridge.js",
+        "features/audioExport/extensionExportAll.js",
+        "features/audioExport/extensionSmartSync.js",
+        "features/audioExport/extensionSyncExecutor.js",
+        "features/audioExport/plaudBrowserSession.js"
+      ],
+      "lines": 75,
+      "branches": 65,
+      "functions": 70
+    }
+  ]
 }

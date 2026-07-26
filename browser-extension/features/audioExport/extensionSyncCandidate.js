@@ -27,9 +27,10 @@ export function getCurrentPlaudSourceUrl() {
 }
 
 /**
- * @param {object} file
- * @param {Array<{ markdown?: string; title?: string }>} summaryExports
+ * @param {PlaudRecording} file
+ * @param {PlaudSummaryExport[]} summaryExports
  * @param {string} sourceUrl
+ * @returns {Promise<SyncCandidate>}
  */
 export async function buildSyncCandidate(file, summaryExports, sourceUrl) {
   const summaryBundle = buildSummaryBundle(summaryExports);

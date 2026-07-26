@@ -53,7 +53,7 @@ async function fetchWithTimeout(url, init, timeoutMs) {
 }
 
 /**
- * @param {object} session
+ * @param {Record<string, any>} session
  * @param {string} path
  * @param {{ method?: string; headers?: Record<string, string> }} [options]
  */
@@ -102,7 +102,7 @@ export async function fetchOfficialPlaudApi(session, path, options = {}) {
 }
 
 /**
- * @param {object} session
+ * @param {Record<string, any>} session
  * @param {number} page
  * @param {number} pageSize
  */
@@ -114,7 +114,7 @@ export async function listOfficialFilesPage(session, page, pageSize) {
 }
 
 /**
- * @param {object} session
+ * @param {Record<string, any>} session
  */
 export async function listAllOfficialRecordings(session) {
   const pageSize = Math.min(100, Math.max(10, config.apiPageLimit));
@@ -155,7 +155,7 @@ async function getNoteRawContent(note) {
 }
 
 /**
- * @param {object} session
+ * @param {Record<string, any>} session
  * @param {{ id: string; title?: string }} file
  */
 export async function fetchOfficialSummaries(session, file) {
@@ -186,7 +186,7 @@ export async function fetchOfficialSummaries(session, file) {
 }
 
 /**
- * @param {object} session
+ * @param {Record<string, any>} session
  */
 export async function validateOfficialSession(session) {
   const payload = await listOfficialFilesPage(

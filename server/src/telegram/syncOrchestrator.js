@@ -39,7 +39,7 @@ export { defaultSessionLoader, runSyncSilent } from "./sync/syncRunBridge.js";
  *   chatId: number;
  *   source: "manual" | "scheduled";
  *   loadingMessageId?: number | null;
- *   sessionLoader?: () => Promise<object | null>;
+ *   sessionLoader?: () => Promise<import("../auth/plaudSessionExtractor.js").PlaudSession | null>;
  *   syncRunner?: typeof runSync;
  *   nowMs?: () => number;
  *   sleep?: (ms: number) => Promise<void>;

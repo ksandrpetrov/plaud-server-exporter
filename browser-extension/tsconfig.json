@@ -16,7 +16,15 @@
     "useUnknownInCatchVariables": false,
     "types": ["chrome"]
   },
-  "include": ["common/**/*.js", "background/**/*.js"],
+  "include": [
+    "*.js",
+    "background/**/*.js",
+    "common/**/*.js",
+    "content/**/*.js",
+    "features/**/*.js",
+    "popup/**/*.js",
+    "types/**/*.d.ts"
+  ],
   "exclude": [
     "node_modules",
     "coverage",

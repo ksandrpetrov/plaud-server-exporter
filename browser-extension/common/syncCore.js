@@ -214,7 +214,7 @@ export function buildFingerprint(fields = {}) {
  * Builds a stable record identity. Plaud API ids are preferred; when unavailable
  * we fall back to a conservative fingerprint based on stable page/content fields.
  *
- * @param {object} input
+ * @param {Record<string, any>} input
  * @returns {{ stableId: string; identityKind: "plaud_id" | "fingerprint" | "missing"; confidence: "high" | "medium" | "low"; fingerprint: string }}
  */
 export function buildStableId(input = {}) {
@@ -404,7 +404,7 @@ export function determineSyncAction(existingRecord, candidate) {
  * Extension smart sync passes `summaryMissingOnDisk: false` (no vault access).
  *
  * @param {ReturnType<typeof determineSyncAction>} action
- * @param {object | null | undefined} existingRecord
+ * @param {Record<string, any> | null | undefined} existingRecord
  * @param {{ plannedSummaryPath?: string, summaryMissingOnDisk?: boolean }} [options]
  * @returns {ReturnType<typeof determineSyncAction>}
  */

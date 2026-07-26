@@ -16,7 +16,7 @@ export function ensureSessionRestored() {
           for (const tabId of activeTabIds) {
             keepTabAlive(tabId);
           }
-          refreshSyncNotificationSetting().finally(() => resolve());
+          refreshSyncNotificationSetting().finally(() => resolve(undefined));
         });
       });
     });

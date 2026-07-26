@@ -173,6 +173,8 @@
         contentExportLockBusy:
           "Экспорт уже выполняется на этой вкладке. Дождитесь завершения или остановите процесс.",
         contentExportStarting: "Запуск экспорта…",
+        contentDirectApiUnavailable:
+          "Прямой экспорт Plaud недоступен. Обновите вкладку Plaud Web, войдите заново и повторите. Экспорт через интерфейс отключён, чтобы не изменять записи.",
         contentModuleLoadFailed:
           "Не удалось загрузить модуль. Обновите страницу Plaud Web.",
         contentStatsModuleNotReady:
@@ -408,6 +410,8 @@
         contentExportLockBusy:
           "Export is already running on this tab. Wait for it to finish or stop it.",
         contentExportStarting: "Starting export…",
+        contentDirectApiUnavailable:
+          "Direct Plaud export is unavailable. Refresh Plaud Web, sign in again, and retry. Page automation is disabled so recordings are never modified.",
         contentModuleLoadFailed:
           "Could not load the module. Refresh the Plaud Web page.",
         contentStatsModuleNotReady:

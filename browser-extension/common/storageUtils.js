@@ -31,7 +31,7 @@ export function storageSet(values, area = "local") {
         reject(new Error(chrome.runtime.lastError.message));
         return;
       }
-      resolve();
+      resolve(undefined);
     });
   });
 }
@@ -43,7 +43,7 @@ export function storageRemove(keys, area = "local") {
         reject(new Error(chrome.runtime.lastError.message));
         return;
       }
-      resolve();
+      resolve(undefined);
     });
   });
 }

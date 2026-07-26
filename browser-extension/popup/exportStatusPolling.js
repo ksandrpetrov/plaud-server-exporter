@@ -10,8 +10,8 @@
    * @param {{
    *   exportActive: boolean;
    *   currentExportTabId: number | null;
-   *   focusedTab: { id?: number } | null;
-   *   isPlaudTab: (tab: object) => boolean;
+   *   focusedTab: chrome.tabs.Tab | null;
+   *   isPlaudTab: (tab: chrome.tabs.Tab) => boolean;
    * }} params
    * @returns {number | null}
    */
@@ -25,7 +25,7 @@
     };
 
   /**
-   * @param {object | null | undefined} anyResp
+   * @param {RuntimeResponse | null | undefined} anyResp
    * @returns {boolean}
    */
   global.PlaudPopup.shouldResumeFromAnyRunningExport =
@@ -37,7 +37,7 @@
 
   /**
    * @param {{
-   *   onFinalize: (sendError: Error | null, response: object | null) => void;
+   *   onFinalize: PopupMessageCallback;
    *   timeoutMs?: number;
    *   setTimer?: typeof setTimeout;
    *   clearTimer?: typeof clearTimeout;

@@ -123,7 +123,7 @@ export function filesTreeFolderHtml(folderPage) {
 }
 
 /**
- * @param {object} folderPage
+ * @param {Record<string, any>} folderPage
  * @returns {string}
  */
 export function filesTreeFolderRichMarkdown(folderPage) {

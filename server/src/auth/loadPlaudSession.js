@@ -21,11 +21,11 @@ import { loadSessionSnapshot } from "./sessionStore.js";
 /**
  * @param {{ logContext?: string; includeSnapshot?: boolean }} [options]
  * @returns {Promise<{
- *   session: object | null;
+ *   session: import("./plaudSessionExtractor.js").PlaudSession | null;
  *   status: "ok" | "missing" | "invalid";
  *   authSource?: "oauth" | "snapshot" | null;
  *   error?: unknown;
- *   snapshot?: object | null;
+ *   snapshot?: import("./sessionStore.js").SessionSnapshot | null;
  * }>}
  */
 export async function loadPlaudSessionFromSnapshotDetailed({
@@ -130,7 +130,7 @@ export async function loadPlaudSessionFromSnapshotDetailed({
 
 /**
  * @param {{ logContext?: string }} [options]
- * @returns {Promise<object | null>}
+ * @returns {Promise<import("./plaudSessionExtractor.js").PlaudSession | null>}
  */
 export async function loadPlaudSessionFromSnapshot(options) {
   const { session } = await loadPlaudSessionFromSnapshotDetailed(options);
@@ -141,7 +141,7 @@ export async function loadPlaudSessionFromSnapshot(options) {
  * Factory for injectable session loaders (sync bridge, live tree, tests).
  *
  * @param {string} logContext
- * @returns {() => Promise<object | null>}
+ * @returns {() => Promise<import("./plaudSessionExtractor.js").PlaudSession | null>}
  */
 export function createPlaudSessionLoader(logContext) {
   return () => loadPlaudSessionFromSnapshot({ logContext });

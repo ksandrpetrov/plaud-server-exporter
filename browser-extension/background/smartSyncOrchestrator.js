@@ -36,11 +36,34 @@ export function summarizeSyncIndex(index) {
   };
 }
 
+/**
+ * @param {number} tabId
+ * @param {string | undefined} requestedSubdirectory
+ * @param {string | undefined} requestedSyncMode
+ * @param {{
+ *   patchSyncSettings?: typeof patchSyncSettings;
+ *   persistSmartSyncStateToSession?: typeof persistSmartSyncStateToSession;
+ *   getTab?: (tabId: number) => Promise<chrome.tabs.Tab | null>;
+ *   updateTab?: (tabId: number, patch: chrome.tabs.UpdateProperties) => Promise<unknown>;
+ *   sendRunSmartSyncMessageWithRecovery?: typeof sendRunSmartSyncMessageWithRecovery;
+ *   createSyncNotification?: typeof createSyncNotification;
+ * }} [_deps]
+ */
 export async function startSmartSync(
   tabId,
   requestedSubdirectory,
-  requestedSyncMode
+  requestedSyncMode,
+  _deps = {}
 ) {
+  const deps = {
+    patchSyncSettings,
+    persistSmartSyncStateToSession,
+    getTab: (id) => chrome.tabs.get(id).catch(() => null),
+    updateTab: (id, patch) => chrome.tabs.update(id, patch).catch(() => {}),
+    sendRunSmartSyncMessageWithRecovery,
+    createSyncNotification,
+    ..._deps,
+  };
   if (
     activeSmartSyncTabIds.has(tabId) &&
     activeSmartSyncs[tabId]?.status === "running"
@@ -52,7 +75,7 @@ export async function startSmartSync(
     requestedSubdirectory || DEFAULT_SYNC_SUBDIRECTORY
   );
   const syncMode = requestedSyncMode === "summary" ? "summary" : "both";
-  await patchSyncSettings({ syncSubdirectory, syncMode }).catch(() => {});
+  await deps.patchSyncSettings({ syncSubdirectory, syncMode }).catch(() => {});
   activeSmartSyncTabIds.add(tabId);
   activeSmartSyncs[tabId] = {
     status: "running",
@@ -66,16 +89,14 @@ export async function startSmartSync(
     lastUpdateTime: Date.now(),
     syncSubdirectory,
   };
-  persistSmartSyncStateToSession();
+  deps.persistSmartSyncStateToSession();
 
   try {
-    const tab = await chrome.tabs.get(tabId).catch(() => null);
-    if (tab && chrome.tabs.update && typeof tab.autoDiscardable === "boolean") {
-      await chrome.tabs
-        .update(tabId, { autoDiscardable: false })
-        .catch(() => {});
+    const tab = await deps.getTab(tabId);
+    if (tab && typeof tab.autoDiscardable === "boolean") {
+      await deps.updateTab(tabId, { autoDiscardable: false });
     }
-    const response = await sendRunSmartSyncMessageWithRecovery(
+    const response = await deps.sendRunSmartSyncMessageWithRecovery(
       tabId,
       syncSubdirectory,
       syncMode
@@ -92,11 +113,11 @@ export async function startSmartSync(
       finishedAt: Date.now(),
       lastUpdateTime: Date.now(),
     };
-    persistSmartSyncStateToSession();
+    deps.persistSmartSyncStateToSession();
     throw error;
   }
 
-  createSyncNotification({
+  deps.createSyncNotification({
     type: "basic",
     iconUrl: "assets/icons/icon128.png",
     title: plaudT("sync.notifyStartedTitle"),

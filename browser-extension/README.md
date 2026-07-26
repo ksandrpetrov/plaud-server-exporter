@@ -156,16 +156,14 @@ browser-extension/                 # эта папка — «Load unpacked» в 
 │   ├── plaudSummaries.js      # stripPlaudInlineAssets для markdown (shared)
 │   ├── runtimeMessages.js     # Константы action для popup ↔ SW ↔ content
 │   ├── storageUtils.js        # chrome.storage + индекс sync
-│   ├── domUtils.js            # DOM-хелперы для fallback
 │   ├── plaud-i18n-messages.js # Каталоги сообщений popup / background
 │   └── uiComponents.js        # Статусный UI на странице
 ├── features/
 │   ├── audioExport/
 │   │   ├── audioExport.js           # Plaud API, runExportAll, runSmartSync
 │   │   ├── plaudBrowserSession.js   # JWT / workspace из localStorage
-│   │   ├── plaudRecordingIdScraper.js # Сбор id записей (API + fallback)
+│   │   ├── plaudRecordingIdScraper.js # Сбор id записей из API / localStorage
 │   │   ├── plaudCollisionPaths.js   # Имена файлов и коллизии в sync-папке
-│   │   └── domExportFallback.js     # DOM-fallback при сбое list API
 ├── _locales/                  # Имя/описание расширения (en, ru)
 ├── tests/                     # в т.ч. runtimeMessages.test.js (протокол сообщений)
 └── scripts/verify-extension-imports.js
@@ -190,5 +188,6 @@ browser-extension/                 # эта папка — «Load unpacked» в 
 
 ## Дисклеймер
 
-Интерфейс и API Plaud Web могут меняться. После крупных обновлений сайта может
-понадобиться правка DOM-fallback (`features/audioExport/domExportFallback.js`).
+API Plaud Web может меняться. Если прямой API недоступен, экспорт завершается
+понятной ошибкой и не автоматизирует интерфейс Plaud: расширение не нажимает
+Delete и не изменяет записи пользователя.

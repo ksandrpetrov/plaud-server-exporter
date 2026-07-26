@@ -53,7 +53,7 @@ export function injectContentScript(tabId) {
           reject(new Error(chrome.runtime.lastError.message));
           return;
         }
-        resolve();
+        resolve(undefined);
       }
     );
   });

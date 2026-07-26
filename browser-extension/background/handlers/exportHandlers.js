@@ -128,7 +128,7 @@ export function createExportHandlers(plaudBgLog) {
       const tabId = sender.tab?.id;
 
       if (tabId && activeExports[tabId]) {
-        const stats = message.data || {};
+        const stats = /** @type {Record<string, any>} */ (message.data || {});
         const processed = Number(stats.filesProcessed) || 0;
         const errored = Number(stats.filesErrored) || 0;
         activeExports[tabId].status = "completed";
