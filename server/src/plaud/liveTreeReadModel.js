@@ -42,10 +42,10 @@ export function _resetPlaudLiveTreeCache() {
 
 /**
  * @param {{
- *   syncIndex?: object | null;
- *   sessionLoader?: () => Promise<object | null>;
- *   fetchTags?: (session: object) => Promise<object[]>;
- *   fetchRecordings?: (session: object, options?: object) => Promise<object[]>;
+ *   syncIndex?: Record<string, any> | null;
+ *   sessionLoader?: () => Promise<import("../auth/plaudSessionExtractor.js").PlaudSession | null>;
+ *   fetchTags?: (session: import("../auth/plaudSessionExtractor.js").PlaudSession) => Promise<Array<Record<string, any>>>;
+ *   fetchRecordings?: (session: import("../auth/plaudSessionExtractor.js").PlaudSession, options?: Record<string, any>) => Promise<Array<Record<string, any>>>;
  *   now?: number;
  *   forceRefresh?: boolean;
  * }} [params]
@@ -116,7 +116,7 @@ export async function loadPlaudLiveSyncTree({
 
 /**
  * @param {LiveTreeSyncIndex} liveTree
- * @param {object | null | undefined} syncIndex
+ * @param {Record<string, any> | null | undefined} syncIndex
  * @returns {LiveTreeSyncIndex}
  */
 function mergeWithSyncIndex(liveTree, syncIndex) {

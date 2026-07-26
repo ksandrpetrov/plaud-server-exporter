@@ -36,7 +36,7 @@ export function normalizeUserId(raw) {
 }
 
 /**
- * @param {object | null | undefined} from
+ * @param {Record<string, any> | null | undefined} from
  * @returns {string}
  */
 export function usernameFromPayload(from) {
@@ -45,7 +45,7 @@ export function usernameFromPayload(from) {
 }
 
 /**
- * @param {object | null | undefined} from
+ * @param {Record<string, any> | null | undefined} from
  * @returns {number | null}
  */
 export function userIdFromPayload(from) {
@@ -54,7 +54,7 @@ export function userIdFromPayload(from) {
 }
 
 /**
- * @param {object | null | undefined} chat
+ * @param {Record<string, any> | null | undefined} chat
  * @returns {boolean}
  */
 export function isPrivateChat(chat) {
@@ -69,7 +69,7 @@ export function isPrivateChat(chat) {
  * is a programmer error and we conservatively deny.
  *
  * @param {{
- *   from: object | null | undefined;
+ *   from: Record<string, any> | null | undefined;
  *   allowedUserId: number | null | undefined;
  *   allowedUsername: string | null | undefined;
  * }} params
@@ -98,7 +98,7 @@ export function isAllowedSender({ from, allowedUserId, allowedUsername }) {
  *   allowedUserId: number | null | undefined;
  *   allowedUsername: string | null | undefined;
  * }} ctx
- * @param {{ chat: object | null | undefined; from: object | null | undefined }} payload
+ * @param {{ chat: Record<string, any> | null | undefined; from: Record<string, any> | null | undefined }} payload
  */
 export function isAuthorizedPrivateUpdate(ctx, { chat, from }) {
   if (!isPrivateChat(chat)) return false;

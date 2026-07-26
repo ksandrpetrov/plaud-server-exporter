@@ -41,10 +41,10 @@ export function documentTitle(item) {
 }
 
 /**
- * @param {object} ctx
+ * @param {{ telegram: import("./telegramClient.js").TelegramClient } & Record<string, any>} ctx
  * @param {number} chatId
  * @param {string} documentPath
- * @param {object} item
+ * @param {Record<string, any>} item
  */
 export async function trySendTreeDocument(ctx, chatId, documentPath, item) {
   try {
@@ -78,7 +78,10 @@ export function treeSendDocumentError() {
 }
 
 /**
- * @param {object} ctx
+ * @param {{
+ *   telegram: import("./telegramClient.js").TelegramClient;
+ *   runSyncQuiet?: Function;
+ * } & Record<string, any>} ctx
  * @param {number} chatId
  * @returns {Promise<{ status: string; stats?: object }>}
  */

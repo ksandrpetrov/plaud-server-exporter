@@ -127,7 +127,7 @@ export class BotScheduler {
 /**
  * Pure helper for tests.
  *
- * @param {object | null} status
+ * @param {Record<string, any> | null} status
  * @param {number} intervalMin
  * @param {number} nowMs
  * @returns {boolean}

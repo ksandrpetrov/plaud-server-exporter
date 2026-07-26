@@ -333,3 +333,19 @@ Pre-commit (`simple-git-hooks` + `lint-staged`) ставится при `npm ins
 | Server facade | `telegramClient.js`, `vaultTree.js` | Transport/orchestration уже разбиты       |
 
 ~~Extension god modules~~, ~~server progress dual path~~, ~~stableId drift~~, ~~title heuristics drift~~, ~~getExportModeLabel triple copy~~ — закрыто в architecture pass 2026-07 (см. [stabilization-result.md](docs/stabilization-result.md)).
+
+## Graphify
+
+Граф кода и документации хранится в `graphify-out/`, project-scoped skill — в `.codex/skills/graphify/`.
+При запросе `$graphify` сначала использовать этот skill.
+
+Правила:
+
+- Для вопросов о кодовой базе сначала запускать `npm run graphify -- query "<question>"`, если существует
+  `graphify-out/graph.json`. Для связей использовать `npm run graphify -- path "<A>" "<B>"`, для отдельного понятия —
+  `npm run graphify -- explain "<concept>"`.
+- Изменённые файлы в `graphify-out/` после явного обновления ожидаемы и не являются причиной пропускать Graphify.
+- `GRAPH_REPORT.md` читать для обзора архитектуры или когда `query` / `path` / `explain` недостаточно.
+- После изменения кода запускать `npm run graphify -- update .` (локальный AST, без API). После изменения
+  документации или изображений запускать `$graphify . --update`.
+- Git-hooks Graphify не использовать: граф обновляется явно.

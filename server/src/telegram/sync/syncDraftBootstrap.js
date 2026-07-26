@@ -21,7 +21,7 @@ const LOADING_PULSE_FRAME_MS = 900;
  *   chatId: number;
  *   source: "manual" | "scheduled";
  *   loadingMessageId?: number | null;
- *   delivery: ReturnType<import("../streamingDelivery.js").createSyncProgressDelivery>;
+ *   delivery: ReturnType<typeof import("../streaming/draftChannel.js").createSyncProgressDelivery>;
  *   pulseFrameMs?: number;
  * }} params
  */

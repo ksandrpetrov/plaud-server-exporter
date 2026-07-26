@@ -12,8 +12,11 @@ import {
 } from "../auth.js";
 
 /**
- * @param {object} ctx - Handler context with allowedUserId / allowedUsername
- * @param {{ chat: object | null | undefined; from: object | null | undefined }} payload
+ * @param {{
+ *   allowedUserId: number | null | undefined;
+ *   allowedUsername: string | null | undefined;
+ * } & Record<string, any>} ctx - Handler context with allowedUserId / allowedUsername
+ * @param {{ chat: Record<string, any> | null | undefined; from: Record<string, any> | null | undefined }} payload
  * @param {{
  *   kind: "message" | "callback";
  *   chatId?: number;

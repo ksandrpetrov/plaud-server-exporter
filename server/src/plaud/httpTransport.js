@@ -138,7 +138,7 @@ function shouldRetryFetchAttempt(error) {
 /**
  * Perform a Plaud API call with retries and region-switch handling.
  *
- * @param {object} session
+ * @param {Record<string, any>} session
  * @param {string} path Absolute URL or path relative to `session.apiBase`.
  * @param {{ method?: string; headers?: Record<string, string> }} [options]
  */

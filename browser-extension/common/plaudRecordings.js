@@ -45,7 +45,7 @@ function listPlaudRecordingArrayCandidates(payload) {
 /**
  * Normalize one raw Plaud recording row into the shared file shape.
  *
- * @param {object | null | undefined} rawFile
+ * @param {Record<string, any> | null | undefined} rawFile
  * @returns {{ id: string; title: string; raw: object; folderIds: string[]; folderSegment: string } | null}
  */
 export function normalizePlaudRecording(rawFile) {

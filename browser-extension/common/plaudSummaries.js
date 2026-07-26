@@ -122,7 +122,7 @@ export function parseSummaryContent(rawContent) {
 /**
  * Inline summary body from a note object, or empty when only `data_link` is set.
  *
- * @param {object | null | undefined} note
+ * @param {Record<string, any> | null | undefined} note
  * @returns {string}
  */
 export function getNoteInlineContent(note) {
@@ -133,7 +133,7 @@ export function getNoteInlineContent(note) {
 }
 
 /**
- * @param {object | null | undefined} note
+ * @param {Record<string, any> | null | undefined} note
  * @returns {string}
  */
 export function getNoteDataLink(note) {
@@ -142,7 +142,7 @@ export function getNoteDataLink(note) {
 }
 
 /**
- * @param {object | null | undefined} note
+ * @param {Record<string, any> | null | undefined} note
  * @param {string} [defaultTitle]
  * @returns {string}
  */

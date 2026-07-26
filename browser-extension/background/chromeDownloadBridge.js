@@ -75,7 +75,7 @@ function waitForChromeDownload(downloadId, timeoutMs = 600000) {
       if (settled) return;
       settled = true;
       cleanup();
-      resolve();
+      resolve(undefined);
     }
 
     function finishInterrupted(reasonSuffix = "") {

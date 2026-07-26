@@ -21,7 +21,7 @@ const SYNC_PROGRESS_STEPS = [
 ];
 
 /**
- * @param {object} [stats]
+ * @param {Record<string, any>} [stats]
  * @returns {boolean[]}
  */
 function syncProgressStepDone(stats) {
@@ -35,7 +35,7 @@ function syncProgressStepDone(stats) {
 }
 
 /**
- * @param {object} [stats]
+ * @param {Record<string, any>} [stats]
  * @returns {string}
  */
 export function syncProgressChecklistMarkdown(stats) {
@@ -145,7 +145,7 @@ export function syncSummaryHtml(stats, meta) {
 }
 
 /**
- * @param {object} stats
+ * @param {Record<string, any>} stats
  * @param {{ source?: string; durationSec?: number }} meta
  * @returns {string}
  */
@@ -194,7 +194,7 @@ export function syncProgressHtml(stats) {
 }
 
 /**
- * @param {object} stats
+ * @param {Record<string, any>} stats
  * @returns {string}
  */
 export function syncProgressRichMarkdown(stats) {
@@ -249,7 +249,7 @@ export function statusScreenHtml(status) {
 }
 
 /**
- * @param {object} status
+ * @param {Record<string, any>} status
  * @returns {string}
  */
 export function statusScreenRichMarkdown(status) {

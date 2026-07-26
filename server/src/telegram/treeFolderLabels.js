@@ -36,7 +36,7 @@ export function plaudFolderLabelFromVaultPath(vaultRelativeDir, subfolder) {
 }
 
 /**
- * @param {object} record
+ * @param {Record<string, any>} record
  * @param {{ vaultRoot?: string; subfolder?: string }} ctx
  * @returns {string}
  */

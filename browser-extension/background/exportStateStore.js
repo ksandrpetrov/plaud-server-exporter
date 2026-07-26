@@ -2,7 +2,7 @@ export const EXPORT_SESSION_KEY = "plaudBgExportV1";
 export const STALE_RUNNING_EXPORT_MS = 1000 * 60 * 60 * 24;
 export const PING_STALE_AFTER_MS = 1000 * 180;
 
-/** @type {Record<number, object>} */
+/** @type {Record<number, Record<string, any>>} */
 export let activeExports = {};
 export const activeTabIds = new Set();
 export const stopFlags = new Set();
@@ -55,7 +55,7 @@ export function restoreExportStateFromSession(done) {
       return;
     }
     const pack =
-      /** @type {{ v?: number; activeExports?: Record<string, object>; stopFlagTabIds?: number[] } | undefined} */ (
+      /** @type {{ v?: number; activeExports?: Record<string, Record<string, any>>; stopFlagTabIds?: number[] } | undefined} */ (
         result[EXPORT_SESSION_KEY]
       );
     if (!pack || pack.v !== 1 || !pack.activeExports) {

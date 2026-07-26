@@ -8,7 +8,7 @@ import { resolveMeetingTitle } from "./filenamePlanner.js";
 /**
  * Stable identity for sync runner / syncCandidate (normalized title + summary bundle).
  *
- * @param {object} file
+ * @param {Record<string, any>} file
  * @param {{ summaries?: Array<{ markdown?: string }>; meetingTitle?: string }} [options]
  */
 export function buildSyncStableIdentity(
@@ -37,7 +37,7 @@ export function buildSyncStableIdentity(
 /**
  * Stable identity for live tree browse (raw title, no summary — overlay merges sync-index).
  *
- * @param {object} file
+ * @param {Record<string, any>} file
  */
 export function buildLiveTreeStableIdentity(file) {
   return buildStableId({
@@ -51,7 +51,7 @@ export function buildLiveTreeStableIdentity(file) {
 /**
  * Stable identity when persisting per-file sync errors (no summary fetch available).
  *
- * @param {object} file
+ * @param {Record<string, any>} file
  */
 export function buildErrorRecordStableIdentity(file) {
   return buildStableId({

@@ -92,7 +92,7 @@ export async function startWebServer() {
 
   server = createServer(handleRequest);
   await new Promise((resolve, reject) => {
-    server.listen(port, host, () => resolve());
+    server.listen(port, host, () => resolve(undefined));
     server.once("error", reject);
   });
 
@@ -120,6 +120,6 @@ export async function stopWebServer() {
   const s = server;
   server = null;
   await new Promise((resolve, reject) => {
-    s.close((err) => (err ? reject(err) : resolve()));
+    s.close((err) => (err ? reject(err) : resolve(undefined)));
   });
 }

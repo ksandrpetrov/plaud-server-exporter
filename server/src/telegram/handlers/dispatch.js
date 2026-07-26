@@ -31,7 +31,7 @@ import { guardAuthorizedPrivateUpdate } from "./privateUpdateGate.js";
 
 /**
  * @param {HandlerContext} ctx
- * @param {object} update
+ * @param {Record<string, any>} update
  */
 export async function dispatchUpdate(ctx, update) {
   if (update?.message) {

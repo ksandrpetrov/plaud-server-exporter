@@ -9,14 +9,14 @@ import { loadSyncIndex } from "./serverSyncIndex.js";
 
 /**
  * @param {string} [path]
- * @returns {Promise<object>} Sync index document (records keyed by stableId).
+ * @returns {Promise<Record<string, any>>} Sync index document (records keyed by stableId).
  */
 export async function loadIndexForBot(path) {
   return loadSyncIndex(path);
 }
 
 /**
- * @param {object | null | undefined} syncIndex
+ * @param {Record<string, any> | null | undefined} syncIndex
  * @returns {Array<{ stableId: string } & Record<string, unknown>>}
  */
 export function getIndexedRecords(syncIndex) {
@@ -29,7 +29,7 @@ export function getIndexedRecords(syncIndex) {
 }
 
 /**
- * @param {object | null | undefined} syncIndex
+ * @param {Record<string, any> | null | undefined} syncIndex
  * @param {string} stableId
  * @returns {Record<string, unknown> | null}
  */

@@ -46,7 +46,7 @@ export const DEFAULT_TREE_PAGE_SIZE = MAX_TREE_ROWS;
  */
 
 /**
- * @param {object} record
+ * @param {Record<string, any>} record
  * @param {{ vaultRoot?: string; subfolder?: string }} ctx
  * @returns {TreeItem | null}
  */
@@ -75,7 +75,7 @@ function recordToTreeItem(record, ctx) {
 }
 
 /**
- * @param {object | null | undefined} syncIndex
+ * @param {Record<string, any> | null | undefined} syncIndex
  * @param {{ vaultRoot?: string; subfolder?: string }} ctx
  * @returns {Map<string, TreeItem[]>}
  */

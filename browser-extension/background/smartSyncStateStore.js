@@ -2,7 +2,7 @@ import { STALE_RUNNING_EXPORT_MS } from "./exportStateStore.js";
 
 export const SMART_SYNC_SESSION_KEY = "plaudSmartSyncV1";
 
-/** @type {Record<number, object>} */
+/** @type {Record<number, Record<string, any>>} */
 export let activeSmartSyncs = {};
 export const activeSmartSyncTabIds = new Set();
 
@@ -45,7 +45,7 @@ export function restoreSmartSyncStateFromSession(done) {
       return;
     }
     const pack =
-      /** @type {{ v?: number; activeSmartSyncs?: Record<string, object> } | undefined} */ (
+      /** @type {{ v?: number; activeSmartSyncs?: Record<string, Record<string, any>> } | undefined} */ (
         result[SMART_SYNC_SESSION_KEY]
       );
     activeSmartSyncs = {};

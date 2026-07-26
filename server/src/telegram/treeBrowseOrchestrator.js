@@ -7,10 +7,10 @@ import { logger } from "../logger.js";
 import { getRecordByStableId, loadIndexForBot } from "../sync/syncIndexRead.js";
 import { loadPlaudLiveSyncTree } from "../plaud/liveTreeReadModel.js";
 
-/** @type {{ loadIndex?: () => Promise<object>, loadLive?: (args: object) => Promise<object|null> } | null} */
+/** @type {{ loadIndex?: () => Promise<Record<string, any>>, loadLive?: (args: Record<string, any>) => Promise<Record<string, any> | null> } | null} */
 let _testHooks = null;
 
-/** @param {{ loadIndex?: () => Promise<object>, loadLive?: (args: object) => Promise<object|null> } | null} hooks */
+/** @param {{ loadIndex?: () => Promise<Record<string, any>>, loadLive?: (args: Record<string, any>) => Promise<Record<string, any> | null> } | null} hooks */
 export function _setTreeBrowseOrchestratorHooksForTests(hooks) {
   _testHooks = hooks;
 }
@@ -23,7 +23,7 @@ export function _resetTreeBrowseOrchestratorHooksForTests() {
  * Returns a sync-index-shaped object to feed the tree builders. Prefers a
  * live Plaud snapshot and falls back to the on-disk sync-index.
  *
- * @param {{ sessionLoader: () => Promise<object | null> }} params
+ * @param {{ sessionLoader: () => Promise<import("../auth/plaudSessionExtractor.js").PlaudSession | null> }} params
  */
 export async function loadTreeSource({ sessionLoader }) {
   const real = _testHooks?.loadIndex

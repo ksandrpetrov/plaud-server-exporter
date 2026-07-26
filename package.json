@@ -23,6 +23,7 @@
     "lint:extension": "cd browser-extension && npm run lint",
     "verify": "node scripts/verify-shared-contract.js",
     "verify:extension": "cd browser-extension && npm run verify",
+    "graphify": "uvx --from graphifyy==0.9.26 graphify",
     "typecheck": "npm run typecheck --workspace=@plaud-server-exporter/server && npm run typecheck:extension",
     "typecheck:server": "npm run typecheck --workspace=@plaud-server-exporter/server",
     "typecheck:extension": "tsc -p browser-extension/tsconfig.json",
@@ -38,10 +39,13 @@
   },
   "devDependencies": {
     "eslint-config-prettier": "^10.1.8",
-    "lint-staged": "^17.0.8",
-    "markdownlint-cli2": "^0.23.0",
-    "prettier": "^3.9.4",
+    "lint-staged": "^17.2.0",
+    "markdownlint-cli2": "^0.23.1",
+    "prettier": "^3.9.6",
     "simple-git-hooks": "^2.13.1",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
+  },
+  "overrides": {
+    "js-yaml": "5.2.2"
   }
 }
