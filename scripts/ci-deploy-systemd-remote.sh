@@ -61,9 +61,13 @@ UNIT="${SYSTEMD_UNIT:-plaud-exporter.service}"
 REF="${GIT_REF:-main}"
 REQUESTED="${DEPLOY_REPO_DIR:-}"
 
-if ! systemctl list-unit-files "$UNIT" &>/dev/null; then
-  echo "ci-deploy-systemd-remote: systemd unit $UNIT not found." >&2
-  exit 2
+UNIT_EXISTS=false
+UNIT_WAS_ACTIVE=false
+if systemctl list-unit-files "$UNIT" &>/dev/null; then
+  UNIT_EXISTS=true
+  if systemctl is-active --quiet "$UNIT"; then
+    UNIT_WAS_ACTIVE=true
+  fi
 fi
 
 CANDIDATES=()
@@ -84,7 +88,7 @@ for dir in "${CANDIDATES[@]}"; do
 done
 
 BOOTSTRAP_GIT=false
-if [[ -z "$REPO" ]]; then
+if [[ -z "$REPO" && "$UNIT_EXISTS" == "true" ]]; then
   # The service unit is the authoritative fallback after an incomplete/manual
   # migration that left the application files and state but removed .git.
   UNIT_WORKDIR="$(systemctl show "$UNIT" --property=WorkingDirectory --value)"
@@ -98,12 +102,24 @@ if [[ -z "$REPO" ]]; then
   esac
 fi
 
-if [[ -z "$REPO" && -n "$REQUESTED" && -d "$REQUESTED" ]]; then
+if [[ -z "$REPO" && "$UNIT_EXISTS" == "true" && -n "$REQUESTED" && -d "$REQUESTED" ]]; then
   UNIT_WORKDIR="$(systemctl show "$UNIT" --property=WorkingDirectory --value)"
   if [[ "$UNIT_WORKDIR" == "$REQUESTED" ]]; then
     REPO="$REQUESTED"
     BOOTSTRAP_GIT=true
   fi
+fi
+
+if [[ -z "$REPO" ]]; then
+  # A previous partial migration could remove the unit and .git while leaving
+  # the application state intact. Recover only a known/requested candidate that
+  # still has its protected environment file.
+  for dir in "${CANDIDATES[@]}"; do
+    [[ -n "$dir" && -d "$dir" && -f "$dir/.env" ]] || continue
+    REPO="$dir"
+    BOOTSTRAP_GIT=true
+    break
+  done
 fi
 
 if [[ -z "$REPO" ]]; then
@@ -119,7 +135,7 @@ if [[ ! -f "$REPO/.env" ]]; then
   exit 2
 fi
 
-echo "ci-deploy-systemd-remote: preflight ok (repo=$REPO unit=$UNIT bootstrap_git=$BOOTSTRAP_GIT)"
+echo "ci-deploy-systemd-remote: preflight ok (repo=$REPO unit=$UNIT unit_exists=$UNIT_EXISTS bootstrap_git=$BOOTSTRAP_GIT)"
 
 SERVICE_STOPPED=false
 rollback_on_error() {
@@ -133,8 +149,12 @@ rollback_on_error() {
 }
 trap rollback_on_error EXIT
 
-sudo systemctl stop "$UNIT"
-SERVICE_STOPPED=true
+if [[ "$UNIT_EXISTS" == "true" ]]; then
+  sudo systemctl stop "$UNIT"
+  if [[ "$UNIT_WAS_ACTIVE" == "true" ]]; then
+    SERVICE_STOPPED=true
+  fi
+fi
 
 # Git must run as plaud after ownership is fixed (avoids dubious ownership).
 sudo chown -R plaud:plaud "$REPO"
