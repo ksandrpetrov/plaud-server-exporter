@@ -15,6 +15,8 @@ paths = [
     # Shell smoke tests use intentionally fake credentials like "smoke:token".
     '''^scripts/docker-smoke-image\.sh$''',
     '''^scripts/smoke-prod\.sh$''',
+    # Redaction tests intentionally contain token-shaped fixtures.
+    '''^server/tests/redact\.test\.js$''',
 ]
 
 regexes = [
