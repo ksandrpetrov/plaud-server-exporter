@@ -4,11 +4,15 @@
  * @returns {boolean}
  */
 export function shouldRetryPlaudFetchAttempt(error, httpStatusFromMessage) {
-  const msg = String(error?.message || error || "");
+  const typedError =
+    error && typeof error === "object"
+      ? /** @type {{ message?: unknown; name?: unknown }} */ (error)
+      : null;
+  const msg = String(typedError?.message || error || "");
   if (/\bHTTP\s+401\b/.test(msg) || /\bHTTP\s+403\b/.test(msg)) {
     return false;
   }
-  if (error?.name === "AbortError") return true;
+  if (typedError?.name === "AbortError") return true;
   if (/таймаут запроса к API Plaud/i.test(msg)) return true;
   if (
     /\bHTTP\s+429\b/.test(msg) ||

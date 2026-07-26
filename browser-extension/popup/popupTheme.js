@@ -14,56 +14,62 @@
   }
 
   global.PlaudPopup.createState = function createState() {
-    const downloadBtn = document.getElementById("downloadBtn");
+    /** @param {string} id */
+    const getButton = (id) =>
+      /** @type {HTMLButtonElement | null} */ (document.getElementById(id));
+    const downloadBtn = getButton("downloadBtn");
     const downloadBtnLabel = document.getElementById("downloadBtnLabel");
     const downloadBtnSpinner = document.getElementById("downloadBtnSpinner");
-    const exportAllSummariesBtn = document.getElementById(
-      "exportAllSummariesBtn"
-    );
-    const exportAllBtn = document.getElementById("exportAllBtn");
-    const exportCurrentBtn = document.getElementById("exportCurrentBtn");
-    const exportBgBtn = document.getElementById("exportBgBtn");
-    const stopExportBtn = document.getElementById("stopExportBtn");
-    const exportModeBothBtn = document.getElementById("exportModeBothBtn");
-    const exportModeAudioBtn = document.getElementById("exportModeAudioBtn");
+    const exportAllSummariesBtn = getButton("exportAllSummariesBtn");
+    const exportAllBtn = getButton("exportAllBtn");
+    const exportCurrentBtn = getButton("exportCurrentBtn");
+    const exportBgBtn = getButton("exportBgBtn");
+    const stopExportBtn = getButton("stopExportBtn");
+    const exportModeBothBtn = getButton("exportModeBothBtn");
+    const exportModeAudioBtn = getButton("exportModeAudioBtn");
     const readyPanel = document.getElementById("readyPanel");
     const offlinePanel = document.getElementById("offlinePanel");
-    const offlineOpenPlaudBtn = document.getElementById("offlineOpenPlaudBtn");
-    const smartSyncBtn = document.getElementById("smartSyncBtn");
-    const openDownloadsBtn = document.getElementById("openDownloadsBtn");
-    const syncFolderInput = document.getElementById("syncFolderInput");
-    const syncModeBothBtn = document.getElementById("syncModeBothBtn");
-    const syncModeSummaryBtn = document.getElementById("syncModeSummaryBtn");
+    const offlineOpenPlaudBtn = getButton("offlineOpenPlaudBtn");
+    const smartSyncBtn = getButton("smartSyncBtn");
+    const openDownloadsBtn = getButton("openDownloadsBtn");
+    const syncFolderInput = /** @type {HTMLInputElement | null} */ (
+      document.getElementById("syncFolderInput")
+    );
+    const syncModeBothBtn = getButton("syncModeBothBtn");
+    const syncModeSummaryBtn = getButton("syncModeSummaryBtn");
     const syncStatusEl = document.getElementById("syncStatus");
     const syncIcloudCmdEl = document.getElementById("syncIcloudCmd");
-    const syncIcloudCopyBtn = document.getElementById("syncIcloudCopyBtn");
+    const syncIcloudCopyBtn = getButton("syncIcloudCopyBtn");
     const statusEl = document.getElementById("status");
-    const copyStatusBtn = document.getElementById("copyStatusBtn");
+    const copyStatusBtn = getButton("copyStatusBtn");
     const exportStatusContainer = document.getElementById("exportStatus");
     const tabStateBadge = document.getElementById("tabStateBadge");
     const recordingTitle = document.getElementById("recordingTitle");
     const recordingSubtitle = document.getElementById("recordingSubtitle");
     const archiveStrip = document.getElementById("archiveStrip");
     const archiveLine = document.getElementById("archiveLine");
-    const statsRefreshBtn = document.getElementById("statsRefreshBtn");
-    const langRuBtn = document.getElementById("langRuBtn");
-    const langEnBtn = document.getElementById("langEnBtn");
-    const themeSystemBtn = document.getElementById("themeSystemBtn");
-    const themeLightBtn = document.getElementById("themeLightBtn");
-    const themeDarkBtn = document.getElementById("themeDarkBtn");
-    const settingsBtn = document.getElementById("settingsBtn");
-    const closeSheetBtn = document.getElementById("closeSheetBtn");
-    const layout = document.querySelector(".layout");
+    const statsRefreshBtn = getButton("statsRefreshBtn");
+    const langRuBtn = getButton("langRuBtn");
+    const langEnBtn = getButton("langEnBtn");
+    const themeSystemBtn = getButton("themeSystemBtn");
+    const themeLightBtn = getButton("themeLightBtn");
+    const themeDarkBtn = getButton("themeDarkBtn");
+    const settingsBtn = getButton("settingsBtn");
+    const closeSheetBtn = getButton("closeSheetBtn");
+    const layout = /** @type {HTMLElement | null} */ (
+      document.querySelector(".layout")
+    );
     const settingsSheet = document.getElementById("settingsSheet");
     const sheetBackdrop = document.getElementById("sheetBackdrop");
     const settingsActivityDot = document.getElementById("settingsActivityDot");
     const mainExportHint = document.getElementById("mainExportHint");
 
-    const hasChromeExtensionApi =
+    const hasChromeExtensionApi = Boolean(
       typeof chrome !== "undefined" &&
       chrome.tabs &&
       chrome.runtime &&
-      chrome.scripting;
+      chrome.scripting
+    );
 
     return {
       uiLocale: "ru",
@@ -148,7 +154,7 @@
         settingsActivityDot,
         mainExportHint,
       },
-      exportActionButtons: [
+      exportActionButtons: /** @type {Array<HTMLButtonElement | null>} */ ([
         downloadBtn,
         exportAllSummariesBtn,
         exportAllBtn,
@@ -159,7 +165,7 @@
         exportModeAudioBtn,
         syncModeBothBtn,
         syncModeSummaryBtn,
-      ],
+      ]),
     };
   };
 

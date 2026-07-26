@@ -19,6 +19,10 @@ function getUrlSchemeForLog(value) {
 }
 
 /** Kicks off a `chrome.downloads.download`; rejects on error or empty id. */
+/**
+ * @param {chrome.downloads.DownloadOptions} options
+ * @returns {Promise<number>}
+ */
 function startChromeDownload(options) {
   return new Promise((resolve, reject) => {
     console.info("[Plaud Export BG] chrome.downloads.download:start", {
@@ -53,6 +57,11 @@ function startChromeDownload(options) {
 }
 
 /** Resolves when the download completes; rejects on interruption / timeout. */
+/**
+ * @param {number} downloadId
+ * @param {number} [timeoutMs]
+ * @returns {Promise<void>}
+ */
 function waitForChromeDownload(downloadId, timeoutMs = 600000) {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -144,17 +153,28 @@ function bytesToDataUrl(bytes, mimeType) {
  * the SW to perform a download via `ACTION_DOWNLOAD_PLAUD_FILE`. Handles
  * both URL downloads and inline-text downloads (the latter via a `data:` URL).
  */
-export async function downloadPlaudFile(message) {
+/**
+ * @param {DownloadRequest} message
+ * @param {{
+ *   startChromeDownload?: typeof startChromeDownload;
+ *   waitForChromeDownload?: typeof waitForChromeDownload;
+ * }} [_deps]
+ * @returns {Promise<DownloadResponse>}
+ */
+export async function downloadPlaudFile(message, _deps = {}) {
+  const startDownload = _deps.startChromeDownload || startChromeDownload;
+  const waitForDownload = _deps.waitForChromeDownload || waitForChromeDownload;
   if (typeof chrome.downloads?.download !== "function") {
     throw new Error(plaudT("bg.downloadsUnsupported"));
   }
 
   const requestedConflictAction = String(message.conflictAction || "uniquify");
-  const conflictAction = VALID_CONFLICT_ACTIONS.includes(
-    requestedConflictAction
-  )
-    ? requestedConflictAction
-    : "uniquify";
+  const conflictAction =
+    /** @type {chrome.downloads.FilenameConflictAction} */ (
+      VALID_CONFLICT_ACTIONS.includes(requestedConflictAction)
+        ? requestedConflictAction
+        : "uniquify"
+    );
   const filename = sanitizeDownloadFilename(
     message.filename || `${AUDIO_SUBDIRECTORY}/plaud-audio.audio.mp3`
   );
@@ -178,14 +198,14 @@ export async function downloadPlaudFile(message) {
     inlineTextChars:
       message.textContent == null ? 0 : String(message.textContent).length,
   });
-  const downloadId = await startChromeDownload({
+  const downloadId = await startDownload({
     url,
     filename,
     conflictAction,
     saveAs: false,
   });
 
-  await waitForChromeDownload(downloadId, Number(message.timeoutMs) || 600000);
+  await waitForDownload(downloadId, Number(message.timeoutMs) || 600000);
   console.info("[Plaud Export BG] downloadPlaudFile:complete", {
     filename,
     downloadId,

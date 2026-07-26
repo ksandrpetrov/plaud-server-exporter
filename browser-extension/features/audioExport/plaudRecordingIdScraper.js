@@ -21,7 +21,7 @@ export { extractRawRecordingId } from "../../common/plaudRecordingIds.js";
  * Adds entries for ids that we see in the DOM but not in the API response.
  * Returned counters feed sync diagnostics.
  *
- * @param {Array<{ id?: string; raw?: object; folderIds?: string[]; folderSegment?: string }>} files
+ * @param {PlaudRecording[]} files
  * @param {{ unfiledLabel: string }} options
  */
 export function mergeDomRecordingIdsIntoFiles(files, { unfiledLabel }) {
@@ -137,7 +137,7 @@ const MAX_EXTRA_FROM_CACHE = 192;
  * Adds entries for ids cached in Plaud Web's localStorage / sessionStorage
  * that aren't in the API response (Plaud caches trimmed metadata locally).
  *
- * @param {Array<{ id?: string; raw?: object }>} files
+ * @param {PlaudRecording[]} files
  * @param {{ maxExtraFromCache?: number }} [options]
  */
 export function mergeLocalStorageRecordingIdsIntoFiles(files, options = {}) {

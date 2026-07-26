@@ -15,7 +15,7 @@
   }
 
   /**
-   * @param {object} data
+   * @param {ExportStats} data
    * @returns {{
    *   processed: number;
    *   audio: number;
@@ -53,7 +53,7 @@
 
   /**
    * @param {number} startedAt
-   * @param {(key: string, params?: object) => string} tr
+   * @param {(key: string, params?: Record<string, unknown>) => string} tr
    * @returns {string}
    */
   global.PlaudPopup.formatExportElapsed = function formatExportElapsed(
@@ -70,8 +70,8 @@
   };
 
   /**
-   * @param {object | null | undefined} data
-   * @param {object} ctx
+   * @param {ExportStats | null | undefined} data
+   * @param {PopupContext} ctx
    * @returns {string}
    */
   global.PlaudPopup.formatForegroundExportResult =

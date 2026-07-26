@@ -16,6 +16,7 @@ import { processSmartSyncFile } from "./extensionSyncExecutor.js";
 
 export { buildSyncCandidate } from "./extensionSyncCandidate.js";
 
+/** @returns {SmartSyncStats} */
 function makeSyncStats() {
   return {
     status: "running",
@@ -36,9 +37,35 @@ function makeSyncStats() {
 }
 
 /**
- * @param {{ syncSubdirectory?: string; onProgress?: (stats: object) => void; syncMode?: string }} [options]
+ * @param {{
+ *   syncSubdirectory?: string;
+ *   onProgress?: (stats: SmartSyncStats) => void;
+ *   syncMode?: PlaudSyncMode;
+ *   _deps?: Partial<{
+ *     loadSyncIndex: typeof loadSyncIndex;
+ *     saveSyncIndex: typeof saveSyncIndex;
+ *     getPlaudSession: typeof getPlaudSession;
+ *     fetchPlaudFilesFromApi: typeof fetchPlaudFilesFromApi;
+ *     mergeDomRecordingIdsIntoFiles: typeof mergeDomRecordingIdsIntoFiles;
+ *     mergeLocalStorageRecordingIdsIntoFiles: typeof mergeLocalStorageRecordingIdsIntoFiles;
+ *     getCurrentPlaudSourceUrl: typeof getCurrentPlaudSourceUrl;
+ *     processSmartSyncFile: typeof processSmartSyncFile;
+ *   }>;
+ * }} [options]
+ * @returns {Promise<SmartSyncStats>}
  */
 export async function runSmartSync(options = {}) {
+  const deps = {
+    loadSyncIndex,
+    saveSyncIndex,
+    getPlaudSession,
+    fetchPlaudFilesFromApi,
+    mergeDomRecordingIdsIntoFiles,
+    mergeLocalStorageRecordingIdsIntoFiles,
+    getCurrentPlaudSourceUrl,
+    processSmartSyncFile,
+    ...options._deps,
+  };
   const onProgress =
     typeof options.onProgress === "function" ? options.onProgress : null;
   const requestedSubdir = sanitizeSyncSubdirectory(
@@ -47,30 +74,32 @@ export async function runSmartSync(options = {}) {
   const syncMode = options.syncMode === "summary" ? "summary" : "both";
   const shouldDownloadAudio = syncMode !== "summary";
   const stats = makeSyncStats();
-  const sourceUrl = getCurrentPlaudSourceUrl();
-  let syncIndex = await loadSyncIndex();
+  const sourceUrl = deps.getCurrentPlaudSourceUrl();
+  let syncIndex = await deps.loadSyncIndex();
   syncIndex.settings = {
     ...syncIndex.settings,
     storageMode: "downloads_subfolder",
     syncSubdirectory: requestedSubdir,
     syncMode,
   };
-  await saveSyncIndex(syncIndex);
+  await deps.saveSyncIndex(syncIndex);
 
   function progress(patch = {}) {
     Object.assign(stats, patch);
     onProgress?.({ ...stats });
   }
 
-  const session = await getPlaudSession();
-  let files = await fetchPlaudFilesFromApi(session);
-  mergeDomRecordingIdsIntoFiles(files, { unfiledLabel: PLAUD_FOLDER_UNFILED });
-  mergeLocalStorageRecordingIdsIntoFiles(files);
+  const session = await deps.getPlaudSession();
+  let files = await deps.fetchPlaudFilesFromApi(session);
+  deps.mergeDomRecordingIdsIntoFiles(files, {
+    unfiledLabel: PLAUD_FOLDER_UNFILED,
+  });
+  deps.mergeLocalStorageRecordingIdsIntoFiles(files);
   stats.total = files.length;
   progress({ lastMessage: `Найдено записей: ${files.length}` });
 
   for (const file of files) {
-    await processSmartSyncFile({
+    await deps.processSmartSyncFile({
       session,
       file,
       syncIndex,

@@ -95,6 +95,18 @@ Coverage по умолчанию выделена в отдельную кома
 npm run test:coverage      # требует Node 22+: lcov + thresholds в scripts/
 ```
 
+Server-тесты всегда стартуют через `server/tests/testEnvironment.js`: рабочий `.env` не загружается, `.data` и export
+root заменяются временными каталогами, а внешний `fetch` запрещён без явного тестового мока. Обычный и coverage-run
+используют один preload.
+
+Extension coverage проверяет два независимых scope:
+
+- `common/`: 85% строк / 75% веток / 90% функций;
+- критические background/content/audio-export workflow: 75% / 65% / 70%.
+
+Для критических orchestrator/handler/download/session файлов одного высокого среднего недостаточно: каждый файл
+обязан присутствовать в LCOV, иначе gate падает.
+
 Готовый Docker smoke (требует Docker):
 
 ```bash
@@ -109,7 +121,7 @@ bash scripts/docker-smoke-image.sh plaud-exporter:smoke   # build + smoke run
 - `MD040`/`MD031`/`MD029` уже включены — далее можно подсветить ещё.
 - Coverage thresholds в [scripts/coverage-thresholds.\*.json](../scripts/) могут расти по мере роста реального покрытия.
 - `npm audit --audit-level=high` → `moderate`, как только подтянем оставшиеся patch-uplifts.
-- Шаблоны JSDoc в god-файлах (`audioExport.js`, `popup.js`, `background.js`) — отдельный backlog, временно исключены из
-  tsconfig.
+- `strictNullChecks` для extension остаётся выключенным, но текущий `checkJs` уже охватывает весь runtime:
+  root entrypoints, `background/`, `content/`, `features/`, `popup/` и `common/`.
 
 См. [AGENTS.md](../AGENTS.md) для карты репозитория и команд.

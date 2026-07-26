@@ -62,7 +62,10 @@
       if (!ctx.hasChromeExtensionApi || !chrome.storage?.local) return;
       chrome.storage.local.get([ctx.LIBRARY_STATS_STORAGE_KEY], (result) => {
         if (chrome.runtime.lastError) return;
-        const prev = result[ctx.LIBRARY_STATS_STORAGE_KEY] || {};
+        const prev =
+          /** @type {Partial<PopupLibraryStatsCache> | undefined} */ (
+            result[ctx.LIBRARY_STATS_STORAGE_KEY]
+          ) || {};
         const nextSummaries =
           summariesUpdate === null || summariesUpdate === undefined
             ? Number(prev.summaries) || 0
@@ -87,7 +90,11 @@
           callback(null);
           return;
         }
-        callback(result[ctx.LIBRARY_STATS_STORAGE_KEY] || null);
+        callback(
+          /** @type {PopupLibraryStatsCache | null} */ (
+            result[ctx.LIBRARY_STATS_STORAGE_KEY] || null
+          )
+        );
       });
     };
 

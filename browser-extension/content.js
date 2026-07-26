@@ -29,6 +29,7 @@ if (window.__plaudExporterContentLoaded) {
     return I.t(contentLocale, key, params);
   }
 
+  /** @type {ContentRuntimeState} */
   const state = {
     isBackgroundExporting: false,
     shouldStopExport: false,

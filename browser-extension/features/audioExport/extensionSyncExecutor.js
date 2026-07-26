@@ -35,14 +35,22 @@ import { buildSyncCandidate } from "./extensionSyncCandidate.js";
  * Process one file in the smart sync loop (mutates syncIndex + stats).
  *
  * @param {{
- *   session: object;
- *   file: object;
- *   syncIndex: object;
- *   stats: object;
- *   progress: (patch?: object) => void;
+ *   session: PlaudBrowserSession;
+ *   file: PlaudRecording;
+ *   syncIndex: ExtensionSyncIndex;
+ *   stats: SmartSyncStats;
+ *   progress: (patch?: Partial<SmartSyncStats>) => void;
  *   requestedSubdir: string;
  *   shouldDownloadAudio: boolean;
  *   sourceUrl: string;
+ *   _deps?: Partial<{
+ *     saveSyncIndex: typeof saveSyncIndex;
+ *     fetchPlaudSummaryExports: typeof fetchPlaudSummaryExports;
+ *     fetchPlaudAudioUrl: typeof fetchPlaudAudioUrl;
+ *     downloadViaBackground: typeof downloadViaBackground;
+ *     downloadTextViaBackground: typeof downloadTextViaBackground;
+ *     buildSyncCandidate: typeof buildSyncCandidate;
+ *   }>;
  * }} params
  */
 export async function processSmartSyncFile({
@@ -54,15 +62,30 @@ export async function processSmartSyncFile({
   requestedSubdir,
   shouldDownloadAudio,
   sourceUrl,
+  _deps = {},
 }) {
+  const deps = {
+    saveSyncIndex,
+    fetchPlaudSummaryExports,
+    fetchPlaudAudioUrl,
+    downloadViaBackground,
+    downloadTextViaBackground,
+    buildSyncCandidate,
+    ..._deps,
+  };
   stats.currentTitle = file.title;
   progress();
 
   try {
+    /** @type {PlaudRecording} */
     let workingFile = file;
+    /** @type {PlaudSummaryExport[]} */
     let summaryExports = [];
     try {
-      summaryExports = await fetchPlaudSummaryExports(session, workingFile);
+      summaryExports = await deps.fetchPlaudSummaryExports(
+        session,
+        workingFile
+      );
     } catch (summaryError) {
       console.warn(
         `Smart sync: summary read failed for "${workingFile.title}":`,
@@ -71,7 +94,7 @@ export async function processSmartSyncFile({
       summaryExports = [];
     }
 
-    const candidate = await buildSyncCandidate(
+    const candidate = await deps.buildSyncCandidate(
       workingFile,
       summaryExports,
       sourceUrl
@@ -114,7 +137,7 @@ export async function processSmartSyncFile({
           candidate,
           { status: SYNC_STATUS_SKIPPED }
         );
-        await saveSyncIndex(syncIndex);
+        await deps.saveSyncIndex(syncIndex);
       }
       progress({ lastMessage: `Пропущено: ${workingFile.title}` });
       return;
@@ -129,7 +152,7 @@ export async function processSmartSyncFile({
         candidate,
         { status: SYNC_STATUS_SUCCESS }
       );
-      await saveSyncIndex(syncIndex);
+      await deps.saveSyncIndex(syncIndex);
       progress({ lastMessage: `Уже синхронизировано: ${workingFile.title}` });
       return;
     }
@@ -147,7 +170,7 @@ export async function processSmartSyncFile({
         candidate,
         { status: SYNC_STATUS_UPDATED }
       );
-      await saveSyncIndex(syncIndex);
+      await deps.saveSyncIndex(syncIndex);
       progress({ lastMessage: `Обновлены метаданные: ${workingFile.title}` });
       return;
     }
@@ -162,11 +185,13 @@ export async function processSmartSyncFile({
 
     try {
       if (shouldDownloadAudio) {
-        const { url, titleHint } = await fetchPlaudAudioUrl(
+        const { url, titleHint } = await deps.fetchPlaudAudioUrl(
           session,
           workingFile.id
         );
-        workingFile = preferApiTitle(workingFile, titleHint);
+        workingFile = /** @type {PlaudRecording} */ (
+          preferApiTitle(workingFile, titleHint)
+        );
         candidate.audioUrl = url;
         candidate.audioNormalizedFilename = basenameFromDownloadPath(
           buildDownloadFilename(workingFile, url)
@@ -181,7 +206,7 @@ export async function processSmartSyncFile({
             candidate.folderSegment
           );
         }
-        const audioResponse = await downloadViaBackground(url, audioPath, {
+        const audioResponse = await deps.downloadViaBackground(url, audioPath, {
           conflictAction: "overwrite",
         });
         if (audioResponse?.downloadId) {
@@ -217,7 +242,7 @@ export async function processSmartSyncFile({
             candidate.folderSegment
           );
 
-        const summaryResponse = await downloadTextViaBackground(
+        const summaryResponse = await deps.downloadTextViaBackground(
           summaryExport.markdown,
           targetPath,
           { conflictAction: "overwrite" }
@@ -250,7 +275,7 @@ export async function processSmartSyncFile({
       }),
       summaryPaths,
     };
-    await saveSyncIndex(syncIndex);
+    await deps.saveSyncIndex(syncIndex);
     progress({ lastMessage: `Синхронизировано: ${workingFile.title}` });
   } catch (error) {
     console.error(`Smart sync failed for "${file.title}":`, error);
@@ -268,7 +293,7 @@ export async function processSmartSyncFile({
           lastError: error?.message || String(error),
           lastSyncedAt: new Date().toISOString(),
         };
-        await saveSyncIndex(syncIndex);
+        await deps.saveSyncIndex(syncIndex);
       }
     }
   }
