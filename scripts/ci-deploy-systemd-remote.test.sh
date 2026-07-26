@@ -60,4 +60,14 @@ if ! grep -q 'UNIT_EXISTS=false' "$SCRIPT" || ! grep -q 'previous partial migrat
   exit 1
 fi
 
+if ! grep -q 'property=LoadState' "$SCRIPT" || ! grep -q 'AUTO_DISCOVERED' "$SCRIPT"; then
+  echo "ci-deploy-systemd-remote.test: missing loaded-unit or safe checkout discovery" >&2
+  exit 1
+fi
+
+if ! grep -q 'find /srv /opt /home' "$SCRIPT" || ! grep -q 'plaud-server-exporter' "$SCRIPT"; then
+  echo "ci-deploy-systemd-remote.test: checkout discovery is not restricted to Plaud markers" >&2
+  exit 1
+fi
+
 echo "ci-deploy-systemd-remote.test: OK"
