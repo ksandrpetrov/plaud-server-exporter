@@ -60,7 +60,7 @@
 Список захардкожен в [`scripts/verify-shared-contract.js`](scripts/verify-shared-contract.js). `npm run verify` проверяет
 существование файлов и что все относительные импорты `server/src/...` резолвятся.
 
-Остальные `browser-extension/common/*` (`runtimeMessages.js`, `storageUtils.js`, `domUtils.js`, `uiComponents.js`,
+Остальные `browser-extension/common/*` (`runtimeMessages.js`, `storageUtils.js`, `uiComponents.js`,
 `plaud-i18n-messages.js`) — **только** для расширения, server их не трогает. Модули `browser-extension/background/*` — тоже
 только SW.
 

@@ -56,17 +56,17 @@ plaud-server-exporter/
 
 Остальные модули `browser-extension/common/` — **только** для расширения, server их не использует:
 
-| Модуль                           | Назначение                                                                                                                           |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `runtimeMessages.js`             | Константы `action` для popup ↔ service worker ↔ content; тест `runtimeMessages.test.js` сверяет литералы в `popup.js` / `content.js` |
-| `storageUtils.js`                | `chrome.storage` + загрузка/сохранение индекса sync                                                                                  |
-| `domUtils.js`, `uiComponents.js` | DOM и статусный UI на странице Plaud                                                                                                 |
-| `plaud-i18n-messages.js`         | Каталоги строк popup / background                                                                                                    |
+| Модуль                   | Назначение                                                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `runtimeMessages.js`     | Константы `action` для popup ↔ service worker ↔ content; тест `runtimeMessages.test.js` сверяет литералы в `popup.js` / `content.js` |
+| `storageUtils.js`        | `chrome.storage` + загрузка/сохранение индекса sync                                                                                  |
+| `uiComponents.js`        | Статусный UI на странице Plaud                                                                                                       |
+| `plaud-i18n-messages.js` | Каталоги строк popup / background                                                                                                    |
 
 Service worker вынесен в `background/`: `chromeDownloadBridge.js` (`chrome.downloads`), `tabMessaging.js` (
 `sendMessage` + re-inject), `bgLocale.js`. В `features/audioExport/` из `audioExport.js` выделены
 `plaudBrowserSession.js` (сессия из `localStorage`), `plaudRecordingIdScraper.js`, `plaudCollisionPaths.js` (имена и
-коллизии в sync-папке).
+коллизии в sync-папке). При недоступном direct API экспорт завершается без DOM-автоматизации и без изменения записей.
 
 Команда `npm run verify` из корня проверяет, что все семь shared-файлов существуют и что относительные импорты из
 `server/src/` резолвятся. CI запускает её на каждом push/PR.

@@ -1,6 +1,6 @@
 /**
  * features/audioExport/extensionExportAll.js
- * Full Plaud export (API primary, DOM fallback).
+ * Full Plaud export through Plaud Web's API.
  */
 import {
   createStatusIndicator,
@@ -50,20 +50,53 @@ import {
   mergeDomRecordingIdsIntoFiles,
   mergeLocalStorageRecordingIdsIntoFiles,
 } from "./plaudRecordingIdScraper.js";
-import { runDomExportFallback } from "./domExportFallback.js";
 
 /**
- * Exports all Plaud audio files and updates progress. The primary path uses
- * Plaud Web's current API; the older DOM click flow remains as a fallback.
+ * Exports Plaud files through Plaud Web's current API. When the session or
+ * list is unavailable it fails closed and never clicks page controls.
  *
  * @param {boolean} backgroundMode - Whether the export runs in background mode.
- * @param {Object} options - Export options.
- * @param {string} options.exportMode - One of "both", "audio", or "summary".
- * @param {{ id: string, title?: string }} [options.singleFile] - If set, export only this file via API (no full list fetch).
- * @returns {Object} stats - Export statistics including processed, errored, and skipped file counts.
+ * @param {{
+ *   exportMode?: PlaudExportMode;
+ *   singleFile?: Pick<PlaudRecording, "id" | "title">;
+ *   tr?: (key: string, params?: Record<string, unknown>) => string;
+ *   _deps?: Partial<{
+ *     createStatusIndicator: typeof createStatusIndicator;
+ *     updateIndicator: typeof updateIndicator;
+ *     getPlaudSession: typeof getPlaudSession;
+ *     fetchPlaudFilesFromApi: typeof fetchPlaudFilesFromApi;
+ *     mergeDomRecordingIdsIntoFiles: typeof mergeDomRecordingIdsIntoFiles;
+ *     mergeLocalStorageRecordingIdsIntoFiles: typeof mergeLocalStorageRecordingIdsIntoFiles;
+ *     fetchPlaudAudioUrl: typeof fetchPlaudAudioUrl;
+ *     fetchPlaudSummaryExports: typeof fetchPlaudSummaryExports;
+ *     tryFetchRecordingTitleHint: typeof tryFetchRecordingTitleHint;
+ *     downloadViaBackground: typeof downloadViaBackground;
+ *     downloadTextViaBackground: typeof downloadTextViaBackground;
+ *     scheduleIndicatorRemoval: (callback: () => void, delayMs: number) => unknown;
+ *   }>;
+ * }} [options] Export options and internal test dependencies.
+ * @returns {Promise<ExportStats>} Export statistics.
  */
 export async function runExportAll(backgroundMode = false, options = {}) {
-  const exportMode = normalizeExportMode(options.exportMode);
+  const deps = {
+    createStatusIndicator,
+    updateIndicator,
+    getPlaudSession,
+    fetchPlaudFilesFromApi,
+    mergeDomRecordingIdsIntoFiles,
+    mergeLocalStorageRecordingIdsIntoFiles,
+    fetchPlaudAudioUrl,
+    fetchPlaudSummaryExports,
+    tryFetchRecordingTitleHint,
+    downloadViaBackground,
+    downloadTextViaBackground,
+    scheduleIndicatorRemoval: (callback, delayMs) =>
+      setTimeout(callback, delayMs),
+    ...options._deps,
+  };
+  const exportMode = /** @type {PlaudExportMode} */ (
+    normalizeExportMode(options.exportMode)
+  );
   const tr =
     options.tr ??
     ((key) => {
@@ -76,7 +109,7 @@ export async function runExportAll(backgroundMode = false, options = {}) {
     exportMode === EXPORT_MODE_BOTH || exportMode === EXPORT_MODE_AUDIO;
   const shouldExportSummaries =
     exportMode === EXPORT_MODE_BOTH || exportMode === EXPORT_MODE_SUMMARY;
-  const indicator = createStatusIndicator();
+  const indicator = deps.createStatusIndicator();
   console.log(
     `Запуск экспорта Plaud (${modeLabel(exportMode)}, фон: ${backgroundMode})…`
   );
@@ -92,7 +125,6 @@ export async function runExportAll(backgroundMode = false, options = {}) {
     summaryErrors: 0,
     startTime: Date.now(),
   };
-  const processedTitles = new Set();
   const plannedDownloadPaths = new Set();
 
   /**
@@ -140,14 +172,11 @@ export async function runExportAll(backgroundMode = false, options = {}) {
   let fileCount = 0;
   let errorCount = 0;
   const maxErrors = 3;
-  let directApiUnavailableError = null;
-
   async function tryDirectApiExport() {
     let session;
     try {
-      session = await getPlaudSession();
+      session = await deps.getPlaudSession();
     } catch (error) {
-      directApiUnavailableError = error;
       console.warn("[Plaud Export] api-session:unavailable", {
         message: error?.message || String(error),
         storage: describePlaudSessionStorage(),
@@ -189,12 +218,12 @@ export async function runExportAll(backgroundMode = false, options = {}) {
       ];
     } else {
       try {
-        files = await fetchPlaudFilesFromApi(session);
+        files = await deps.fetchPlaudFilesFromApi(session);
         const apiCount = files.length;
-        mergeDomRecordingIdsIntoFiles(files, {
+        deps.mergeDomRecordingIdsIntoFiles(files, {
           unfiledLabel: PLAUD_FOLDER_UNFILED,
         });
-        mergeLocalStorageRecordingIdsIntoFiles(files, {
+        deps.mergeLocalStorageRecordingIdsIntoFiles(files, {
           maxExtraFromCache: Math.max(0, PLAUD_API_MAX_FILES - apiCount),
         });
       } catch (error) {
@@ -213,12 +242,12 @@ export async function runExportAll(backgroundMode = false, options = {}) {
     const intro = options.singleFile?.id
       ? `Текущая запись. Загрузка (${modeLabel(exportMode)})…`
       : `Найдено файлов: ${files.length}. Загрузка (${modeLabel(exportMode)})…`;
-    updateIndicator(indicator, intro);
+    deps.updateIndicator(indicator, intro);
     console.log(`Прямой экспорт по API: ${files.length} файл(ов).`);
 
     for (let file of files) {
       if (await shouldStopExport()) {
-        updateIndicator(
+        deps.updateIndicator(
           indicator,
           `Экспорт остановлен после ${stats.filesProcessed} файл(ов).`,
           "info"
@@ -235,7 +264,7 @@ export async function runExportAll(backgroundMode = false, options = {}) {
       let fileHadAnySuccess = false;
 
       try {
-        session = await getPlaudSession();
+        session = await deps.getPlaudSession();
       } catch (sessionError) {
         throw new Error(
           sessionError?.message ||
@@ -245,19 +274,22 @@ export async function runExportAll(backgroundMode = false, options = {}) {
       }
 
       if (shouldExportAudio) {
-        updateIndicator(
+        deps.updateIndicator(
           indicator,
           `Загрузка аудио №${fileCount}/${files.length}: ${file.title}…`
         );
         try {
-          const { url, titleHint } = await fetchPlaudAudioUrl(session, file.id);
+          const { url, titleHint } = await deps.fetchPlaudAudioUrl(
+            session,
+            file.id
+          );
           file = preferApiTitle(file, titleHint);
           const filename = reservePlannedDownloadPath(
             buildDownloadFilename(file, url),
             file.id,
             plannedDownloadPaths
           );
-          await downloadViaBackground(url, filename, {
+          await deps.downloadViaBackground(url, filename, {
             conflictAction: "overwrite",
           });
           stats.audioExported++;
@@ -270,7 +302,7 @@ export async function runExportAll(backgroundMode = false, options = {}) {
             `Direct audio download failed for "${file.title}":`,
             audioError.message
           );
-          updateIndicator(
+          deps.updateIndicator(
             indicator,
             `Ошибка загрузки аудио №${fileCount}: ${audioError.message.substring(
               0,
@@ -282,23 +314,29 @@ export async function runExportAll(backgroundMode = false, options = {}) {
       }
 
       if (shouldExportSummaries && !shouldExportAudio) {
-        const titleHint = await tryFetchRecordingTitleHint(session, file.id);
+        const titleHint = await deps.tryFetchRecordingTitleHint(
+          session,
+          file.id
+        );
         file = preferApiTitle(file, titleHint);
       }
 
       if (shouldExportSummaries) {
-        updateIndicator(
+        deps.updateIndicator(
           indicator,
           `Загрузка саммари №${fileCount}/${files.length}: ${file.title}…`
         );
         try {
-          const summaryExports = await fetchPlaudSummaryExports(session, file);
+          const summaryExports = await deps.fetchPlaudSummaryExports(
+            session,
+            file
+          );
           if (summaryExports.length > 0) {
             for (const [
               summaryIndex,
               summaryExport,
             ] of summaryExports.entries()) {
-              await downloadTextViaBackground(
+              await deps.downloadTextViaBackground(
                 summaryExport.markdown,
                 reservePlannedDownloadPath(
                   buildSummaryFilenameForFile(
@@ -341,7 +379,7 @@ export async function runExportAll(backgroundMode = false, options = {}) {
             stack: summaryError?.stack || "",
             error: summaryError,
           });
-          updateIndicator(
+          deps.updateIndicator(
             indicator,
             `Ошибка загрузки саммари №${fileCount}: ${summaryErrorMessage.substring(
               0,
@@ -363,12 +401,12 @@ export async function runExportAll(backgroundMode = false, options = {}) {
 
     stats.endTime = Date.now();
     stats.duration = stats.endTime - stats.startTime;
-    updateIndicator(
+    deps.updateIndicator(
       indicator,
       `Готово! Аудио: ${stats.audioExported}, саммари: ${stats.summariesExported}.`,
       stats.filesErrored ? "error" : "success"
     );
-    setTimeout(() => indicator.remove(), 6000);
+    deps.scheduleIndicatorRemoval(() => indicator.remove(), 6000);
     return true;
   }
 
@@ -378,33 +416,10 @@ export async function runExportAll(backgroundMode = false, options = {}) {
       return stats;
     }
 
-    if (options.singleFile?.id) {
-      const reason = directApiUnavailableError
-        ? ` Причина: ${
-            directApiUnavailableError?.message ||
-            String(directApiUnavailableError)
-          }`
-        : "";
-      throw new Error(
-        `Не удалось экспортировать эту запись через API.${reason}`
-      );
-    }
-    if (shouldExportSummaries) {
-      throw new Error(
-        "Экспорт саммари нужен через API Plaud Web. Устаревший режим через страницу выгружает только аудио."
-      );
-    }
-    return await runDomExportFallback({
-      backgroundMode,
-      indicator,
-      stats,
-      processedTitles,
-      shouldStopExport,
-      updateProgress,
-    });
+    throw new Error(tr("error.contentDirectApiUnavailable"));
   } catch (error) {
-    updateIndicator(indicator, error?.message || String(error), "error");
-    setTimeout(() => indicator.remove(), 6000);
+    deps.updateIndicator(indicator, error?.message || String(error), "error");
+    deps.scheduleIndicatorRemoval(() => indicator.remove(), 6000);
     throw error;
   }
 }

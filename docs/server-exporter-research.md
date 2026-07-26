@@ -13,7 +13,8 @@ Server exporter переносит рабочую логику Chrome-расши
 `localStorage`, вызывает внутренние HTTPS-эндпоинты под `*.plaud.ai` и ведёт
 дедуплицирующий индекс sync. Почти всё переносимо на сервер. Браузерно-специфично:
 (1) чтение `localStorage` для JWT/workspace, (2) `chrome.downloads` для записи
-файлов, (3) DOM-fallback при сбое JSON-списка.
+файлов. При сбое API расширение завершается без DOM-автоматизации, чтобы не
+изменять записи пользователя.
 
 Рекомендуется **гибридная** архитектура: прямой внутренний API-клиент для
 обычного sync и Playwright только для однократного входа или обновления снимка
@@ -56,7 +57,7 @@ flowchart TD
     AE -->|fetch| API[api.plaud.ai]
     AE -->|downloadPlaudFile| BG
     BG -->|chrome.downloads| Disk[Папка Downloads]
-    AE -.->|fallback при сбое list API| DOM[domExportFallback.js]
+    AE -->|ошибка без DOM-действий| Popup
 ```
 
 `runSmartSync` в [`audioExport.js`](../browser-extension/features/audioExport/audioExport.js)
