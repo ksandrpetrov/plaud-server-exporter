@@ -14,8 +14,8 @@
   "scripts": {
     "start": "node src/cli/index.js",
     "bot": "node src/cli/index.js bot",
-    "test": "node --test $(find tests -name '*.test.js' | sort)",
-    "test:coverage": "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=../coverage/server.lcov.info $(find tests -name '*.test.js' | sort)",
+    "test": "node --import ./tests/testEnvironment.js --test $(find tests -name '*.test.js' | sort)",
+    "test:coverage": "node --import ./tests/testEnvironment.js --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=../coverage/server.lcov.info $(find tests -name '*.test.js' | sort)",
     "lint": "eslint src/ tests/ --max-warnings 0",
     "typecheck": "tsc -p tsconfig.json"
   },

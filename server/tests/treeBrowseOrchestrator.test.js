@@ -8,12 +8,8 @@ const tmpRoot = await mkdtemp(join(tmpdir(), "plaud-tree-orchestrator-"));
 process.env.PLAUD_DATA_DIR = join(tmpRoot, ".data");
 process.env.PLAUD_EXPORT_ROOT = join(tmpRoot, "exports");
 
-const {
-  isReadablePath,
-  resolveSummaryPathAfterSync,
-  _setTreeBrowseOrchestratorHooksForTests,
-  _resetTreeBrowseOrchestratorHooksForTests,
-} = await import("../src/telegram/treeBrowseOrchestrator.js");
+const { isReadablePath, resolveSummaryPathAfterSync } =
+  await import("../src/telegram/treeBrowseOrchestrator.js");
 
 test("isReadablePath returns true for existing file", async () => {
   const dir = await mkdtemp(join(tmpdir(), "plaud-readable-"));
@@ -28,7 +24,7 @@ test("resolveSummaryPathAfterSync returns readable summary path", async () => {
   const summaryPath = join(dir, "weekly.md");
   await writeFile(summaryPath, "# Weekly\n", "utf8");
 
-  _setTreeBrowseOrchestratorHooksForTests({
+  const resolved = await resolveSummaryPathAfterSync("plaud:abc", {
     loadIndex: async () => ({
       records: {
         "plaud:abc": { stableId: "plaud:abc", summaryPath },
@@ -36,24 +32,21 @@ test("resolveSummaryPathAfterSync returns readable summary path", async () => {
     }),
   });
 
-  const resolved = await resolveSummaryPathAfterSync("plaud:abc");
   assert.equal(resolved, summaryPath);
-
-  _resetTreeBrowseOrchestratorHooksForTests();
 });
 
 test("resolveSummaryPathAfterSync returns null when file missing on disk", async () => {
-  _setTreeBrowseOrchestratorHooksForTests({
-    loadIndex: async () => ({
-      records: {
-        "plaud:abc": {
-          stableId: "plaud:abc",
-          summaryPath: "/tmp/plaud-missing-summary.md",
+  assert.equal(
+    await resolveSummaryPathAfterSync("plaud:abc", {
+      loadIndex: async () => ({
+        records: {
+          "plaud:abc": {
+            stableId: "plaud:abc",
+            summaryPath: "/tmp/plaud-missing-summary.md",
+          },
         },
-      },
+      }),
     }),
-  });
-
-  assert.equal(await resolveSummaryPathAfterSync("plaud:abc"), null);
-  _resetTreeBrowseOrchestratorHooksForTests();
+    null
+  );
 });

@@ -54,8 +54,6 @@ import {
   trySendTreeDocument,
 } from "./treeBrowseDelivery.js";
 import {
-  _resetTreeBrowseOrchestratorHooksForTests,
-  _setTreeBrowseOrchestratorHooksForTests,
   isReadablePath,
   loadTreeSource as loadTreeSourceOrchestrator,
   resolveSummaryPathAfterSync,
@@ -73,23 +71,36 @@ import {
 
 const liveTreeSessionLoader = createPlaudSessionLoader("liveTreeReadModel");
 
-/** @param {{ loadIndex?: () => Promise<object>, loadLive?: (args: object) => Promise<object|null> } | null} hooks */
-export function _setTreeBrowseHooksForTests(hooks) {
-  _setTreeBrowseOrchestratorHooksForTests(hooks);
+/**
+ * @param {{
+ *   sessionLoader?: () => Promise<import("../auth/plaudSessionExtractor.js").PlaudSession | null>;
+ *   loadIndex?: () => Promise<Record<string, any>>;
+ *   loadLive?: (args: Record<string, any>) => Promise<Record<string, any> | null>;
+ * }} [deps]
+ */
+export async function loadTreeSource({
+  sessionLoader = liveTreeSessionLoader,
+  loadIndex,
+  loadLive,
+} = {}) {
+  return loadTreeSourceOrchestrator({
+    sessionLoader,
+    loadIndex,
+    loadLive,
+  });
 }
 
-export function _resetTreeBrowseHooksForTests() {
-  _resetTreeBrowseOrchestratorHooksForTests();
-}
-
-export async function loadTreeSource() {
-  return loadTreeSourceOrchestrator({ sessionLoader: liveTreeSessionLoader });
+/** @param {Record<string, any>} ctx */
+function loadTreeSourceForContext(ctx) {
+  return ctx?.treeBrowse?.loadTreeSource
+    ? ctx.treeBrowse.loadTreeSource()
+    : loadTreeSource();
 }
 
 export async function showFilesTreeRoot(ctx, { chatId, messageId }) {
   await clearTreeBrowseState(chatId);
   try {
-    const idx = await loadTreeSource();
+    const idx = await loadTreeSourceForContext(ctx);
     const root = buildSyncIndexTreeRoot(idx, {
       vaultRoot: effectiveVaultRoot(),
       subfolder: config.obsidianSubfolder,
@@ -125,7 +136,7 @@ export async function showFilesTreeFolder(
   { chatId, messageId, folderIndex, page }
 ) {
   try {
-    const idx = await loadTreeSource();
+    const idx = await loadTreeSourceForContext(ctx);
     const folderPage = buildSyncIndexFolderPage(idx, {
       folderIndex,
       page,
@@ -197,7 +208,8 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
   }
 
   const directPath = String(item.summaryPath || "").trim();
-  if (directPath && (await isReadablePath(directPath))) {
+  const pathIsReadable = ctx?.treeBrowse?.isReadablePath || isReadablePath;
+  if (directPath && (await pathIsReadable(directPath))) {
     if (await trySendTreeDocument(ctx, chatId, directPath, item)) return;
     // The file vanished or Telegram refused — fall through to the sync-then-retry path.
   }
@@ -219,7 +231,9 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
     return;
   }
 
-  const freshPath = await resolveSummaryPathAfterSync(item.stableId);
+  const resolveFreshPath =
+    ctx?.treeBrowse?.resolveSummaryPathAfterSync || resolveSummaryPathAfterSync;
+  const freshPath = await resolveFreshPath(item.stableId);
   if (!freshPath) {
     await sendTreePickError(ctx, chatId, {
       html: ERR_TREE_FILE_STILL_MISSING_HTML,
