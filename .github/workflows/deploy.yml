@@ -172,7 +172,7 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
-          DEPLOY_REPO_DIR: ${{ vars.DEPLOY_REPO_DIR }}
+          DEPLOY_REPO_DIR: ${{ vars.DEPLOY_REPO_DIR || secrets.DEPLOY_PATH }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           GIT_FETCH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

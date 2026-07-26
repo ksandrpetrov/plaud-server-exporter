@@ -228,7 +228,8 @@ sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
 `scripts/ci-deploy-systemd-remote.sh`): `git reset --hard origin/main`, `npm install`,
 `systemctl restart plaud-exporter.service`. Job запускается, пока в Variables **не** стоит
 `PRODUCTION_DOCKER_DEPLOY=true` (Docker — отдельный opt-in). Нужны secrets `DEPLOY_HOST`, `DEPLOY_USER`,
-`SSH_PRIVATE_KEY`. Опционально variable `DEPLOY_REPO_DIR` (по умолчанию `/srv/plaud-exporter`).
+`SSH_PRIVATE_KEY`. Опционально variable `DEPLOY_REPO_DIR` (по умолчанию `/srv/plaud-exporter`);
+если variable не задана, workflow поддерживает legacy secret `DEPLOY_PATH`.
 Если production-каталог сохранился вместе с `.env`, но потерял `.git` или unit-файл, deploy один раз восстановит
 checkout и systemd unit на месте. При любой ошибке после остановки скрипт пытается запустить прежний service обратно.
 
