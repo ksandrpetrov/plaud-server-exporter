@@ -229,6 +229,8 @@ sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
 `systemctl restart plaud-exporter.service`. Job запускается, пока в Variables **не** стоит
 `PRODUCTION_DOCKER_DEPLOY=true` (Docker — отдельный opt-in). Нужны secrets `DEPLOY_HOST`, `DEPLOY_USER`,
 `SSH_PRIVATE_KEY`. Опционально variable `DEPLOY_REPO_DIR` (по умолчанию `/srv/plaud-exporter`).
+Если каталог из `WorkingDirectory` systemd сохранился вместе с `.env`, но потерял `.git`, deploy один раз
+восстановит checkout на месте. При любой ошибке после остановки скрипт пытается запустить прежний service обратно.
 
 **Вручную на VPS**, если CI недоступен — с Mac сначала: `git push origin main`. На сервере — полный чеклист (короткий
 `git pull` часто не хватает: висят локальные правки, root владелец файлов, бот держит процесс):

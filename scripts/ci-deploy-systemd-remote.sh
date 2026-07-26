@@ -61,6 +61,11 @@ UNIT="${SYSTEMD_UNIT:-plaud-exporter.service}"
 REF="${GIT_REF:-main}"
 REQUESTED="${DEPLOY_REPO_DIR:-}"
 
+if ! systemctl list-unit-files "$UNIT" &>/dev/null; then
+  echo "ci-deploy-systemd-remote: systemd unit $UNIT not found." >&2
+  exit 2
+fi
+
 CANDIDATES=()
 if [[ -n "$REQUESTED" ]]; then
   CANDIDATES+=("$REQUESTED")
@@ -78,31 +83,79 @@ for dir in "${CANDIDATES[@]}"; do
   break
 done
 
+BOOTSTRAP_GIT=false
 if [[ -z "$REPO" ]]; then
-  echo "ci-deploy-systemd-remote: no git checkout found. Tried: ${CANDIDATES[*]}" >&2
+  # The service unit is the authoritative fallback after an incomplete/manual
+  # migration that left the application files and state but removed .git.
+  UNIT_WORKDIR="$(systemctl show "$UNIT" --property=WorkingDirectory --value)"
+  case "$UNIT_WORKDIR" in
+    /srv/plaud-exporter | /opt/plaud-server-exporter | /home/plaud/plaud-server-exporter)
+      if [[ -d "$UNIT_WORKDIR" ]]; then
+        REPO="$UNIT_WORKDIR"
+        BOOTSTRAP_GIT=true
+      fi
+      ;;
+  esac
+fi
+
+if [[ -z "$REPO" && -n "$REQUESTED" && -d "$REQUESTED" ]]; then
+  UNIT_WORKDIR="$(systemctl show "$UNIT" --property=WorkingDirectory --value)"
+  if [[ "$UNIT_WORKDIR" == "$REQUESTED" ]]; then
+    REPO="$REQUESTED"
+    BOOTSTRAP_GIT=true
+  fi
+fi
+
+if [[ -z "$REPO" ]]; then
+  echo "ci-deploy-systemd-remote: no repository or allowed systemd workdir found. Tried: ${CANDIDATES[*]}" >&2
   if [[ -f /opt/plaud-exporter/docker-compose.yml ]]; then
     echo "ci-deploy-systemd-remote: /opt/plaud-exporter has Docker — set PRODUCTION_DOCKER_DEPLOY=true in GitHub Variables." >&2
   fi
   exit 2
 fi
 
-if ! systemctl list-unit-files "$UNIT" &>/dev/null; then
-  echo "ci-deploy-systemd-remote: systemd unit $UNIT not found." >&2
+if [[ ! -f "$REPO/.env" ]]; then
+  echo "ci-deploy-systemd-remote: refusing deploy because $REPO/.env is missing." >&2
   exit 2
 fi
 
-echo "ci-deploy-systemd-remote: preflight ok (repo=$REPO unit=$UNIT)"
+echo "ci-deploy-systemd-remote: preflight ok (repo=$REPO unit=$UNIT bootstrap_git=$BOOTSTRAP_GIT)"
+
+SERVICE_STOPPED=false
+rollback_on_error() {
+  status=$?
+  if [[ "$status" -ne 0 && "$SERVICE_STOPPED" == "true" ]]; then
+    echo "ci-deploy-systemd-remote: deploy failed; restarting previous systemd service" >&2
+    sudo systemctl daemon-reload || true
+    sudo systemctl restart "$UNIT" || true
+  fi
+  exit "$status"
+}
+trap rollback_on_error EXIT
 
 sudo systemctl stop "$UNIT"
+SERVICE_STOPPED=true
 
 # Git must run as plaud after ownership is fixed (avoids dubious ownership).
 sudo chown -R plaud:plaud "$REPO"
 sudo -u plaud git config --global --add safe.directory "$REPO" 2>/dev/null || true
 
+if [[ "$BOOTSTRAP_GIT" == "true" ]]; then
+  if [[ -z "${GIT_FETCH_TOKEN:-}" || -z "${GITHUB_REPOSITORY:-}" ]]; then
+    echo "ci-deploy-systemd-remote: GitHub repository and fetch token are required to restore .git." >&2
+    exit 2
+  fi
+  sudo -u plaud git -C "$REPO" init
+fi
+
 ORIGIN_BEFORE="$(sudo -u plaud git -C "$REPO" remote get-url origin 2>/dev/null || true)"
 if [[ -n "${GIT_FETCH_TOKEN:-}" && -n "${GITHUB_REPOSITORY:-}" ]]; then
   AUTH_ORIGIN="https://x-access-token:${GIT_FETCH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-  sudo -u plaud git -C "$REPO" remote set-url origin "$AUTH_ORIGIN"
+  if [[ -n "$ORIGIN_BEFORE" ]]; then
+    sudo -u plaud git -C "$REPO" remote set-url origin "$AUTH_ORIGIN"
+  else
+    sudo -u plaud git -C "$REPO" remote add origin "$AUTH_ORIGIN"
+  fi
 fi
 
 sudo -u plaud git -C "$REPO" fetch origin "$REF"
@@ -141,6 +194,7 @@ for i in $(seq 1 24); do
   if systemctl is-active --quiet "$UNIT"; then
     echo "ci-deploy-systemd-remote: $UNIT is active"
     systemctl status "$UNIT" --no-pager -l | head -20
+    SERVICE_STOPPED=false
     exit 0
   fi
   sleep 5
