@@ -13,27 +13,27 @@ export const TREE_FILE_PICK_NO_CONTEXT_RICH = clipRichMarkdown(
 );
 
 export const ERR_TREE_AUTO_SYNC_FAILED_HTML =
-  `${EMOJI_WARNING} Не удалось дотянуть файл — синк не завершился.\n` +
+  `${EMOJI_WARNING} Не удалось дотянуть саммари — синк не завершился.\n` +
   "Открой дерево снова или нажми 🔄 Синхронизировать.";
 
 export const ERR_TREE_AUTO_SYNC_FAILED_RICH = clipRichMarkdown(
-  `# ${EMOJI_WARNING} Синк не помог\n\nНе удалось дотянуть файл — синк не завершился.\n\nОткрой дерево снова или нажми 🔄 Синхронизировать.`
+  `# ${EMOJI_WARNING} Синк не помог\n\nНе удалось дотянуть саммари — синк не завершился.\n\nОткрой дерево снова или нажми 🔄 Синхронизировать.`
 );
 
 export const ERR_TREE_FILE_STILL_MISSING_HTML =
-  `${EMOJI_TREE} Синк прошёл, но файл так и не появился.\n` +
+  `${EMOJI_TREE} Синк прошёл, но саммари так и не появилось.\n` +
   "Проверь, что запись есть в Plaud, и запусти синк ещё раз.";
 
 export const ERR_TREE_FILE_STILL_MISSING_RICH = clipRichMarkdown(
-  `# ${EMOJI_TREE} Файл не найден\n\nСинк прошёл, но файл так и не появился.\n\nПроверь, что запись есть в Plaud, и запусти синк ещё раз.`
+  `# ${EMOJI_TREE} Саммари не найдено\n\nСинк прошёл, но саммари так и не появилось.\n\nПроверь, что запись есть в Plaud, и запусти синк ещё раз.`
 );
 
-export const ERR_TREE_SEND_DOCUMENT_HTML =
-  `${EMOJI_WARNING} Не смог отправить файл в Telegram.\n` +
-  "Проверь, что .md на диске доступен серверу, и попробуй снова.";
+export const ERR_TREE_SUMMARY_DELIVERY_HTML =
+  `${EMOJI_WARNING} Не смог показать саммари в Telegram.\n` +
+  "Проверь доступность Telegram и попробуй снова.";
 
-export const ERR_TREE_SEND_DOCUMENT_RICH = clipRichMarkdown(
-  `# ${EMOJI_WARNING} Не удалось отправить\n\nНе смог отправить файл в Telegram.\n\nПроверь, что .md на диске доступен серверу, и попробуй снова.`
+export const ERR_TREE_SUMMARY_DELIVERY_RICH = clipRichMarkdown(
+  `# ${EMOJI_WARNING} Не удалось открыть\n\nНе смог показать саммари в Telegram.\n\nПроверь доступность Telegram и попробуй снова.`
 );
 
 export const ERR_TREE_LOAD_HTML =
@@ -44,7 +44,7 @@ export const ERR_TREE_LOAD_RICH = clipRichMarkdown(
   `# ${EMOJI_WARNING} Дерево недоступно\n\nНе удалось загрузить дерево записей.\n\nПопробуй через минуту или нажми 🔄 Синхронизировать.`
 );
 
-export const TREE_QUIET_SYNC_TOAST = "🔍 Файла нет на диске — синхронизирую…";
+export const TREE_QUIET_SYNC_TOAST = "🔍 Саммари нет на диске — синхронизирую…";
 
 /**
  * Map quiet-sync bot outcome status to user-visible copy.

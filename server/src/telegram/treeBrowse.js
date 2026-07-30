@@ -50,8 +50,10 @@ import {
 import {
   runQuietSyncSafely,
   treeQuietSyncFailureMessages,
-  treeSendDocumentError,
-  trySendTreeDocument,
+  treeSummaryDeliveryError,
+  TREE_SUMMARY_DELIVERY_FAILED,
+  TREE_SUMMARY_MISSING,
+  trySendTreeSummary,
 } from "./treeBrowseDelivery.js";
 import {
   isReadablePath,
@@ -185,9 +187,9 @@ async function sendTreePickError(ctx, chatId, { html, richMarkdown }) {
 
 /**
  * Owner picked a row number on the current tree page. If the .md already
- * exists on disk we send it straight away; otherwise we kick off a silent
+ * exists on disk we open it in chat; otherwise we kick off a silent
  * sync, then re-resolve the record (its `summaryPath` may have been written
- * for the first time) and deliver the file.
+ * for the first time) and deliver the summary.
  */
 export async function handleTreeFilePick(ctx, { chatId, pick }) {
   const state = await getTreeBrowseState(chatId);
@@ -210,8 +212,14 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
   const directPath = String(item.summaryPath || "").trim();
   const pathIsReadable = ctx?.treeBrowse?.isReadablePath || isReadablePath;
   if (directPath && (await pathIsReadable(directPath))) {
-    if (await trySendTreeDocument(ctx, chatId, directPath, item)) return;
-    // The file vanished or Telegram refused — fall through to the sync-then-retry path.
+    const delivery = await trySendTreeSummary(ctx, chatId, directPath, item);
+    if (delivery !== TREE_SUMMARY_MISSING) {
+      if (delivery === TREE_SUMMARY_DELIVERY_FAILED) {
+        await sendTreePickError(ctx, chatId, treeSummaryDeliveryError());
+      }
+      return;
+    }
+    // The file vanished between access and read — sync and resolve it again.
   }
 
   await safeSend(ctx, chatId, TREE_QUIET_SYNC_TOAST, { animate: false });
@@ -241,7 +249,13 @@ export async function handleTreeFilePick(ctx, { chatId, pick }) {
     });
     return;
   }
-  if (!(await trySendTreeDocument(ctx, chatId, freshPath, item))) {
-    await sendTreePickError(ctx, chatId, treeSendDocumentError());
+  const delivery = await trySendTreeSummary(ctx, chatId, freshPath, item);
+  if (delivery === TREE_SUMMARY_MISSING) {
+    await sendTreePickError(ctx, chatId, {
+      html: ERR_TREE_FILE_STILL_MISSING_HTML,
+      richMarkdown: ERR_TREE_FILE_STILL_MISSING_RICH,
+    });
+  } else if (delivery === TREE_SUMMARY_DELIVERY_FAILED) {
+    await sendTreePickError(ctx, chatId, treeSummaryDeliveryError());
   }
 }

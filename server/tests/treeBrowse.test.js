@@ -59,8 +59,8 @@ function fakeCtx(overrides = {}) {
         drafts.push({ chatId, draftId, text });
         return true;
       },
-      sendMessage: async ({ chatId, text }) => {
-        sends.push({ chatId, text });
+      sendMessage: async ({ chatId, text, parseMode, replyMarkup }) => {
+        sends.push({ chatId, text, parseMode, replyMarkup });
         return { message_id: sends.length + 200 };
       },
       deleteMessage: async ({ chatId, messageId }) => {
@@ -80,10 +80,21 @@ function fakeCtx(overrides = {}) {
         documents.push({ chatId, documentPath, caption, messageEffectId });
         return { message_id: 300 };
       },
-      sendRichMessage: async ({ chatId, markdown }) => {
-        richMessages.push({ chatId, markdown });
+      sendRichMessage: async ({
+        chatId,
+        markdown,
+        replyMarkup,
+        messageEffectId,
+      }) => {
+        richMessages.push({
+          chatId,
+          markdown,
+          replyMarkup,
+          messageEffectId,
+        });
         return { message_id: 301 };
       },
+      ...overrides.telegram,
     },
   };
 }
@@ -148,28 +159,76 @@ test("showFilesTreeRoot does not open a thinking draft (inline edit only)", asyn
   );
 });
 
-test("handleTreeFilePick sends document when summary file exists", async () => {
+test("handleTreeFilePick opens a readable summary as rich markdown", async () => {
   const root = await mkdtemp(join(tmpdir(), "plaud-tree-pick-"));
   const mdPath = join(root, "note.md");
-  await writeFile(mdPath, "# Hello\n", "utf8");
+  await writeFile(mdPath, "\uFEFF# Hello\n\nBody\n", "utf8");
 
   await setTreeBrowseState(55, {
     folderIndex: 0,
     page: 1,
-    items: [{ stableId: "plaud:x", title: "Note", summaryPath: mdPath }],
+    items: [
+      {
+        stableId: "plaud:x",
+        title: "Note",
+        date: "2026-07-30",
+        folder: "Work",
+        summaryPath: mdPath,
+      },
+    ],
   });
 
   const ctx = fakeCtx();
   await handleTreeFilePick(ctx, { chatId: 55, pick: 1 });
 
-  assert.equal(ctx.documents.length, 1);
-  assert.equal(ctx.documents[0].documentPath, mdPath);
-  assert.match(ctx.documents[0].caption, /Note/);
+  assert.equal(ctx.documents.length, 0);
   assert.equal(ctx.richMessages.length, 1);
-  assert.match(ctx.richMessages[0].markdown, /Отправил/);
+  assert.match(ctx.richMessages[0].markdown, /^# Note/);
+  assert.match(ctx.richMessages[0].markdown, /2026-07-30 · Work/);
+  assert.match(ctx.richMessages[0].markdown, /# Hello\n\nBody/);
+  assert.doesNotMatch(ctx.richMessages[0].markdown, /\uFEFF/);
+  assert.ok(ctx.richMessages[0].replyMarkup);
 });
 
-test("handleTreeFilePick still sends document when rich preview fails", async () => {
+test("handleTreeFilePick splits a long summary into rich messages", async () => {
+  const root = await mkdtemp(join(tmpdir(), "plaud-tree-long-"));
+  const mdPath = join(root, "long.md");
+  await writeFile(
+    mdPath,
+    `# Start\n\n${"long-word ".repeat(7000)}\n\n# End\n`,
+    "utf8"
+  );
+
+  await setTreeBrowseState(57, {
+    folderIndex: 0,
+    page: 1,
+    items: [{ stableId: "plaud:long", title: "Long", summaryPath: mdPath }],
+  });
+
+  const ctx = fakeCtx();
+  await handleTreeFilePick(ctx, { chatId: 57, pick: 1 });
+
+  assert.ok(ctx.richMessages.length > 1);
+  assert.ok(ctx.richMessages.every((part) => part.markdown.length <= 30000));
+  assert.match(ctx.richMessages[0].markdown, /_Часть 1\//);
+  assert.match(ctx.richMessages.at(-1).markdown, /# End/);
+  assert.equal(
+    ctx.richMessages
+      .map((message) => message.markdown)
+      .join("\n")
+      .match(/long-word/g)?.length,
+    7000
+  );
+  assert.ok(ctx.richMessages.at(-1).replyMarkup);
+  assert.ok(
+    ctx.richMessages
+      .slice(0, -1)
+      .every((message) => message.replyMarkup == null)
+  );
+  assert.equal(ctx.documents.length, 0);
+});
+
+test("handleTreeFilePick falls back to plain text when rich delivery fails", async () => {
   const root = await mkdtemp(join(tmpdir(), "plaud-tree-rich-fail-"));
   const mdPath = join(root, "note.md");
   await writeFile(mdPath, "# Hello\n", "utf8");
@@ -180,15 +239,133 @@ test("handleTreeFilePick still sends document when rich preview fails", async ()
     items: [{ stableId: "plaud:y", title: "Fail rich", summaryPath: mdPath }],
   });
 
-  const ctx = fakeCtx();
-  ctx.telegram.sendRichMessage = async () => {
-    throw new Error("sendRichMessage: method not found");
-  };
+  const ctx = fakeCtx({
+    telegram: {
+      sendRichMessage: async () => {
+        throw new Error("sendRichMessage: method not found");
+      },
+    },
+  });
 
   await handleTreeFilePick(ctx, { chatId: 56, pick: 1 });
 
+  assert.equal(ctx.documents.length, 0);
+  assert.equal(ctx.sends.length, 1);
+  assert.match(ctx.sends[0].text, /# Fail rich[\s\S]*# Hello/);
+  assert.equal(ctx.sends[0].parseMode, null);
+  assert.ok(ctx.sends[0].replyMarkup);
+});
+
+test("handleTreeFilePick splits the complete plain-text fallback", async () => {
+  const root = await mkdtemp(join(tmpdir(), "plaud-tree-plain-long-"));
+  const mdPath = join(root, "note.md");
+  await writeFile(
+    mdPath,
+    `# Start\n\n${"plain-word ".repeat(1200)}\n\n# End\n`,
+    "utf8"
+  );
+
+  await setTreeBrowseState(59, {
+    folderIndex: 0,
+    page: 1,
+    items: [{ stableId: "plaud:plain", title: "Plain", summaryPath: mdPath }],
+  });
+
+  const ctx = fakeCtx({
+    telegram: {
+      sendRichMessage: async () => {
+        throw new Error("sendRichMessage: method not found");
+      },
+    },
+  });
+
+  await handleTreeFilePick(ctx, { chatId: 59, pick: 1 });
+
+  assert.ok(ctx.sends.length > 1);
+  assert.ok(ctx.sends.every((part) => part.text.length <= 3800));
+  assert.ok(ctx.sends.every((part) => part.parseMode === null));
+  assert.match(ctx.sends[0].text, /# Start/);
+  assert.match(ctx.sends.at(-1).text, /# End/);
+  assert.equal(
+    ctx.sends
+      .map((message) => message.text)
+      .join("\n")
+      .match(/plain-word/g)?.length,
+    1200
+  );
+  assert.ok(ctx.sends.at(-1).replyMarkup);
+  assert.equal(ctx.documents.length, 0);
+});
+
+test("handleTreeFilePick sends the document only when text delivery fails", async () => {
+  const root = await mkdtemp(join(tmpdir(), "plaud-tree-doc-fallback-"));
+  const mdPath = join(root, "note.md");
+  await writeFile(mdPath, "# Hello\n", "utf8");
+
+  await setTreeBrowseState(58, {
+    folderIndex: 0,
+    page: 1,
+    items: [{ stableId: "plaud:doc", title: "Fallback", summaryPath: mdPath }],
+  });
+
+  const ctx = fakeCtx({
+    telegram: {
+      sendRichMessage: async () => {
+        throw new Error("sendRichMessage: method not found");
+      },
+      sendMessage: async ({ parseMode }) => {
+        if (parseMode === null) throw new Error("plain send failed");
+        return { message_id: 1 };
+      },
+    },
+  });
+
+  await handleTreeFilePick(ctx, { chatId: 58, pick: 1 });
+
   assert.equal(ctx.documents.length, 1);
   assert.equal(ctx.documents[0].documentPath, mdPath);
+});
+
+test("handleTreeFilePick does not sync again after Telegram delivery failure", async () => {
+  const root = await mkdtemp(join(tmpdir(), "plaud-tree-delivery-fail-"));
+  const mdPath = join(root, "note.md");
+  await writeFile(mdPath, "# Hello\n", "utf8");
+  let syncRuns = 0;
+  const errorMessages = [];
+
+  await setTreeBrowseState(60, {
+    folderIndex: 0,
+    page: 1,
+    items: [{ stableId: "plaud:failed", title: "Failed", summaryPath: mdPath }],
+  });
+
+  const ctx = fakeCtx({
+    runSyncQuiet: async () => {
+      syncRuns++;
+      return { status: "ok" };
+    },
+    telegram: {
+      sendRichMessage: async ({ markdown }) => {
+        if (/Не удалось открыть/.test(markdown)) {
+          errorMessages.push(markdown);
+          return { message_id: 1 };
+        }
+        throw new Error("rich send failed");
+      },
+      sendMessage: async ({ parseMode }) => {
+        if (parseMode === null) throw new Error("plain send failed");
+        return { message_id: 2 };
+      },
+      sendDocument: async () => {
+        throw new Error("document send failed");
+      },
+    },
+  });
+
+  await handleTreeFilePick(ctx, { chatId: 60, pick: 1 });
+
+  assert.equal(syncRuns, 0);
+  assert.equal(errorMessages.length, 1);
 });
 
 test("handleTreeFilePick runs quiet sync when file is missing", async () => {
@@ -237,8 +414,8 @@ test("handleTreeFilePick runs quiet sync when file is missing", async () => {
     1,
     "draft bubble dismissed after quiet sync"
   );
-  assert.equal(ctx.documents.length, 1);
-  assert.equal(ctx.documents[0].documentPath, mdPath);
+  assert.equal(ctx.documents.length, 0);
+  assert.ok(ctx.richMessages.some((m) => /# synced/.test(m.markdown)));
 });
 
 test("handleTreeFilePick reports out-of-range pick", async () => {

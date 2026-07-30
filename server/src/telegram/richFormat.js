@@ -44,3 +44,42 @@ export function clipRichMarkdown(text, maxLen = RICH_MARKDOWN_MAX_LEN) {
   }
   return slice.trimEnd();
 }
+
+/**
+ * Splits Markdown into non-empty chunks without discarding content. Prefers
+ * paragraph and line boundaries; a single oversized line is hard-split.
+ *
+ * @param {string} text
+ * @param {number} [maxLen]
+ * @returns {string[]}
+ */
+export function splitRichMarkdown(text, maxLen = RICH_MARKDOWN_MAX_LEN) {
+  const limit = Math.max(1, Math.floor(Number(maxLen) || 0));
+  let remaining = String(text ?? "");
+  const chunks = [];
+
+  while (remaining.length > limit) {
+    const window = remaining.slice(0, limit + 1);
+    let cut = window.lastIndexOf("\n\n", limit);
+    if (cut < limit * 0.5) {
+      cut = window.lastIndexOf("\n", limit);
+    }
+    if (cut < limit * 0.5) {
+      cut = Math.max(
+        window.lastIndexOf(" ", limit),
+        window.lastIndexOf("\t", limit)
+      );
+    }
+    if (cut < limit * 0.5) {
+      cut = limit;
+    }
+
+    const chunk = remaining.slice(0, cut).trimEnd();
+    if (chunk) chunks.push(chunk);
+    remaining = remaining.slice(cut).replace(/^\n+/, "");
+  }
+
+  const tail = remaining.trimEnd();
+  if (tail) chunks.push(tail);
+  return chunks;
+}
