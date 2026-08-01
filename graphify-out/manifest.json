@@ -20,7 +20,7 @@
     "semantic_hash": "7b0d598baab522880ac535097250ab3f"
   },
   "browser-extension/background.js": {
-    "mtime": 1785088959.696386,
+    "mtime": 1785090965.0550847,
     "ast_hash": "c054ffa5cb1189465ccc566aa15b8f9d",
     "semantic_hash": ""
   },
@@ -30,22 +30,22 @@
     "semantic_hash": "3da90d142b074dc292e8a4ed2d79702c"
   },
   "browser-extension/background/chromeDownloadBridge.js": {
-    "mtime": 1785090270.185071,
+    "mtime": 1785090965.055331,
     "ast_hash": "740a4e7b8ad1c45399ea7574563d0b50",
     "semantic_hash": ""
   },
   "browser-extension/background/exportOrchestrator.js": {
-    "mtime": 1785090083.755233,
+    "mtime": 1785090965.0555542,
     "ast_hash": "b05c867a2a916ee68fcdd6d3474fa45e",
     "semantic_hash": ""
   },
   "browser-extension/background/exportStateStore.js": {
-    "mtime": 1785073115.3553507,
+    "mtime": 1785090965.0558136,
     "ast_hash": "bdf0083e994937fbb86de57281ccc838",
     "semantic_hash": ""
   },
   "browser-extension/background/handlers/exportHandlers.js": {
-    "mtime": 1785073148.563956,
+    "mtime": 1785090965.0561182,
     "ast_hash": "d6f4990b0c34263d500621bab5ee78c8",
     "semantic_hash": ""
   },
@@ -55,7 +55,7 @@
     "semantic_hash": "76a46fadab75a392ac02383f0c60df25"
   },
   "browser-extension/background/handlers/smartSyncHandlers.js": {
-    "mtime": 1785073148.5875363,
+    "mtime": 1785090965.0563397,
     "ast_hash": "ebdcdcc0850a4390819468f11906ea73",
     "semantic_hash": ""
   },
@@ -70,27 +70,27 @@
     "semantic_hash": "44a488e753725aa6966db220de087e4d"
   },
   "browser-extension/background/sessionBootstrap.js": {
-    "mtime": 1785073115.357538,
+    "mtime": 1785090965.0565324,
     "ast_hash": "54efe4c7cf27bf0ae7c548e8509b6e94",
     "semantic_hash": ""
   },
   "browser-extension/background/smartSyncOrchestrator.js": {
-    "mtime": 1785090270.1978388,
+    "mtime": 1785090965.0567546,
     "ast_hash": "9dc24cfa2016ad7dba85744786bd962f",
     "semantic_hash": ""
   },
   "browser-extension/background/smartSyncStateStore.js": {
-    "mtime": 1785073115.3581452,
+    "mtime": 1785090965.0569859,
     "ast_hash": "a8a3b1bf4e7b137bf5889a1710d5b579",
     "semantic_hash": ""
   },
   "browser-extension/background/syncNotifications.js": {
-    "mtime": 1785073115.3590438,
+    "mtime": 1785090965.0572827,
     "ast_hash": "a445dc02a9781691c629a327bff8d150",
     "semantic_hash": ""
   },
   "browser-extension/background/tabMessaging.js": {
-    "mtime": 1785073115.3599436,
+    "mtime": 1785090965.057589,
     "ast_hash": "845671c9d26d49b532ee54f066e5bdce",
     "semantic_hash": ""
   },
@@ -100,12 +100,12 @@
     "semantic_hash": "cfb6d1a57165518fcaab2a5a239a3a2f"
   },
   "browser-extension/common/plaud-i18n-messages.js": {
-    "mtime": 1785088959.697251,
+    "mtime": 1785090965.0579333,
     "ast_hash": "7a9f7929ff6c65ea39b26a698b6e0ce8",
     "semantic_hash": ""
   },
   "browser-extension/common/plaudFolders.js": {
-    "mtime": 1785073038.3726358,
+    "mtime": 1785090965.058202,
     "ast_hash": "56f02514066acc9e3e2f54bc551dbd66",
     "semantic_hash": ""
   },
@@ -115,12 +115,12 @@
     "semantic_hash": "76505b24db46f1f3f6d4d992832346ed"
   },
   "browser-extension/common/plaudRecordings.js": {
-    "mtime": 1785073038.374768,
+    "mtime": 1785090965.0584428,
     "ast_hash": "1b1c0f414ce072fcfdb834ee5ce1178f",
     "semantic_hash": ""
   },
   "browser-extension/common/plaudSummaries.js": {
-    "mtime": 1785073038.375691,
+    "mtime": 1785090965.0586324,
     "ast_hash": "4221a73347b85d2aacf59e6f8b5f4524",
     "semantic_hash": ""
   },
@@ -130,17 +130,17 @@
     "semantic_hash": "02558fbffc93580e16c2cff632eb6cb5"
   },
   "browser-extension/common/runtimeMessages.js": {
-    "mtime": 1785088959.6977034,
+    "mtime": 1785090965.0588815,
     "ast_hash": "d951cdbce664903068c8896c7346308f",
     "semantic_hash": ""
   },
   "browser-extension/common/storageUtils.js": {
-    "mtime": 1785073115.3603272,
+    "mtime": 1785090965.0590649,
     "ast_hash": "81ccac3c3ac35141a002cf8aca37b768",
     "semantic_hash": ""
   },
   "browser-extension/common/syncCore.js": {
-    "mtime": 1785073038.3762884,
+    "mtime": 1785090965.0593238,
     "ast_hash": "f397e3afc4cf34fb03cd8db192dfc30c",
     "semantic_hash": ""
   },
@@ -155,12 +155,12 @@
     "semantic_hash": "268bbb1ad6ad41ab74095446da10b2c4"
   },
   "browser-extension/content.js": {
-    "mtime": 1785089471.613832,
+    "mtime": 1785090965.0595422,
     "ast_hash": "7c845607f0616d19453308fd5db2f911",
     "semantic_hash": ""
   },
   "browser-extension/content/contentHandlers.js": {
-    "mtime": 1785089471.6146047,
+    "mtime": 1785090965.0597754,
     "ast_hash": "149c5166b4ce96f8ceca71c27c35bc53",
     "semantic_hash": ""
   },
@@ -190,7 +190,7 @@
     "semantic_hash": "7eeac2d5aa64ad72781e0640396db243"
   },
   "browser-extension/features/audioExport/extensionExportAll.js": {
-    "mtime": 1785090270.219677,
+    "mtime": 1785090965.0600674,
     "ast_hash": "954817140318fe3da5be77a61aaf765c",
     "semantic_hash": ""
   },
@@ -200,27 +200,27 @@
     "semantic_hash": "01909da0670b7a1c2aaacc7bac38d1e4"
   },
   "browser-extension/features/audioExport/extensionSmartSync.js": {
-    "mtime": 1785089915.771947,
+    "mtime": 1785090965.060292,
     "ast_hash": "97e90d96e2e922dc230fb058dedf63ff",
     "semantic_hash": ""
   },
   "browser-extension/features/audioExport/extensionSyncCandidate.js": {
-    "mtime": 1785089471.6149359,
+    "mtime": 1785090965.0605407,
     "ast_hash": "e8473bf2d8f7d529579b5c261f342f73",
     "semantic_hash": ""
   },
   "browser-extension/features/audioExport/extensionSyncExecutor.js": {
-    "mtime": 1785089640.0230544,
+    "mtime": 1785090965.060794,
     "ast_hash": "49f1f049a3f87edcbce955df25782feb",
     "semantic_hash": ""
   },
   "browser-extension/features/audioExport/plaudBrowserApi.js": {
-    "mtime": 1785089491.8431628,
+    "mtime": 1785090965.0611017,
     "ast_hash": "47a55ce710da835f740ab7c131341f29",
     "semantic_hash": ""
   },
   "browser-extension/features/audioExport/plaudBrowserSession.js": {
-    "mtime": 1785089471.615449,
+    "mtime": 1785090965.0613718,
     "ast_hash": "2cb8340d9e9c7b36b8bfb96c683f2d04",
     "semantic_hash": ""
   },
@@ -230,7 +230,7 @@
     "semantic_hash": "2e9781a6892f90e33b5061b7b9443513"
   },
   "browser-extension/features/audioExport/plaudFetchRetry.js": {
-    "mtime": 1785089471.6159174,
+    "mtime": 1785090965.061912,
     "ast_hash": "ebf3755db263d66acbef4e68f2cb96b4",
     "semantic_hash": ""
   },
@@ -240,7 +240,7 @@
     "semantic_hash": "1433294a507249400cc33436cf970bcd"
   },
   "browser-extension/features/audioExport/plaudRecordingIdScraper.js": {
-    "mtime": 1785089471.6165378,
+    "mtime": 1785090965.0624685,
     "ast_hash": "8a5f03dfad3c9afda9fb07c55b490db1",
     "semantic_hash": ""
   },
@@ -250,7 +250,7 @@
     "semantic_hash": "0f4f5ed4585b9da87f0c21103fbf1fa2"
   },
   "browser-extension/package.json": {
-    "mtime": 1785072514.3264444,
+    "mtime": 1785090965.0631423,
     "ast_hash": "ccc1a7c5cfd6a890bc9dfe16366f0b6a",
     "semantic_hash": ""
   },
@@ -260,17 +260,17 @@
     "semantic_hash": "5bfaf77d499a2665d75470aeef6953b5"
   },
   "browser-extension/popup/exportForegroundFlow.js": {
-    "mtime": 1785089602.713834,
+    "mtime": 1785090965.0633605,
     "ast_hash": "aa0028847a397cfd50457f5da8ba1ea1",
     "semantic_hash": ""
   },
   "browser-extension/popup/exportStatusFormat.js": {
-    "mtime": 1785089640.023387,
+    "mtime": 1785090965.0635595,
     "ast_hash": "6e919451cd260be3a1da81040735da4f",
     "semantic_hash": ""
   },
   "browser-extension/popup/exportStatusPolling.js": {
-    "mtime": 1785089640.023669,
+    "mtime": 1785090965.063762,
     "ast_hash": "6d86a779133b8ec3352dbd44885413fc",
     "semantic_hash": ""
   },
@@ -280,7 +280,7 @@
     "semantic_hash": "92f8d63b5cc381ce5f30c2516967c334"
   },
   "browser-extension/popup/popupExportUi.js": {
-    "mtime": 1785089640.0239882,
+    "mtime": 1785090965.0652566,
     "ast_hash": "7a67e737b7d98f66b647b25cc49c2e96",
     "semantic_hash": ""
   },
@@ -295,7 +295,7 @@
     "semantic_hash": "95db80a3db872f91dd16b8496cd26a48"
   },
   "browser-extension/popup/popupStatsUi.js": {
-    "mtime": 1785089640.0243227,
+    "mtime": 1785090965.0656137,
     "ast_hash": "f2f04b652428c45633598fedcd87a906",
     "semantic_hash": ""
   },
@@ -310,7 +310,7 @@
     "semantic_hash": "2765f2c94c759a1a125db9e773db84a2"
   },
   "browser-extension/popup/popupTheme.js": {
-    "mtime": 1785090270.2856653,
+    "mtime": 1785090965.0658524,
     "ast_hash": "6099491cf46d7af79345c774ac63131e",
     "semantic_hash": ""
   },
@@ -345,7 +345,7 @@
     "semantic_hash": "1f0a161e6547bf7525c2825373e5aa88"
   },
   "browser-extension/tests/extensionDownloadBridge.test.js": {
-    "mtime": 1785090270.2906783,
+    "mtime": 1785090965.066695,
     "ast_hash": "e3daf35d59df6eb5c40bc9967d769fab",
     "semantic_hash": ""
   },
@@ -400,12 +400,12 @@
     "semantic_hash": "277f6b0ab42345a1bc3b9c6bd6295d4b"
   },
   "browser-extension/tsconfig.json": {
-    "mtime": 1785089216.90028,
+    "mtime": 1785090965.0678244,
     "ast_hash": "acea27d0189ca62a782d96817b610760",
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1785089183.6975782,
+    "mtime": 1785090965.0765872,
     "ast_hash": "ccdff212f60b1899afc3e02219a6fe41",
     "semantic_hash": ""
   },
@@ -425,22 +425,22 @@
     "semantic_hash": "76a7f7d1f3c2fda62649a354ddf07d0d"
   },
   "scripts/ci-deploy-systemd-remote.sh": {
-    "mtime": 1783179503.4114833,
-    "ast_hash": "ed29b3f83a66b100be2a34151e982cfd",
-    "semantic_hash": "ed29b3f83a66b100be2a34151e982cfd"
+    "mtime": 1785091324.094163,
+    "ast_hash": "c18a2c8047468f2833ffbcd721ccb347",
+    "semantic_hash": ""
   },
   "scripts/ci-deploy-systemd-remote.test.sh": {
-    "mtime": 1779466775.4774482,
-    "ast_hash": "e403d0868b2545b0a8c5cb08fb78f104",
-    "semantic_hash": "e403d0868b2545b0a8c5cb08fb78f104"
+    "mtime": 1785091383.3407025,
+    "ast_hash": "e734f3090fbae76941e07e58f26ad42b",
+    "semantic_hash": ""
   },
   "scripts/coverage-thresholds.extension.json": {
-    "mtime": 1785089798.236447,
+    "mtime": 1785090965.0767975,
     "ast_hash": "077a00efe1c84ee2663ba49681ade9f5",
     "semantic_hash": ""
   },
   "scripts/coverage-thresholds.mjs": {
-    "mtime": 1785090270.3324773,
+    "mtime": 1785090965.077044,
     "ast_hash": "b85a7e7226056ec520beb635a407a6ad",
     "semantic_hash": ""
   },
@@ -510,12 +510,12 @@
     "semantic_hash": "89639fe877f9c17aa7891dbe3db49f88"
   },
   "server/package.json": {
-    "mtime": 1785089183.6978147,
+    "mtime": 1785090965.0772622,
     "ast_hash": "eae3fcd3dd212e965df4216315f4a12a",
     "semantic_hash": ""
   },
   "server/src/auth/loadPlaudSession.js": {
-    "mtime": 1785073038.377366,
+    "mtime": 1785090965.0775352,
     "ast_hash": "3ee2e8df03524d99ff2f6b93fe6f94c6",
     "semantic_hash": ""
   },
@@ -540,7 +540,7 @@
     "semantic_hash": "61cc8dc24ad3c8d5380035516e3912e2"
   },
   "server/src/auth/plaudSessionMode.js": {
-    "mtime": 1785072804.2617342,
+    "mtime": 1785090965.0777178,
     "ast_hash": "079823d25454b73253c2f2d3b33dcc20",
     "semantic_hash": ""
   },
@@ -575,7 +575,7 @@
     "semantic_hash": "9152143d3d86aaf9912a19a56251fcc2"
   },
   "server/src/http/webServer.js": {
-    "mtime": 1785073038.3789113,
+    "mtime": 1785090965.0780964,
     "ast_hash": "95bc5591321eb64fe38229fdc5bbb1b8",
     "semantic_hash": ""
   },
@@ -600,17 +600,17 @@
     "semantic_hash": "d2d6e586f51be166d70096123444ecac"
   },
   "server/src/plaud/httpTransport.js": {
-    "mtime": 1785072804.2652497,
+    "mtime": 1785090965.078809,
     "ast_hash": "9a955573ff6dcda4db0ccf5d139ded24",
     "semantic_hash": ""
   },
   "server/src/plaud/liveTreeReadModel.js": {
-    "mtime": 1785073038.3800442,
+    "mtime": 1785090965.079233,
     "ast_hash": "6d89a2550375cd0507e9fca02490eaff",
     "semantic_hash": ""
   },
   "server/src/plaud/officialPlaudApi.js": {
-    "mtime": 1785072804.2639704,
+    "mtime": 1785090965.0795662,
     "ast_hash": "ab88798dc38318be4513c9726ee111b3",
     "semantic_hash": ""
   },
@@ -670,7 +670,7 @@
     "semantic_hash": "22eac98a7c6454178037e086a19eee70"
   },
   "server/src/sync/stableIdentity.js": {
-    "mtime": 1785072804.2595947,
+    "mtime": 1785090965.079881,
     "ast_hash": "e839a5a16631751c2d3fcb534cb0bb97",
     "semantic_hash": ""
   },
@@ -695,7 +695,7 @@
     "semantic_hash": "4d73c5475bd6ef730f1c1e05420c6cdf"
   },
   "server/src/sync/syncIndexRead.js": {
-    "mtime": 1785073038.3811264,
+    "mtime": 1785090965.0800655,
     "ast_hash": "8a5d1fb387fa36375ee01c50ec00b0de",
     "semantic_hash": ""
   },
@@ -725,7 +725,7 @@
     "semantic_hash": "e4c5503dbb5179a4f7f8e48024aeeafb"
   },
   "server/src/telegram/auth.js": {
-    "mtime": 1785073038.3819184,
+    "mtime": 1785090965.0802815,
     "ast_hash": "1398aae9ad07c0c4097c5041caf91ef4",
     "semantic_hash": ""
   },
@@ -765,7 +765,7 @@
     "semantic_hash": "ffa19711ed78719dea6e229d3e89bcfe"
   },
   "server/src/telegram/handlers/dispatch.js": {
-    "mtime": 1785089054.193272,
+    "mtime": 1785090965.0804698,
     "ast_hash": "08b206b7361b7a656ec55ab6bfae33f4",
     "semantic_hash": ""
   },
@@ -785,7 +785,7 @@
     "semantic_hash": "c596e6ad4321480ca638fd17723a91f5"
   },
   "server/src/telegram/handlers/privateUpdateGate.js": {
-    "mtime": 1785073038.3845606,
+    "mtime": 1785090965.0806484,
     "ast_hash": "942083e6c0bd042523c00ce54175447b",
     "semantic_hash": ""
   },
@@ -830,7 +830,7 @@
     "semantic_hash": "2e425b80eed76a983e990766029485d9"
   },
   "server/src/telegram/messages/files.js": {
-    "mtime": 1785072804.2623262,
+    "mtime": 1785090965.0808423,
     "ast_hash": "1a579da5511331a2ef27d42bb15841e0",
     "semantic_hash": ""
   },
@@ -855,7 +855,7 @@
     "semantic_hash": "6dd90e07947ebc07abe16af0d55531da"
   },
   "server/src/telegram/messages/sync.js": {
-    "mtime": 1785072804.2609267,
+    "mtime": 1785090965.0811567,
     "ast_hash": "8d8c04d486dc34162b80adacb31a17cb",
     "semantic_hash": ""
   },
@@ -885,7 +885,7 @@
     "semantic_hash": "26c84139ae39ae7075c5fc32a034957e"
   },
   "server/src/telegram/scheduler.js": {
-    "mtime": 1785073038.3863134,
+    "mtime": 1785090965.081431,
     "ast_hash": "e6aaec5b6d87761fdb03d199dfaa39a6",
     "semantic_hash": ""
   },
@@ -920,12 +920,12 @@
     "semantic_hash": "1518950e312f93126c420685e78534c0"
   },
   "server/src/telegram/sync/syncDraftBootstrap.js": {
-    "mtime": 1785073038.387287,
+    "mtime": 1785090965.0817034,
     "ast_hash": "0f7a898df298d214fe34363eb53e4ddd",
     "semantic_hash": ""
   },
   "server/src/telegram/sync/syncProgressChannel.js": {
-    "mtime": 1785073038.3883858,
+    "mtime": 1785090965.0820162,
     "ast_hash": "ddb6b406753e020178ab53adf5b4553d",
     "semantic_hash": ""
   },
@@ -935,7 +935,7 @@
     "semantic_hash": "1bcd04d95f35d98927d44721ca6c1e6a"
   },
   "server/src/telegram/sync/syncRunBridge.js": {
-    "mtime": 1785073038.3892422,
+    "mtime": 1785090965.0823834,
     "ast_hash": "b5af253638deb6f90f832ef805469309",
     "semantic_hash": ""
   },
@@ -945,12 +945,12 @@
     "semantic_hash": "ba8fd9a7d41ad822b08aea54d6b63202"
   },
   "server/src/telegram/syncIndexTree.js": {
-    "mtime": 1785073038.3901978,
+    "mtime": 1785090965.0826507,
     "ast_hash": "7b528aa7a0024489469017093f1d93f9",
     "semantic_hash": ""
   },
   "server/src/telegram/syncOrchestrator.js": {
-    "mtime": 1785073038.39131,
+    "mtime": 1785090965.0828676,
     "ast_hash": "ad9f1e5ef6e87e8f1ec9e259fcfa8cbe",
     "semantic_hash": ""
   },
@@ -990,17 +990,17 @@
     "semantic_hash": "aa165ed7e00dcac0ad9d85bbdfe7d488"
   },
   "server/src/telegram/treeBrowse.js": {
-    "mtime": 1785090270.3418493,
+    "mtime": 1785090965.0831125,
     "ast_hash": "fb95f35d0f4ca69e3f4247ce33aecfa0",
     "semantic_hash": ""
   },
   "server/src/telegram/treeBrowseDelivery.js": {
-    "mtime": 1785073038.392158,
+    "mtime": 1785090965.0833268,
     "ast_hash": "d0c0c3271cede74782608b6955d32d07",
     "semantic_hash": ""
   },
   "server/src/telegram/treeBrowseOrchestrator.js": {
-    "mtime": 1785089054.1924248,
+    "mtime": 1785090965.0835767,
     "ast_hash": "d628f09d5329042ba9ebf66133f7634d",
     "semantic_hash": ""
   },
@@ -1015,7 +1015,7 @@
     "semantic_hash": "4eb4fe7575819377d5141d6cc121f88e"
   },
   "server/src/telegram/treeFolderLabels.js": {
-    "mtime": 1785072804.2627392,
+    "mtime": 1785090965.0838993,
     "ast_hash": "274b3d3697a15eece39f62dd9b37360d",
     "semantic_hash": ""
   },
@@ -1280,7 +1280,7 @@
     "semantic_hash": "f8e3af429693b7c936a17020a278d6aa"
   },
   "server/tests/telegramDispatch.test.js": {
-    "mtime": 1785089086.0282047,
+    "mtime": 1785090965.0843413,
     "ast_hash": "b083dd65b56f3e5ce29b2bd80953d515",
     "semantic_hash": ""
   },
@@ -1305,12 +1305,12 @@
     "semantic_hash": "9ec924b4c6354684da8d9c46a3e6aef4"
   },
   "server/tests/treeBrowse.test.js": {
-    "mtime": 1785089080.466013,
+    "mtime": 1785090965.0849528,
     "ast_hash": "87e91e797915bc8906b08d99e64b2da2",
     "semantic_hash": ""
   },
   "server/tests/treeBrowseOrchestrator.test.js": {
-    "mtime": 1785090270.359264,
+    "mtime": 1785090965.085131,
     "ast_hash": "1bcd45f04e289b9115cf4a36c937ec9d",
     "semantic_hash": ""
   },
@@ -1340,7 +1340,7 @@
     "semantic_hash": "f9982aacedb858062a5be7d4e9d52b9b"
   },
   ".github/actions/setup-monorepo/action.yml": {
-    "mtime": 1785072514.3269455,
+    "mtime": 1785090965.0511825,
     "ast_hash": "07c96b727d93b7981533f05be2bb3632",
     "semantic_hash": ""
   },
@@ -1350,7 +1350,7 @@
     "semantic_hash": "967928eb84589f04e02546f7942a6b70"
   },
   ".github/workflows/checks.yml": {
-    "mtime": 1785072514.327226,
+    "mtime": 1785090965.0515487,
     "ast_hash": "f480d18926948c93294e55359e3b852e",
     "semantic_hash": ""
   },
@@ -1360,37 +1360,37 @@
     "semantic_hash": "ddfb1b89986c8b4298d15e0769696da1"
   },
   ".github/workflows/codeql.yml": {
-    "mtime": 1785072514.3275297,
+    "mtime": 1785090965.0517654,
     "ast_hash": "c5ee44488961a090a7c1f78700d7169e",
     "semantic_hash": ""
   },
   ".github/workflows/deploy.yml": {
-    "mtime": 1785072514.3281298,
+    "mtime": 1785090965.0519927,
     "ast_hash": "f953c49cf51cd74ca5633dca679445ec",
     "semantic_hash": ""
   },
   ".github/workflows/gitleaks.yml": {
-    "mtime": 1785072514.328498,
+    "mtime": 1785090965.0522265,
     "ast_hash": "b7429cc07478943961f87ca162c3d8bf",
     "semantic_hash": ""
   },
   ".github/workflows/infra-lint.yml": {
-    "mtime": 1785072514.3287635,
+    "mtime": 1785090965.0524788,
     "ast_hash": "ea39b303e2dbe828b71804a655eab791",
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1785088959.701041,
+    "mtime": 1785090965.053962,
     "ast_hash": "0bb048359ccdc2508dfbcb9e4b313f8c",
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1785070849.8013377,
+    "mtime": 1785090965.054494,
     "ast_hash": "100d2614a0020b481ec34cebb48a75cd",
     "semantic_hash": "100d2614a0020b481ec34cebb48a75cd"
   },
   "browser-extension/README.md": {
-    "mtime": 1785088959.6997843,
+    "mtime": 1785090965.0548258,
     "ast_hash": "4318e2292d5362cc0855d36a5274d0c0",
     "semantic_hash": ""
   },
@@ -1430,7 +1430,7 @@
     "semantic_hash": "6545bbe3061cabb4b82c7481cfc8fec4"
   },
   "docs/ARCHITECTURE.md": {
-    "mtime": 1785090270.3125482,
+    "mtime": 1785090965.0683844,
     "ast_hash": "e8738e777b652261c1c551ce90c28f06",
     "semantic_hash": ""
   },
@@ -1455,7 +1455,7 @@
     "semantic_hash": "09d9432ecab0cb6c1e539f3d64ffc9ab"
   },
   "docs/quality-gate.md": {
-    "mtime": 1785090305.4292345,
+    "mtime": 1785090965.0686626,
     "ast_hash": "fce74ae64af91787c4bb217cf0c1a555",
     "semantic_hash": ""
   },
@@ -1465,12 +1465,12 @@
     "semantic_hash": "5b24daea6e46d8cbbde2ec6fa6ba1c94"
   },
   "docs/server-deploy.md": {
-    "mtime": 1783247234.5360253,
-    "ast_hash": "29c9e947306fc13c64aba3ca1a7a989c",
-    "semantic_hash": "29c9e947306fc13c64aba3ca1a7a989c"
+    "mtime": 1785091356.7109995,
+    "ast_hash": "6f2f68dcfb74f8ab872e26a6c69fa6d4",
+    "semantic_hash": ""
   },
   "docs/server-exporter-research.md": {
-    "mtime": 1785088990.2960527,
+    "mtime": 1785090965.0689275,
     "ast_hash": "f68a155f79de9f0a3562f80d2ead8841",
     "semantic_hash": ""
   },
@@ -1510,57 +1510,57 @@
     "semantic_hash": "c3815811d463f48a18dbe7ac9d111d37"
   },
   "browser-extension/tests/storageUtils.test.js": {
-    "mtime": 1785073228.0063999,
+    "mtime": 1785090965.067614,
     "ast_hash": "80eea9b3f6522f1303f7b9c4b9c220db",
     "semantic_hash": ""
   },
   "browser-extension/tests/backgroundWorkflows.test.js": {
-    "mtime": 1785090270.3635933,
+    "mtime": 1785090965.0661006,
     "ast_hash": "4d26266ef3f53c227b5d8944d2a1c316",
     "semantic_hash": ""
   },
   "browser-extension/tests/chromeDownloadBridge.test.js": {
-    "mtime": 1785090270.3663983,
+    "mtime": 1785090965.0663133,
     "ast_hash": "bac1883fc10c1a589c017192c11865cf",
     "semantic_hash": ""
   },
   "browser-extension/tests/contentHandlers.test.js": {
-    "mtime": 1785090270.3706522,
+    "mtime": 1785090965.0664887,
     "ast_hash": "b89802a50bd167af2e51e3aab7ce7344",
     "semantic_hash": ""
   },
   "browser-extension/tests/extensionExportAll.test.js": {
-    "mtime": 1785089848.5101533,
+    "mtime": 1785090965.0668795,
     "ast_hash": "8f7385bc9841186cb939911d08409b6b",
     "semantic_hash": ""
   },
   "browser-extension/tests/extensionSmartSync.test.js": {
-    "mtime": 1785090270.3753839,
+    "mtime": 1785090965.0670419,
     "ast_hash": "8509db8a1f9308f3d03f95f96e05cb26",
     "semantic_hash": ""
   },
   "browser-extension/tests/extensionSyncExecutor.test.js": {
-    "mtime": 1785090270.378482,
+    "mtime": 1785090965.0672472,
     "ast_hash": "5a1b932f999b1576620795201a76efe6",
     "semantic_hash": ""
   },
   "browser-extension/tests/plaudBrowserSession.test.js": {
-    "mtime": 1785090270.382855,
+    "mtime": 1785090965.0674145,
     "ast_hash": "2d2d4a33e023fc86d2ffe19a6f1f5ecb",
     "semantic_hash": ""
   },
   "browser-extension/types/runtime-contracts.d.ts": {
-    "mtime": 1785090278.3211265,
+    "mtime": 1785090965.0681,
     "ast_hash": "b06916c9f475c96dd210970edf74cfad",
     "semantic_hash": ""
   },
   "server/tests/testEnvironment.js": {
-    "mtime": 1785090390.9205623,
+    "mtime": 1785090965.084567,
     "ast_hash": "b5cf359acefa07ad0fbdfb8d3fe17d5d",
     "semantic_hash": ""
   },
   "server/tests/testEnvironment.test.js": {
-    "mtime": 1785090395.128712,
+    "mtime": 1785090965.0847287,
     "ast_hash": "aab59d8ef90a132a60955c51a2213e1a",
     "semantic_hash": ""
   }

@@ -231,7 +231,8 @@ sudo -u plaud bash -lc 'cd /srv/plaud-exporter && npm run server:status'
 `SSH_PRIVATE_KEY`. Опционально variable `DEPLOY_REPO_DIR` (по умолчанию `/srv/plaud-exporter`);
 если variable не задана, workflow поддерживает legacy secret `DEPLOY_PATH`.
 Если production-каталог сохранился вместе с `.env`, но потерял `.git` или unit-файл, deploy один раз восстановит
-checkout и systemd unit на месте. При любой ошибке после остановки скрипт пытается запустить прежний service обратно.
+checkout и systemd unit на месте. После рестарта deploy проверяет commit и JSON `/healthz`; при любой ошибке после
+остановки скрипт пытается запустить прежний service обратно.
 
 **Вручную на VPS**, если CI недоступен — с Mac сначала: `git push origin main`. На сервере — полный чеклист (короткий
 `git pull` часто не хватает: висят локальные правки, root владелец файлов, бот держит процесс):

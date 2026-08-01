@@ -210,17 +210,36 @@ fi
 sudo systemctl daemon-reload
 sudo systemctl restart "$UNIT"
 
+DEPLOYED_COMMIT="$(sudo -u plaud git -C "$REPO" rev-parse HEAD)"
+EXPECTED_COMMIT="$(sudo -u plaud git -C "$REPO" rev-parse "origin/$REF")"
+if [[ "$DEPLOYED_COMMIT" != "$EXPECTED_COMMIT" ]]; then
+  echo "ci-deploy-systemd-remote: deployed commit mismatch (actual=$DEPLOYED_COMMIT expected=$EXPECTED_COMMIT)" >&2
+  exit 1
+fi
+
+WEBAPP_PORT="$(sed -n 's/^WEBAPP_PORT=//p' "$REPO/.env" | tail -1)"
+WEBAPP_PORT="${WEBAPP_PORT:-8080}"
+if [[ ! "$WEBAPP_PORT" =~ ^[0-9]+$ ]] || (( WEBAPP_PORT < 1 || WEBAPP_PORT > 65535 )); then
+  echo "ci-deploy-systemd-remote: invalid WEBAPP_PORT in $REPO/.env" >&2
+  exit 1
+fi
+
 for i in $(seq 1 24); do
   if systemctl is-active --quiet "$UNIT"; then
-    echo "ci-deploy-systemd-remote: $UNIT is active"
-    systemctl status "$UNIT" --no-pager -l | head -20
-    SERVICE_STOPPED=false
-    exit 0
+    HEALTH_JSON="$(curl -fsS "http://127.0.0.1:${WEBAPP_PORT}/healthz" 2>/dev/null || true)"
+    if printf '%s' "$HEALTH_JSON" | python3 -c \
+      'import json, sys; payload=json.load(sys.stdin); assert payload.get("status") == "ok", payload' \
+      2>/dev/null; then
+      echo "ci-deploy-systemd-remote: $UNIT is active (commit=$DEPLOYED_COMMIT healthz=ok)"
+      systemctl status "$UNIT" --no-pager -l | head -20
+      SERVICE_STOPPED=false
+      exit 0
+    fi
   fi
   sleep 5
 done
 
-echo "ci-deploy-systemd-remote: $UNIT failed to become active" >&2
+echo "ci-deploy-systemd-remote: $UNIT failed active + healthz verification" >&2
 systemctl status "$UNIT" --no-pager -l || true
 journalctl -u "$UNIT" -n 40 --no-pager || true
 exit 1

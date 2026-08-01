@@ -55,6 +55,11 @@ if ! grep -q 'trap rollback_on_error EXIT' "$SCRIPT"; then
   exit 1
 fi
 
+if ! grep -q 'deployed commit mismatch' "$SCRIPT" || ! grep -q '/healthz' "$SCRIPT"; then
+  echo "ci-deploy-systemd-remote.test: missing commit or healthz post-deploy smoke" >&2
+  exit 1
+fi
+
 if ! grep -q 'UNIT_EXISTS=false' "$SCRIPT" || ! grep -q 'previous partial migration could remove the unit' "$SCRIPT"; then
   echo "ci-deploy-systemd-remote.test: missing deleted-unit recovery path" >&2
   exit 1

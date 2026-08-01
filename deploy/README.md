@@ -57,7 +57,8 @@ If this variable is unset or not `true`, CI still builds and smoke-tests the ima
 `PRODUCTION_DOCKER_DEPLOY=true` only after Ansible bootstrap under `/opt/plaud-exporter` — then systemd auto-deploy is
 skipped.
 
-`ci-deploy-remote.sh` also skips safely when `${DEPLOY_DIR}/docker-compose.yml` is missing (exit 0, systemd untouched).
+`ci-deploy-remote.sh` fails before changing systemd when `${DEPLOY_DIR}/docker-compose.yml` or `.env` is missing.
+This keeps an explicitly selected but unbootstrapped Docker production job from reporting a false success.
 
 Secrets (only when Docker deploy enabled): `DEPLOY_HOST`, `DEPLOY_USER`, `SSH_PRIVATE_KEY`; optional `SSH_KNOWN_HOSTS`,
 `GHCR_PULL_TOKEN`.  

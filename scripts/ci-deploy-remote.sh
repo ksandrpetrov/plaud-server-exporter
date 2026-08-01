@@ -78,10 +78,10 @@ trap on_err ERR
 
 echo "==> Preflight: Docker production bootstrap must exist (systemd left untouched until later)"
 remote "test -f '${DEPLOY_DIR}/docker-compose.yml' && test -f '${DEPLOY_DIR}/.env'" || {
-  echo "ci-deploy-remote: skip — ${DEPLOY_DIR}/docker-compose.yml or .env missing." >&2
+  echo "ci-deploy-remote: Docker deployment requested, but ${DEPLOY_DIR}/docker-compose.yml or .env is missing." >&2
   echo "ci-deploy-remote: Run 'make deploy' (Ansible) once, or use systemd-only updates (docs/server-deploy.md)." >&2
   echo "ci-deploy-remote: legacy systemd was not modified." >&2
-  exit 0
+  exit 2
 }
 
 capture_systemd_state() {

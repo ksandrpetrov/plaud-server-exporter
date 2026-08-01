@@ -27,8 +27,9 @@ if [[ "$preflight_line" -ge "$stop_line" || "$stop_line" -ge "$disable_line" ]];
   exit 1
 fi
 
-if ! grep -q 'exit 0' "$SCRIPT" && grep -q 'docker-compose.yml or .env missing' "$SCRIPT"; then
-  echo "ci-deploy-remote.test: missing skip exit when Docker not bootstrapped" >&2
+preflight_block="$(sed -n "/remote \"test -f.*docker-compose.yml/,/^capture_systemd_state()/p" "$SCRIPT")"
+if grep -q 'exit 0' <<<"$preflight_block" || ! grep -q 'exit 2' <<<"$preflight_block"; then
+  echo "ci-deploy-remote.test: missing non-zero exit when Docker is selected without bootstrap" >&2
   exit 1
 fi
 
