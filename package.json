@@ -23,7 +23,6 @@
     "lint:extension": "cd browser-extension && npm run lint",
     "verify": "node scripts/verify-shared-contract.js",
     "verify:extension": "cd browser-extension && npm run verify",
-    "graphify": "uvx --from graphifyy==0.9.26 graphify",
     "typecheck": "npm run typecheck --workspace=@plaud-server-exporter/server && npm run typecheck:extension",
     "typecheck:server": "npm run typecheck --workspace=@plaud-server-exporter/server",
     "typecheck:extension": "tsc -p browser-extension/tsconfig.json",

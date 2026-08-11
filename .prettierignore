@@ -9,8 +9,6 @@ logs
 
 # Vendored data files (size + auto-generated)
 browser-extension/common/plaud-i18n-messages.js
-.codex/skills/graphify
-graphify-out
 
 # Lockfiles (handled by npm)
 package-lock.json

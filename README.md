@@ -169,31 +169,6 @@ Pre-commit хук (`simple-git-hooks` + `lint-staged`) ставится при `
 prettier/eslint/verify-manifest на изменённые файлы. Снять: `git commit --no-verify` или
 `SKIP_SIMPLE_GIT_HOOKS=1 git commit`.
 
-### Graphify: карта кодовой базы
-
-В репозитории хранится готовый граф кода и документации в `graphify-out/`, а project-scoped skill для Codex —
-в `.codex/skills/graphify/`. CLI ставится отдельно через `uv`, чтобы не попадать в runtime-зависимости сервера:
-
-```bash
-uv tool install graphifyy==0.9.26
-```
-
-Для полной семантической пересборки в Codex нужен `multi_agent = true` в секции `[features]` файла
-`~/.codex/config.toml`. Основные команды:
-
-```bash
-npm run graphify -- query "sync determineSyncAction"
-npm run graphify -- explain "determineSyncAction"
-npm run graphify -- path "routeCallback" "runSync"
-npm run graphify -- update .                 # изменения кода, локальный AST без LLM
-```
-
-CLI ищет по терминам графа, поэтому для свободного вопроса на русском используйте `$graphify` в Codex: skill
-подберёт английские термины и выполнит запрос. Если менялись Markdown, YAML или изображения, используйте
-`$graphify . --update`: эти форматы требуют семантической обработки. Git-hooks Graphify намеренно не ставятся —
-обновление выполняется явно перед сдачей изменения. Версию повышаем одним изменением: обновляем `graphifyy==…`
-в `package.json`, переустанавливаем project skill той же версией и пересобираем `graphify-out/`.
-
 ### Общий код server ↔ расширение
 
 Семь модулей `browser-extension/common/*` (sync-решения, пути, папки, id записей, названия, записи, summary
