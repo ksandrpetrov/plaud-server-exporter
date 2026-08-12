@@ -44,7 +44,8 @@
     "simple-git-hooks": "^2.13.1",
     "typescript": "^7.0.2"
   },
+  "_overrides_note": "js-yaml: markdownlint-cli2 pins 5.2.1, which is covered by GHSA-pm4m-ph32-ghv5 (high, DoS via exponential flow-collection parsing). Floor is 5.2.2; the caret lets Dependabot keep moving. Drop this once markdownlint-cli2 itself requires >=5.2.2.",
   "overrides": {
-    "js-yaml": "5.2.2"
+    "js-yaml": "^5.2.2"
   }
 }
