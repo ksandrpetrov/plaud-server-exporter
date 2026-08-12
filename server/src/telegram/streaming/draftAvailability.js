@@ -1,10 +1,11 @@
 import { logger } from "../../logger.js";
 import { clipTelegramText } from "../messages/format.js";
-import { clipRichMarkdown, isRichMessageUnavailable } from "../richFormat.js";
+import { isRichMessageUnavailable } from "../apiFallback.js";
+import { clipRichMarkdown } from "../richFormat.js";
 import { isDraftUnavailable, isEmptyTextRejected } from "../apiFallback.js";
 
-export const MIN_DRAFT_INTERVAL_MS = 280;
-export const MIN_DRAFT_CHAR_DELTA = 24;
+const MIN_DRAFT_INTERVAL_MS = 280;
+const MIN_DRAFT_CHAR_DELTA = 24;
 
 /**
  * @param {string | { html?: string; richMarkdown?: string | null }} payload

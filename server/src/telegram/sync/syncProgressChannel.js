@@ -3,14 +3,14 @@ import { tryOpenDraft, tryOpenRichDraft } from "../streamingDelivery.js";
 import { editProgressBestEffort } from "./syncProgressPresenter.js";
 
 export const PROGRESS_THROTTLE_MS = 2000;
-export const PROGRESS_THROTTLE_LARGE_MS = 1500;
-export const LARGE_SYNC_TOTAL = 50;
+const PROGRESS_THROTTLE_LARGE_MS = 1500;
+const LARGE_SYNC_TOTAL = 50;
 
 /**
  * @param {Record<string, any>} stats
  * @returns {{ html: string; richMarkdown: string }}
  */
-export function defaultSyncProgressPayload(stats) {
+function defaultSyncProgressPayload(stats) {
   return {
     html: syncProgressHtml(stats),
     richMarkdown: syncProgressRichMarkdown(stats),

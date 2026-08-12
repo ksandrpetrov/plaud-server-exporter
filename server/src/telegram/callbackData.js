@@ -20,7 +20,6 @@ export const CB_SETTINGS_TOGGLE_SUMMARY = "settings_toggle_summary";
 export const CB_FILES = "files";
 export const CB_FILES_TREE = "files_tree";
 export const CB_FILES_TREE_FOLDER_PREFIX = "tf:";
-export const CB_FILES_STATS = "files_stats";
 export const CB_BACK = "back";
 export const CB_BACK_FILES = "back_files";
 export const CB_HELP = "help";

@@ -39,16 +39,10 @@ export function stripExpandableBlockquote(htmlText) {
 }
 
 /**
- * @param {unknown} err
- * @returns {boolean}
- */
-export { isHtmlEntitiesRejected } from "./apiFallback.js";
-
-/**
  * @param {string} htmlText
  * @returns {string}
  */
-export function stripBlockquotes(htmlText) {
+function stripBlockquotes(htmlText) {
   return String(htmlText ?? "")
     .replace(/<blockquote[^>]*>/gi, "")
     .replace(/<\/blockquote>/gi, "");

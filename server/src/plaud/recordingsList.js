@@ -13,7 +13,7 @@ import { resolveFileFolderSegment } from "./plaudFolders.js";
 import { buildFolderResolutionContext } from "./folderResolution.js";
 import { fetchPlaudFiletagList } from "./filetagApi.js";
 
-export async function fetchRecordingsVariant(session, fixedParams, opts = {}) {
+async function fetchRecordingsVariant(session, fixedParams, opts = {}) {
   const { sortBy = session.sortBy, requireArrayOnFirstPage = false } = opts;
   const maxPagesRaw = Number(opts.maxPages);
   const maxPages =

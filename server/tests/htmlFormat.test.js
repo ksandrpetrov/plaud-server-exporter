@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { isHtmlEntitiesRejected } from "../src/telegram/apiFallback.js";
 import {
   blockquote,
   expandableBlockquote,
-  isHtmlEntitiesRejected,
   stripExpandableBlockquote,
   stripUnsupportedHtml,
 } from "../src/telegram/htmlFormat.js";

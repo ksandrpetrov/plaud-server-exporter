@@ -66,7 +66,7 @@ function normalizeTokenResponse(data) {
   };
 }
 
-export function createAuthorizationRequest() {
+function createAuthorizationRequest() {
   const cfg = oauthConfig();
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = generateCodeChallenge(codeVerifier);
@@ -91,7 +91,7 @@ export function createAuthorizationRequest() {
  * @param {string} codeVerifier
  * @param {string} state
  */
-export async function exchangeOAuthCode(code, codeVerifier, state) {
+async function exchangeOAuthCode(code, codeVerifier, state) {
   const cfg = oauthConfig();
   const basicAuth = Buffer.from(`${cfg.clientId}:${cfg.clientSecret}`).toString(
     "base64"
@@ -324,33 +324,4 @@ export async function runInteractiveOAuthLogin() {
     default:
       throw new Error("OAuth login failed.");
   }
-}
-
-/**
- * @returns {Promise<number>}
- */
-export async function validateOAuthSession(session) {
-  const cfg = oauthConfig();
-  const res = await fetch(
-    `${session.apiBase}/open/third-party/files/?page=1&page_size=10`,
-    {
-      headers: {
-        Authorization: session.authHeader,
-        Accept: "application/json",
-        ...cfg.extraHeaders,
-      },
-    }
-  );
-  if (res.status === 401 || res.status === 403) {
-    const { PlaudAuthError } = await import("../plaud/errors.js");
-    throw new PlaudAuthError(
-      `Plaud OAuth token rejected (HTTP ${res.status}).`,
-      res.status
-    );
-  }
-  if (!res.ok) {
-    throw new Error(`Plaud official API HTTP ${res.status}`);
-  }
-  const payload = await res.json();
-  return Array.isArray(payload?.data) ? payload.data.length : 0;
 }

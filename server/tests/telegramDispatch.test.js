@@ -25,7 +25,10 @@ import {
   SYNC_ACTION_MANUAL,
   syncRunGuard,
 } from "../src/telegram/syncGuards.js";
-import { syncBusyText } from "../src/telegram/messages.js";
+import {
+  STALE_CALLBACK_TOAST,
+  syncBusyText,
+} from "../src/telegram/messages.js";
 
 function makeFakeTelegram() {
   const calls = [];
@@ -500,7 +503,7 @@ test("dispatch: callback routing table reaches known menu actions", async () => 
   await withOwnerChatDir(async () => {
     const cases = [
       { data: "files", expectEdit: true },
-      { data: "files_stats", expectEdit: true },
+      { data: "files_tree", expectEdit: true },
       { data: "help", expectEdit: true },
       { data: "back", expectEdit: true },
       { data: "settings_interval_60", expectEdit: true },
@@ -515,6 +518,30 @@ test("dispatch: callback routing table reaches known menu actions", async () => 
         `callback ${data} should ${expectEdit ? "" : "not "}edit the menu bubble`
       );
     }
+  });
+});
+
+/**
+ * Buttons from bot menus that no longer exist (e.g. the removed `files_stats`)
+ * still sit in the owner's chat history. Tapping one must land on the stale
+ * -callback toast, never on an unhandled-callback crash or a silent no-op.
+ */
+test("dispatch: callback_data from a retired menu answers with the stale toast", async () => {
+  await withOwnerChatDir(async () => {
+    const tg = makeFakeTelegram();
+    await dispatchUpdate(
+      ctx(tg),
+      privateCallback({ data: "files_stats", from: OWNER })
+    );
+
+    const answer = tg.calls.find((c) => c.name === "answerCallbackQuery");
+    assert.ok(answer, "retired callback must be answered");
+    assert.equal(answer.args[0].text, STALE_CALLBACK_TOAST);
+    assert.equal(
+      tg.calls.some((c) => c.name === "editMessageText"),
+      false,
+      "retired callback must not repaint the bubble"
+    );
   });
 });
 

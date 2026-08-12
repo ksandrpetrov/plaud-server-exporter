@@ -181,7 +181,7 @@ export function planSummaryPath({
 }
 
 /** Conservative full-path limit (~5% below Windows MAX_PATH 260). */
-export const MAX_FULL_PATH_LENGTH = 240;
+const MAX_FULL_PATH_LENGTH = 240;
 
 /**
  * @param {string} absolutePath

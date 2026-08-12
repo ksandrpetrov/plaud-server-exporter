@@ -12,8 +12,6 @@ import {
   RECORDING_UPDATED_AT_KEYS,
 } from "../../../browser-extension/common/syncCore.js";
 
-export { RECORDING_CREATED_AT_KEYS, RECORDING_UPDATED_AT_KEYS };
-
 /**
  * @param {object | null | undefined} raw
  * @returns {string}

@@ -6,12 +6,6 @@ export async function handleFilesCallback({ ctx, chatId, messageId }) {
   return false;
 }
 
-/** Legacy inline button from older bot menus — open tree instead of disk stats. */
-export async function handleFilesStatsCallback({ ctx, chatId, messageId }) {
-  await showFilesTreeRoot(ctx, { chatId, messageId });
-  return false;
-}
-
 /**
  * @returns {Promise<boolean | null>} null when `data` is not a tree callback
  */

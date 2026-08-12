@@ -1,4 +1,5 @@
-import { isHtmlEntitiesRejected, stripUnsupportedHtml } from "./htmlFormat.js";
+import { isHtmlEntitiesRejected } from "./apiFallback.js";
+import { stripUnsupportedHtml } from "./htmlFormat.js";
 import { isMessageEffectRejected } from "./telegramVisual.js";
 import { TelegramError } from "./transport/telegramErrors.js";
 

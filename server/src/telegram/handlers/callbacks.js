@@ -3,7 +3,6 @@ import {
   CB_BACK,
   CB_BACK_FILES,
   CB_FILES,
-  CB_FILES_STATS,
   CB_FILES_TREE,
   CB_HELP,
   CB_RUN_SYNC,
@@ -37,11 +36,7 @@ import {
 } from "../botMessageUtils.js";
 import { readStatus } from "../../sync/statusReader.js";
 import { SYNC_ACTION_MANUAL, syncRunGuard } from "../syncGuards.js";
-import {
-  handleFilesCallback,
-  handleFilesStatsCallback,
-  routeFilesTreeCallback,
-} from "./filesTree.js";
+import { handleFilesCallback, routeFilesTreeCallback } from "./filesTree.js";
 import {
   handleSetInterval,
   openMenuAtMessage,
@@ -160,7 +155,6 @@ const CALLBACK_HANDLERS = {
   [CB_STATUS]: handleStatusCallback,
   [CB_FILES]: handleFilesCallback,
   [CB_FILES_TREE]: handleFilesCallback,
-  [CB_FILES_STATS]: handleFilesStatsCallback,
   [CB_SETTINGS]: handleSettingsCallback,
   [CB_SETTINGS_TOGGLE_SUMMARY]: handleToggleSummaryCallback,
   [CB_BACK]: handleBackCallback,
@@ -191,5 +185,3 @@ export async function routeCallback(ctx, params) {
   });
   return true;
 }
-
-export { CB_INTERVAL_VALUES, CALLBACK_HANDLERS };

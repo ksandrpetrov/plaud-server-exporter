@@ -9,7 +9,7 @@ import { config } from "../config/config.js";
  * @param {{ authMode?: string }} [session]
  * @returns {ApiMode}
  */
-export function resolveApiMode(session) {
+function resolveApiMode(session) {
   const configured = config.apiMode;
   if (configured === "official") {
     return "official";

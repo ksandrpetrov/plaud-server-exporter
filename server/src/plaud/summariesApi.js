@@ -19,13 +19,9 @@ import {
 } from "../../../browser-extension/common/plaudSummaries.js";
 import { normalizeHumanTitle } from "../../../browser-extension/common/plaudTitles.js";
 
-export {
-  findSummaryNotes,
-  getSummaryNoteTitle,
-  parseSummaryContent,
-  stripPlaudInlineAssets,
-  SUMMARY_NOTE_TYPES,
-} from "../../../browser-extension/common/plaudSummaries.js";
+// Re-exported onward by the `plaudApiClient.js` barrel; the rest of the shared
+// summary helpers are imported straight from `plaudSummaries.js` by consumers.
+export { stripPlaudInlineAssets } from "../../../browser-extension/common/plaudSummaries.js";
 
 async function getNoteRawContent(note) {
   const inline = getNoteInlineContent(note);

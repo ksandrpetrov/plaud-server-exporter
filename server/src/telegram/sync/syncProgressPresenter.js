@@ -25,7 +25,7 @@ import {
 } from "../streamingDelivery.js";
 import { SYNC_THINKING_HOLD_MS } from "../streaming/thinkingDraft.js";
 import { redactError } from "../../security/redact.js";
-import { isRichMessageUnavailable } from "../richFormat.js";
+import { isRichMessageUnavailable } from "../apiFallback.js";
 
 export async function sendOrEditLoading({
   telegram,

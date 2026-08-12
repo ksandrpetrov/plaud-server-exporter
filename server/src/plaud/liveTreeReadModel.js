@@ -13,7 +13,7 @@ import {
 } from "./plaudApiClient.js";
 import { getRecordingCreatedAtIso } from "./recordingTimestamps.js";
 
-export const LIVE_TREE_CACHE_TTL_MS = 15_000;
+const LIVE_TREE_CACHE_TTL_MS = 15_000;
 
 const STATUS_NOT_SYNCED = "not_synced";
 
@@ -146,5 +146,3 @@ function mergeWithSyncIndex(liveTree, syncIndex) {
   }
   return { records: merged };
 }
-
-export { STATUS_NOT_SYNCED };

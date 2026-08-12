@@ -15,7 +15,7 @@ export const EFFECT_SPARKLES = "5089460564141278042";
  * @param {number | null | undefined} chatId
  * @returns {boolean}
  */
-export function isOneToOneChatId(chatId) {
+function isOneToOneChatId(chatId) {
   return Number.isInteger(chatId) && chatId > 0;
 }
 

@@ -5,8 +5,6 @@
  * conservatively at RICH_MARKDOWN_MAX_LEN on line boundaries.
  */
 
-export { isRichMessageUnavailable } from "./apiFallback.js";
-
 /** @type {number} */
 export const RICH_MARKDOWN_MAX_LEN = 30000;
 

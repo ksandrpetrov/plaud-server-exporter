@@ -20,7 +20,7 @@ import {
 import { fetchUrlTextWithRetries } from "./httpTransport.js";
 
 /** Official API rejects page_size below 10. */
-export const OFFICIAL_API_MIN_PAGE_SIZE = 10;
+const OFFICIAL_API_MIN_PAGE_SIZE = 10;
 
 function officialApiUrl(session, path) {
   const base = session.apiBase.endsWith("/")
@@ -57,7 +57,7 @@ async function fetchWithTimeout(url, init, timeoutMs) {
  * @param {string} path
  * @param {{ method?: string; headers?: Record<string, string> }} [options]
  */
-export async function fetchOfficialPlaudApi(session, path, options = {}) {
+async function fetchOfficialPlaudApi(session, path, options = {}) {
   const { method = "GET", headers = {} } = options;
   const url = officialApiUrl(session, path);
   let lastError;
@@ -106,7 +106,7 @@ export async function fetchOfficialPlaudApi(session, path, options = {}) {
  * @param {number} page
  * @param {number} pageSize
  */
-export async function listOfficialFilesPage(session, page, pageSize) {
+async function listOfficialFilesPage(session, page, pageSize) {
   return fetchOfficialPlaudApi(
     session,
     `/open/third-party/files/?page=${page}&page_size=${pageSize}`

@@ -59,7 +59,7 @@ export async function handleStart(ctx, { chatId, from }) {
   });
 }
 
-export function buildMainMenuText(status) {
+function buildMainMenuText(status) {
   return `${MENU_HEADER}\n\n${lastSyncSummaryLine(status)}\n\nВыбери действие:`;
 }
 

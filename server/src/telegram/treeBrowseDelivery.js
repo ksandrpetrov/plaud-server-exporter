@@ -32,11 +32,11 @@ const RICH_PART_LABEL_RESERVE = 80;
 const PLAIN_MESSAGE_MAX_LEN = 3800;
 const PLAIN_PART_LABEL_RESERVE = 80;
 
-export const TREE_SUMMARY_SENT = "sent";
+const TREE_SUMMARY_SENT = "sent";
 export const TREE_SUMMARY_MISSING = "missing";
 export const TREE_SUMMARY_DELIVERY_FAILED = "delivery_failed";
 
-export async function buildDocumentCaption(item) {
+async function buildDocumentCaption(item) {
   const title = documentTitle(item);
   const parts = [title];
   if (item?.date) parts.push(String(item.date));
@@ -44,7 +44,7 @@ export async function buildDocumentCaption(item) {
   return parts.join(" · ");
 }
 
-export function documentTitle(item) {
+function documentTitle(item) {
   return (
     stripLeadingDateFromTreeTitle(
       item?.date,
@@ -53,7 +53,7 @@ export function documentTitle(item) {
   );
 }
 
-export function buildTreeSummaryMarkdown(item, contents) {
+function buildTreeSummaryMarkdown(item, contents) {
   const metadata = [];
   if (item?.date) metadata.push(String(item.date));
   if (item?.folder) metadata.push(String(item.folder));

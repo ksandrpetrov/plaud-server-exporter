@@ -22,7 +22,7 @@
  */
 
 import { logger } from "../logger.js";
-import { isRichMessageUnavailable } from "./richFormat.js";
+import { isRichMessageUnavailable } from "./apiFallback.js";
 
 /**
  * @typedef {{

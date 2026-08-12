@@ -77,7 +77,7 @@ export async function waitAfterTelegram429Ms(
  * @param {number} backoffBaseMs
  * @param {number} backoffCapMs
  */
-export async function parseTelegramResponse(
+async function parseTelegramResponse(
   response,
   methodName,
   sanitize,

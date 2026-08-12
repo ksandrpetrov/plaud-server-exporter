@@ -132,7 +132,7 @@ export async function loadPlaudSessionFromSnapshotDetailed({
  * @param {{ logContext?: string }} [options]
  * @returns {Promise<import("./plaudSessionExtractor.js").PlaudSession | null>}
  */
-export async function loadPlaudSessionFromSnapshot(options) {
+async function loadPlaudSessionFromSnapshot(options) {
   const { session } = await loadPlaudSessionFromSnapshotDetailed(options);
   return session;
 }

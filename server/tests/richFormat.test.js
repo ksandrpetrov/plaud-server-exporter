@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { isRichMessageUnavailable } from "../src/telegram/apiFallback.js";
 import {
   clipRichMarkdown,
-  isRichMessageUnavailable,
   RICH_MARKDOWN_MAX_LEN,
   splitRichMarkdown,
   stripUtf8Bom,

@@ -17,11 +17,8 @@
 
 import { logger } from "../../logger.js";
 import { clipTelegramText } from "../messages/format.js";
-import {
-  clipRichMarkdown,
-  isRichMessageUnavailable,
-  RICH_THINKING_MARKDOWN,
-} from "../richFormat.js";
+import { isRichMessageUnavailable } from "../apiFallback.js";
+import { clipRichMarkdown, RICH_THINKING_MARKDOWN } from "../richFormat.js";
 import {
   isDraftUnavailable,
   isEmptyTextRejected,

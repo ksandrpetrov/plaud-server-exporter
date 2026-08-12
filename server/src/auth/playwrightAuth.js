@@ -96,7 +96,7 @@ async function applyStealth(context) {
  * Interactive login needs a desktop Chrome on your Mac. VPS images have no
  * display and Google blocks headless Chromium sign-in.
  */
-export function assertInteractiveAuthEnvironment() {
+function assertInteractiveAuthEnvironment() {
   const onLinux = process.platform === "linux";
   const hasDisplay = Boolean(
     process.env.DISPLAY || process.env.WAYLAND_DISPLAY

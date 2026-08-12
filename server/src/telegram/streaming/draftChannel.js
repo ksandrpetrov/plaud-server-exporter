@@ -4,7 +4,8 @@
 
 import { logger } from "../../logger.js";
 import { clipTelegramText } from "../messages/format.js";
-import { clipRichMarkdown, isRichMessageUnavailable } from "../richFormat.js";
+import { isRichMessageUnavailable } from "../apiFallback.js";
+import { clipRichMarkdown } from "../richFormat.js";
 import { TelegramError } from "../telegramClient.js";
 import { isDraftUnavailable } from "../apiFallback.js";
 import {

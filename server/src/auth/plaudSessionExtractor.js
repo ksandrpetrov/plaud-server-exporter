@@ -26,7 +26,7 @@ function normalizeBearerToken(token) {
     : `Bearer ${tokenString}`;
 }
 
-export function decodeJwtSubject(token) {
+function decodeJwtSubject(token) {
   try {
     const tokenString = String(parseStoredValue(token) || "")
       .replace(/^Bearer\s+/i, "")
