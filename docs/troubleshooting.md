@@ -18,7 +18,7 @@ sudo install -o plaud -g plaud -m 600 /tmp/oauth-tokens.json /srv/plaud-exporter
 sudo rm -f /tmp/oauth-tokens.json
 ```
 
-**Legacy Playwright snapshot:**
+**Snapshot через Playwright:**
 
 ```bash
 npm run server:auth -- --playwright
@@ -30,7 +30,7 @@ scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
 OAuth refresh на VPS обновляет access token автоматически; повторный `scp` нужен только если refresh token отозван
 (`plaud logout` / смена пароля). Playwright на VPS с 1 GB RAM не запускайте.
 
-Подробнее о режимах auth/API — [plaud-oauth-spike.md](./plaud-oauth-spike.md).
+Подробнее о режимах auth/API — [ARCHITECTURE.md, раздел «Auth и режимы API»](./ARCHITECTURE.md#auth-и-режимы-api).
 
 ## Изменился API Plaud (код выхода 3)
 
@@ -74,12 +74,12 @@ jq '[.records[] | .folderSegment] | group_by(.) | map({folder: .[0], n: length})
 
 **Частые причины:**
 
-| Симптом                                             | Причина                                      | Действие                                                                               |
-| --------------------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Саммари лежат в `Plaud/*.md` (корень), нет подпапок | `PLAUD_MIRROR_FOLDERS=false` или legacy sync | В `.env` задать `PLAUD_MIRROR_FOLDERS=true`, один полный sync (cron или кнопка в боте) |
-| Есть `Plaud/All files/`, нет `Unfiled/`             | Виртуальный тег «All files» (EN Plaud)       | Обновить до версии с фильтром All files → Unfiled; затем sync                          |
-| Другие папки есть, `Unfiled/` нет                   | В Plaud нет записей в Unfiled                | Нормально: папка появится, когда появится первая такая запись                          |
-| В index много `folderSegment: ""`                   | Mirror off или старый индекс                 | Включить mirror и пересинхронизировать                                                 |
+| Симптом                                             | Причина                                                                     | Действие                                                                               |
+| --------------------------------------------------- | --------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Саммари лежат в `Plaud/*.md` (корень), нет подпапок | `PLAUD_MIRROR_FOLDERS=false`, либо sync шёл на official API (папок там нет) | В `.env` задать `PLAUD_MIRROR_FOLDERS=true`, один полный sync (cron или кнопка в боте) |
+| Есть `Plaud/All files/`, нет `Unfiled/`             | Виртуальный тег «All files» (EN Plaud)                                      | Обновить до версии с фильтром All files → Unfiled; затем sync                          |
+| Другие папки есть, `Unfiled/` нет                   | В Plaud нет записей в Unfiled                                               | Нормально: папка появится, когда появится первая такая запись                          |
+| В index много `folderSegment: ""`                   | Mirror off или старый индекс                                                | Включить mirror и пересинхронизировать                                                 |
 
 При `PLAUD_MIRROR_FOLDERS=true` записи без пользовательской папки и с виртуальным «All files» должны попадать в
 `Plaud/Unfiled/`. Файлы из корня `Plaud/` переносятся в `Plaud/Unfiled/` при следующем sync, если mirror включён.

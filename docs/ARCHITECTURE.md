@@ -12,7 +12,7 @@ plaud-server-exporter/
 │   ├── src/
 │   │   ├── cli/                 Точка входа: auth | sync | status | bot | logout
 │   │   ├── config/              dotenv + getters (singleton)
-│   │   ├── auth/                Playwright login, session.json snapshot
+│   │   ├── auth/                OAuth (oauth-tokens.json) + Playwright snapshot (session.json)
 │   │   ├── plaud/               Plaud HTTP API + folders/tags
 │   │   ├── sync/                Цикл экспорта, индекс, lock, filename planner, writer
 │   │   ├── errors/              Классификация ошибок + report в _errors/
@@ -94,13 +94,72 @@ flowchart LR
 
 ## Точки входа
 
-| Команда                 | Что запускается                                                                                                 |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
-| `npm run server:auth`   | [`server/src/cli/index.js`](../server/src/cli/index.js) → Playwright (только Mac) → `server/.data/session.json` |
-| `npm run server:sync`   | CLI → [`server/src/sync/syncRunner.js`](../server/src/sync/syncRunner.js)                                       |
-| `npm run server:status` | CLI → JSON со статусом конфига и сессии                                                                         |
-| `npm run server:bot`    | CLI → [`server/src/telegram/index.js`](../server/src/telegram/index.js) (long-poll + scheduler)                 |
-| Chrome                  | manifest.json → `background.js` + `content.js`                                                                  |
+| Команда                 | Что запускается                                                                                                                                                               |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run server:auth`   | [`server/src/cli/index.js`](../server/src/cli/index.js) → OAuth в браузере (только Mac) → `server/.data/oauth-tokens.json`; с `--playwright` — snapshot-вход в `session.json` |
+| `npm run server:sync`   | CLI → [`server/src/sync/syncRunner.js`](../server/src/sync/syncRunner.js)                                                                                                     |
+| `npm run server:status` | CLI → JSON со статусом конфига и сессии                                                                                                                                       |
+| `npm run server:bot`    | CLI → [`server/src/telegram/index.js`](../server/src/telegram/index.js) (long-poll + scheduler)                                                                               |
+| Chrome                  | manifest.json → `background.js` + `content.js`                                                                                                                                |
+
+## Auth и режимы API
+
+В репозитории **два рабочих стека доступа к Plaud**, и это осознанно: ни один из них
+не покрывает всё.
+
+| `PLAUD_AUTH_MODE`  | `PLAUD_API_MODE`  | Поведение                                                      |
+| ------------------ | ----------------- | -------------------------------------------------------------- |
+| `auto` (по умолч.) | `web` (по умолч.) | OAuth-токены, если они есть, иначе snapshot; web API + папки   |
+| `oauth`            | `official`        | OAuth + Developer API; плоский vault, без зеркалирования папок |
+| `snapshot`         | `web`             | Только snapshot-вход через Playwright                          |
+
+Разводит режимы [`auth/plaudSessionMode.js`](../server/src/auth/plaudSessionMode.js),
+грузит сессию [`auth/loadPlaudSession.js`](../server/src/auth/loadPlaudSession.js).
+Важная деталь: OAuth-сессия **всегда** уходит на official API — access token выдан для
+`platform.plaud.ai/developer/api` и web-эндпоинты его не принимают.
+
+**Почему snapshot нельзя убрать.** Папки Plaud, Unfiled и Trash живут только в web API
+(`/filetag/` + fan-out по папкам). Official Developer API их не документирует, поэтому
+`PLAUD_MIRROR_FOLDERS=true` и группировка в дереве Telegram работают исключительно на
+web-стеке, а он требует JWT из `localStorage` Plaud Web — то есть snapshot.
+
+**Почему OAuth нельзя убрать.** Только он даёт refresh-токен, то есть работу без
+периодического ручного re-auth на Mac и `scp` на сервер.
+
+Оба входа выполняются **только на Mac** — на VPS Playwright не запускаем.
+
+## Plaud API: поверхность
+
+Web API (база — `session.apiBase`, по умолчанию `https://api.plaud.ai`; переопределяется
+через `plaud_user_api_domain` с проверкой `*.plaud.ai`):
+
+| Метод | Путь                              | Назначение                  | Доп. заголовки |
+| ----- | --------------------------------- | --------------------------- | -------------- |
+| GET   | `/file/simple/web?…`              | Пагинированный список       | —              |
+| GET   | `/filetag/` (fallback `/filetag`) | Виртуальные папки/теги      | —              |
+| GET   | `/ai/query_note`                  | Заметки саммари             | `file-id`      |
+| GET   | `<note.data_link>`                | Тело markdown (внешний URL) | без auth Plaud |
+| GET   | `/file/temp-url/{fileId}`         | Presigned URL аудио         | —              |
+
+`/file/temp-url` сервер **не вызывает** — sync summary-only, это закреплено тестом
+`syncAudioDefault.test.js`. Эндпоинт указан, потому что его использует расширение.
+
+Official Developer API (база — `PLAUD_API_BASE`, по умолчанию
+`https://platform.plaud.ai/developer/api`):
+
+| Метод | Путь                                      | Назначение                          |
+| ----- | ----------------------------------------- | ----------------------------------- |
+| GET   | `/open/third-party/files/`                | Список записей (page / page_size)   |
+| GET   | `/open/third-party/files/{id}`            | Запись + `note_list[].data_content` |
+| POST  | `/oauth/third-party/access-token`         | Обмен кода на токены                |
+| POST  | `/oauth/third-party/access-token/refresh` | Обновление токенов                  |
+
+Транспорт web-стека ([`plaud/httpTransport.js`](../server/src/plaud/httpTransport.js)):
+
+- **Редирект региона:** `status === -302`, `data.domains.api` — смена `apiBase` и один повтор.
+- **Backoff:** до 3 попыток, 500 ms → 8 s; на таймаутах, 429, 502–504, сети. На 401/403 — не ретраим.
+- **Таймаут запроса:** 45 с (`PLAUD_API_TIMEOUT_MS`), `AbortController`.
+- Любой 401/403 → `PlaudAuthError` → exit `2` и `lastAuthError` в `status.json`.
 
 ## Поток sync
 
@@ -156,7 +215,8 @@ flowchart LR
 
 | Путь                                | Назначение                                                                                                                                                                                                                                                                          |
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `server/.data/session.json`         | Plaud session (mode `0o600`)                                                                                                                                                                                                                                                        |
+| `server/.data/oauth-tokens.json`    | OAuth access/refresh токены Plaud (mode `0o600`) — основной путь                                                                                                                                                                                                                    |
+| `server/.data/session.json`         | Snapshot сессии Plaud Web (mode `0o600`) — нужен для web API и папок                                                                                                                                                                                                                |
 | `server/.data/sync-index.json`      | Состояние sync (атомик + `.bak`)                                                                                                                                                                                                                                                    |
 | `server/.data/status.json`          | Последний run (для `server:status` и бота); чтение — [`sync/statusReader.js`](../server/src/sync/statusReader.js), запись — [`sync/syncStatusWriter.js`](../server/src/sync/syncStatusWriter.js); нормализация полей — [`sync/statusSchema.js`](../server/src/sync/statusSchema.js) |
 | `server/.data/sync.lock`            | Файловый лок                                                                                                                                                                                                                                                                        |
@@ -215,7 +275,14 @@ npm run verify           # shared common imports + файлы существую
 npm run test:extension   # browser-extension (node:test)
 ```
 
-CI ([`/.github/workflows/ci.yml`](../.github/workflows/ci.yml)) — lint, verify, тесты на Node 22 при push/PR в `main`.
+Полный гейт одной командой — `npm run check` (то же, что гоняет CI).
+
+CI ([`/.github/workflows/ci.yml`](../.github/workflows/ci.yml)) — матрица Node 22.x / 24.x
+на pull request; сами шаги вынесены в переиспользуемый
+[`checks.yml`](../.github/workflows/checks.yml) (lint, typecheck, prettier, оба verify,
+тесты, coverage-пороги на 24.x, smoke импортов, ordering-тесты деплой-скриптов, `npm audit`
+по prod-зависимостям). На push в `main` CI намеренно не запускается — те же checks
+переиспользует Deploy как свой гейт.
 
 Deploy ([`/.github/workflows/deploy.yml`](../.github/workflows/deploy.yml)) на push в `main`: образ в GHCR,
 docker-smoke; опциональный SSH deploy через [`scripts/ci-deploy-remote.sh`](../scripts/ci-deploy-remote.sh) при
@@ -225,7 +292,8 @@ docker-smoke; опциональный SSH deploy через [`scripts/ci-deploy
 
 - БД, очереди, HTTP API — нет и не планируем; всё на файлах.
 - Скачивание аудио с сервера — намеренно отключено (`runSync` summary-only). Аудио — только через Chrome-расширение.
-- Playwright на VPS — не запускать (1 GB RAM, нет дисплея); auth только на Mac.
+- Playwright на VPS — не запускать (1 GB RAM, нет дисплея); auth только на Mac. В прод-образ
+  он тоже не попадает: `Dockerfile` ставит зависимости через `npm ci --omit=dev`.
 - Два параллельных sync на одном vault на разных машинах — `runLock` локальный.
 
 ## Backlog рефакторинга (низкий приоритет)
@@ -237,14 +305,16 @@ docker-smoke; опциональный SSH deploy через [`scripts/ci-deploy
 | `browser-extension/common/syncCore.js`                      | ~560 | Shared contract — двойные тесты            |
 | `server/src/telegram/telegramClient.js`                     | ~430 | Facade; transport в `telegram/transport/*` |
 
-**Сделано (2026-07):** unified `syncProgressChannel`, `treeBrowseDelivery`, `stableIdentity`, extension smart-sync split, popup polling helpers, handler tests. Карта для агентов — [agent-routing.md](./agent-routing.md).
+Закрыто: summary-only sync без аудио-пути, чистый Markdown без frontmatter, единый
+filename planner с лимитами путей, error reporter с редактированием и дедупом, атомарный
+sync-index с `.bak`, run lock с exit `4`, unified `syncProgressChannel`,
+`treeBrowseDelivery`, `stableIdentity`, разбиение extension smart sync, popup polling
+helpers. Подробности каждого шага — в истории git; карта для агентов —
+[agent-routing.md](./agent-routing.md).
 
-## История и связанные документы
+## Связанные документы
 
-- [`docs/server-exporter-research.md`](./server-exporter-research.md) — обоснование портирования расширения в серверный
-  CLI.
-- [`docs/stabilization-audit.md`](./stabilization-audit.md), [`docs/stabilization-result.md`](./stabilization-result.md) — аудит и результат стабилизации (май 2026).
-- [`docs/agent-routing.md`](./agent-routing.md) — быстрая маршрутизация для AI-агентов (2026-07).
+- [`docs/agent-routing.md`](./agent-routing.md) — быстрая маршрутизация для AI-агентов.
 - [`docs/getting-started.md`](./getting-started.md) — установка и первый запуск.
 - [`docs/server-deploy.md`](./server-deploy.md) — продакшен на VPS (systemd или Docker).
 - [`deploy/README.md`](../deploy/README.md) — Docker, Ansible, rolling deploy из CI.

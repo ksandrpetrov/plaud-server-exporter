@@ -38,10 +38,10 @@ Telegram-бота на сервере. Общее описание проект�
 
 ### Два способа входа в Plaud
 
-| Способ                   | Команда                               | Файл                             | Когда выбирать                                               |
-| ------------------------ | ------------------------------------- | -------------------------------- | ------------------------------------------------------------ |
-| **OAuth** (по умолчанию) | `npm run server:auth`                 | `server/.data/oauth-tokens.json` | Проще: браузер → Authorize; токены обновляются сами          |
-| **Playwright** (legacy)  | `npm run server:auth -- --playwright` | `server/.data/session.json`      | Нужны **папки Plaud** на диске (`PLAUD_MIRROR_FOLDERS=true`) |
+| Способ                    | Команда                               | Файл                             | Когда выбирать                                               |
+| ------------------------- | ------------------------------------- | -------------------------------- | ------------------------------------------------------------ |
+| **OAuth** (по умолчанию)  | `npm run server:auth`                 | `server/.data/oauth-tokens.json` | Проще: браузер → Authorize; токены обновляются сами          |
+| **Playwright** (snapshot) | `npm run server:auth -- --playwright` | `server/.data/session.json`      | Нужны **папки Plaud** на диске (`PLAUD_MIRROR_FOLDERS=true`) |
 
 OAuth использует официальный API Plaud **без папок**. Для зеркалирования папок нужен Playwright-снимок и web API.
 
@@ -57,7 +57,7 @@ OAuth использует официальный API Plaud **без папок*
 Цель: убедиться, что Plaud доступен и саммари сохраняются в папку на вашем Mac.
 
 1. **Скачайте проект и поставьте зависимости** — блок [Mac](#mac) ниже (`git clone`, `npm install`,
-   `npx playwright install chromium` — Chromium нужен только для legacy Playwright-входа).
+   `npx playwright install chromium` — Chromium нужен только для snapshot-входа).
 2. **Настройте `.env`:** скопируйте `.env.example` → `.env`, укажите `PLAUD_EXPORT_ROOT` (куда складывать файлы,
    например `~/plaud-exports`) и `PLAUD_TIMEZONE` (ваш часовой пояс, например `Europe/Moscow`).
 3. **Создайте папку выгрузки:** `mkdir -p ~/plaud-exports`.
@@ -67,7 +67,7 @@ OAuth использует официальный API Plaud **без папок*
    npm run server:auth
    ```
 
-   Сохранится `server/.data/oauth-tokens.json`. Для legacy Playwright:
+   Сохранится `server/.data/oauth-tokens.json`. Для snapshot через Playwright:
    `npm run server:auth -- --playwright` → `session.json`.
 
 5. **Проверьте, что доступ есть:**
@@ -126,7 +126,7 @@ OAuth использует официальный API Plaud **без папок*
    scp server/.data/oauth-tokens.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/oauth-tokens.json
    ```
 
-   Legacy Playwright:
+   Snapshot через Playwright:
 
    ```bash
    scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
@@ -142,7 +142,7 @@ OAuth использует официальный API Plaud **без папок*
    sudo rm -f /tmp/oauth-tokens.json
    ```
 
-   Для legacy snapshot вместо этого — `session.json` (см. выше).
+   Для snapshot вместо этого — `session.json` (см. выше).
 
 2. **Про папки Plaud:** при OAuth сервер использует официальный API — **без** filetags/папок.
    Для зеркалирования папок (`PLAUD_MIRROR_FOLDERS=true`) нужен Playwright-снимок (`--playwright`) и web API.
@@ -192,7 +192,7 @@ nginx: [deploy/README.md](../deploy/README.md). Для Obsidian на Mac —
 git clone https://github.com/ksandrpetrov/plaud-server-exporter.git
 cd plaud-server-exporter
 npm install --workspaces
-npx playwright install chromium   # только для legacy --playwright
+npx playwright install chromium   # только для snapshot-входа --playwright
 cp .env.example .env
 ```
 
@@ -202,7 +202,7 @@ cp .env.example .env
 
 ```bash
 npm run server:auth          # OAuth (default) → server/.data/oauth-tokens.json
-npm run server:auth -- --playwright   # legacy → session.json
+npm run server:auth -- --playwright   # snapshot → session.json
 npm run server:sync          # выгрузка .md
 npm run server:status        # проверка доступа и путей
 ```
@@ -269,7 +269,7 @@ sudo -u plaud mkdir -p /srv/plaud-exporter/exports /srv/plaud-exporter/server/.d
    scp server/.data/oauth-tokens.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/oauth-tokens.json
    ```
 
-   Legacy Playwright:
+   Snapshot через Playwright:
 
    ```bash
    scp server/.data/session.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/session.json
@@ -288,7 +288,7 @@ sudo install -o plaud -g plaud -m 600 /tmp/oauth-tokens.json /srv/plaud-exporter
 sudo rm -f /tmp/oauth-tokens.json
 ```
 
-Legacy snapshot вместо OAuth:
+Snapshot вместо OAuth:
 
 ```bash
 sudo install -o plaud -g plaud -m 600 /tmp/session.json /srv/plaud-exporter/server/.data/session.json

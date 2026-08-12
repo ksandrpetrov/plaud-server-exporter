@@ -81,11 +81,11 @@ PLAUD_LOG_LEVEL=info
 
 ```bash
 npm run server:auth                    # OAuth → oauth-tokens.json (auto-refresh на VPS)
-# npm run server:auth -- --playwright  # legacy → session.json (нужен для mirror папок)
+# npm run server:auth -- --playwright  # snapshot → session.json (нужен для mirror папок)
 scp server/.data/oauth-tokens.json YOUR_SSH_USER@YOUR_SERVER_HOST:/tmp/oauth-tokens.json
 ```
 
-Legacy Playwright snapshot (mirror папок `PLAUD_MIRROR_FOLDERS`):
+Snapshot через Playwright (mirror папок `PLAUD_MIRROR_FOLDERS`):
 
 ```bash
 npm run server:auth -- --playwright
@@ -100,7 +100,7 @@ sudo install -o plaud -g plaud -m 600 /tmp/oauth-tokens.json /srv/plaud-exporter
 sudo rm -f /tmp/oauth-tokens.json
 ```
 
-Для legacy snapshot вместо OAuth:
+Для snapshot вместо OAuth:
 
 ```bash
 sudo install -o plaud -g plaud -m 600 /tmp/session.json /srv/plaud-exporter/server/.data/session.json

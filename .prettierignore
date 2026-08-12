@@ -22,7 +22,3 @@ build
 
 # Ansible vault (deploy/) — owned by Ansible formatting
 deploy/ansible
-
-# Documentation that intentionally uses opinionated whitespace
-docs/stabilization-result.md
-docs/stabilization-audit.md

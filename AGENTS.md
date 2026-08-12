@@ -332,4 +332,4 @@ Pre-commit (`simple-git-hooks` + `lint-staged`) ставится при `npm ins
 | Popup wiring  | `popupExportUi.js` (~690 LOC)       | Helpers вынесены; дальше только по задаче |
 | Server facade | `telegramClient.js`, `vaultTree.js` | Transport/orchestration уже разбиты       |
 
-~~Extension god modules~~, ~~server progress dual path~~, ~~stableId drift~~, ~~title heuristics drift~~, ~~getExportModeLabel triple copy~~ — закрыто в architecture pass 2026-07 (см. [stabilization-result.md](docs/stabilization-result.md)).
+~~Extension god modules~~, ~~server progress dual path~~, ~~stableId drift~~, ~~title heuristics drift~~, ~~getExportModeLabel triple copy~~ — закрыто (см. [ARCHITECTURE.md, «Backlog рефакторинга»](docs/ARCHITECTURE.md#backlog-рефакторинга-низкий-приоритет)).

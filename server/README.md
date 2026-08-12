@@ -9,7 +9,7 @@
 
 ## Что делает
 
-1. Читает сохранённый доступ к Plaud (`oauth-tokens.json` после OAuth-входа на Mac; legacy — `session.json` после
+1. Читает сохранённый доступ к Plaud (`oauth-tokens.json` после OAuth-входа на Mac; `session.json` после
    Playwright).
 2. Получает список записей через API Plaud.
 3. Загружает AI-саммари и пишет `.md` в `{vault}/Plaud/` (при зеркалировании папок — `Plaud/{тег}/`).
@@ -25,7 +25,7 @@ Chrome-расширения).
 
 ```bash
 npm install --workspaces
-npx playwright install chromium   # только Mac, для legacy --playwright
+npx playwright install chromium   # только Mac, для snapshot-входа --playwright
 cp .env.example .env
 # Задайте PLAUD_EXPORT_ROOT и PLAUD_TIMEZONE
 
@@ -58,15 +58,15 @@ npm run server:sync
 
 ## Команды
 
-| Команда                               | Описание                                                        |
-| ------------------------------------- | --------------------------------------------------------------- |
-| `npm run server:auth`                 | Вход в Plaud на Mac → `oauth-tokens.json` (OAuth, по умолчанию) |
-| `npm run server:auth -- --playwright` | Legacy Playwright → `session.json` (нужен для папок Plaud)      |
-| `npm run server:sync`                 | Выгрузка саммари (one-shot)                                     |
-| `npm run server:sync -- --dry-run`    | План без записи на диск и без обновления индекса                |
-| `npm run server:status`               | JSON-статус (без секретов)                                      |
-| `npm run server:bot`                  | Запустить Telegram-бот (long-polling + планировщик)             |
-| `node server/src/cli/index.js logout` | Удалить сохранённый доступ (OAuth и/или session snapshot)       |
+| Команда                               | Описание                                                           |
+| ------------------------------------- | ------------------------------------------------------------------ |
+| `npm run server:auth`                 | Вход в Plaud на Mac → `oauth-tokens.json` (OAuth, по умолчанию)    |
+| `npm run server:auth -- --playwright` | Snapshot через Playwright → `session.json` (нужен для папок Plaud) |
+| `npm run server:sync`                 | Выгрузка саммари (one-shot)                                        |
+| `npm run server:sync -- --dry-run`    | План без записи на диск и без обновления индекса                   |
+| `npm run server:status`               | JSON-статус (без секретов)                                         |
+| `npm run server:bot`                  | Запустить Telegram-бот (long-polling + планировщик)                |
+| `node server/src/cli/index.js logout` | Удалить сохранённый доступ (OAuth и/или session snapshot)          |
 
 ### Коды выхода
 
@@ -80,13 +80,13 @@ npm run server:sync
 
 ## Куда пишутся файлы
 
-| Вывод       | Путь                                                                 |
-| ----------- | -------------------------------------------------------------------- |
-| Саммари     | `{PLAUD_EXPORT_ROOT или vault}/Plaud/ГГГГ-ММ-ДД - {название}.md`     |
-| Ошибки      | `{корень vault}/_errors/ГГГГ-ММ-ДД-ЧЧ-ММ-plaud-export-error-*.md`    |
-| Индекс sync | `server/.data/sync-index.json` (не в дереве экспорта)                |
-| Доступ      | `server/.data/oauth-tokens.json` (OAuth) или `session.json` (legacy) |
-| Статус      | `server/.data/status.json`                                           |
+| Вывод       | Путь                                                                   |
+| ----------- | ---------------------------------------------------------------------- |
+| Саммари     | `{PLAUD_EXPORT_ROOT или vault}/Plaud/ГГГГ-ММ-ДД - {название}.md`       |
+| Ошибки      | `{корень vault}/_errors/ГГГГ-ММ-ДД-ЧЧ-ММ-plaud-export-error-*.md`      |
+| Индекс sync | `server/.data/sync-index.json` (не в дереве экспорта)                  |
+| Доступ      | `server/.data/oauth-tokens.json` (OAuth) или `session.json` (snapshot) |
+| Статус      | `server/.data/status.json`                                             |
 
 В `.md` только текст саммари. Технические поля (stable id, hash, пути) — в `sync-index.json`.
 
@@ -106,7 +106,7 @@ npm run server:sync
 
 Общее:
 
-- `server:auth` — **только на Mac**; `oauth-tokens.json` (или legacy `session.json`) копируйте на сервер (`scp`) или в
+- `server:auth` — **только на Mac**; `oauth-tokens.json` (или `session.json`) копируйте на сервер (`scp`) или в
   Docker volume.
 - `server:bot` — основной долгоживущий процесс (systemd или контейнер); вместе с ним поднимается HTTP `/healthz`.
 - `server:sync` — ручные запуски; общий файловый лок не даст столкнуться с ботом.
@@ -124,13 +124,13 @@ Long-polling бот рапортует о каждом синке (как руч
 
 Переменные окружения:
 
-| Переменная                  | Назначение                                                                                        |
-| --------------------------- | ------------------------------------------------------------------------------------------------- |
-| `TELEGRAM_BOT_TOKEN`        | Токен бота от BotFather (без него команда `server:bot` падает с кодом 2)                          |
-| `TELEGRAM_ALLOWED_USER_ID`  | Числовой Telegram user_id владельца (стабильный, рекомендуется)                                   |
-| `TELEGRAM_ALLOWED_USERNAME` | Lowercase username без `@`. Можно как доп. проверку поверх id, либо как fallback в legacy-конфиге |
-| `BOT_SYNC_INTERVAL_MIN`     | Интервал автозапуска синка из бота (по умолчанию `120` минут)                                     |
-| `BOT_LONG_POLL_SEC`         | Таймаут `getUpdates` (по умолчанию `30`)                                                          |
+| Переменная                  | Назначение                                                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `TELEGRAM_BOT_TOKEN`        | Токен бота от BotFather (без него команда `server:bot` падает с кодом 2)                                                 |
+| `TELEGRAM_ALLOWED_USER_ID`  | Числовой Telegram user_id владельца (стабильный, рекомендуется)                                                          |
+| `TELEGRAM_ALLOWED_USERNAME` | Lowercase username без `@`. Можно как доп. проверку поверх id, либо в одиночку, если `TELEGRAM_ALLOWED_USER_ID` не задан |
+| `BOT_SYNC_INTERVAL_MIN`     | Интервал автозапуска синка из бота (по умолчанию `120` минут)                                                            |
+| `BOT_LONG_POLL_SEC`         | Таймаут `getUpdates` (по умолчанию `30`)                                                                                 |
 
 Должно быть задано **хотя бы одно** из `TELEGRAM_ALLOWED_USER_ID` / `TELEGRAM_ALLOWED_USERNAME`. Если задано только
 имя — стартует с warning, потому что username в Telegram перевыпускаемый.
