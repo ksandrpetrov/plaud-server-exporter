@@ -11,3 +11,14 @@ all:
         telegram_allowed_username: "your_username"
         webapp_base_url: "https://your-domain.example/connect"
         plaud_timezone: Europe/Moscow
+
+        # Необязательные. Задавайте только если они уже стоят в .env текущего
+        # хоста — иначе после переезда значение молча вернётся к дефолту.
+        # Сверьтесь перед миграцией:
+        #   grep -oE '^[A-Z_]+=' /srv/plaud-exporter/.env
+        #
+        # plaud_obsidian_subfolder: Plaud      # подпапка внутри vault; дефолт "Plaud"
+        # plaud_obsidian_vault_path: ""        # абсолютный путь к vault; по умолчанию пишем в PLAUD_EXPORT_ROOT
+        # plaud_mirror_folders: "true"         # зеркалить папки Plaud; требует snapshot-входа
+        # plaud_auth_mode: auto                # auto | oauth | snapshot
+        # plaud_api_mode: web                  # web | official | auto
