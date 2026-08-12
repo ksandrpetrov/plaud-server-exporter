@@ -195,7 +195,7 @@ export async function tryOpenDraft({
  * }} params
  * @returns {Promise<number | null>}
  */
-export async function replaceLegacyMessage({
+export async function replaceEditedMessage({
   telegram,
   chatId,
   messageId,

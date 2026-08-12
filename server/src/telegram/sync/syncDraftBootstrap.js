@@ -66,9 +66,9 @@ export async function bootstrapSyncDraftAndPulse(params) {
       loadingMessageId: callbackMessageId,
       text: loadingHtml,
     });
-    delivery.setLegacyMessageId(messageId);
+    delivery.setEditMessageId(messageId);
   } else if (callbackMessageId) {
-    delivery.setLegacyMessageId(callbackMessageId);
+    delivery.setEditMessageId(callbackMessageId);
   }
 
   const pulseFramesHtml = syncLoadingPulseFrames(source);

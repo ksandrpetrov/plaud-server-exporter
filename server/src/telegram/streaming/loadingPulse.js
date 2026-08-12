@@ -1,5 +1,10 @@
 /**
- * Legacy in-chat loading animation via editMessageText.
+ * Анимация загрузки в чате через `editMessageText` — `edit`-ярус доставки.
+ *
+ * Используется, когда `bootstrapSyncDraftAndPulse` не смог открыть черновик
+ * (`draftLive === false`). Это не старый код: открытие черновика падает на
+ * любой сетевой ошибке, а не только на отсутствии метода в Bot API, — см.
+ * шапку `streaming/draftChannel.js`. Draft-путь — `DraftLoadingPulse` там же.
  */
 
 /**

@@ -8,7 +8,7 @@ import {
   tryOpenRichDraft,
 } from "../src/telegram/streaming/draftChannel.js";
 
-test("createSyncProgressDelivery falls back to legacy when draft API missing", async () => {
+test("createSyncProgressDelivery falls back to the edit tier when the draft API fails", async () => {
   const edits = [];
   const sends = [];
   const telegram = {
@@ -35,7 +35,7 @@ test("createSyncProgressDelivery falls back to legacy when draft API missing", a
   await delivery.pushProgress("<b>Step 1</b>");
   assert.ok(
     edits.length >= 1 || sends.length >= 1,
-    "legacy path should update chat"
+    "edit tier should update the chat"
   );
 
   const mid = await delivery.finish({
@@ -44,6 +44,62 @@ test("createSyncProgressDelivery falls back to legacy when draft API missing", a
     messageEffectId: null,
   });
   assert.equal(mid, 10);
+});
+
+/**
+ * Все три метода черновиков есть в актуальном Bot API (sendMessageDraft — 9.5,
+ * sendRichMessageDraft — 10.1), поэтому легко решить, что edit-ярус мёртвый и
+ * его можно удалить. Это не так: `tryOpen*Draft` возвращает false на ЛЮБОЙ
+ * ошибке открытия, включая сетевую. Тест фиксирует, что после такого сбоя
+ * прогресс всё равно доходит до чата, а итог доставляется.
+ */
+test("edit tier still delivers when the draft open fails on a transient network error", async () => {
+  const edits = [];
+  const telegram = {
+    sendRichMessageDraft: async () => {
+      throw new Error("request to api.telegram.org failed: ETIMEDOUT");
+    },
+    sendMessageDraft: async () => {
+      throw new Error("socket hang up");
+    },
+    editMessageText: async (payload) => {
+      edits.push(payload.text);
+      return { message_id: payload.messageId };
+    },
+    sendMessage: async () => ({ message_id: 77 }),
+  };
+
+  const richOpened = await tryOpenRichDraft({
+    telegram,
+    chatId: 1,
+    draftId: 5,
+    initialMarkdown: "## Sync",
+  });
+  const textOpened = await tryOpenDraft({
+    telegram,
+    chatId: 1,
+    draftId: 5,
+    initialText: "",
+  });
+  assert.equal(richOpened, false, "transient error must not count as opened");
+  assert.equal(textOpened, false, "transient error must not count as opened");
+
+  const delivery = createSyncProgressDelivery({
+    telegram,
+    chatId: 1,
+    loadingMessageId: 10,
+    nowMs: () => 0,
+  });
+
+  await delivery.pushProgress("<b>Step 1</b>");
+  assert.deepEqual(edits, ["<b>Step 1</b>"], "progress must still reach chat");
+
+  const mid = await delivery.finish({
+    text: "<b>Done</b>",
+    replyMarkup: null,
+    messageEffectId: null,
+  });
+  assert.equal(mid, 10, "final report must land on the loading bubble");
 });
 
 test("createSyncProgressDelivery deletes stale loading bubble after draft finish send", async () => {

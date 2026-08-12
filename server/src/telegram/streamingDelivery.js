@@ -1,5 +1,5 @@
 /**
- * Streaming sync progress via sendMessageDraft with legacy edit fallback.
+ * Прогресс синка: rich-черновик → текстовый черновик → правка сообщения.
  * Implementation split under `streaming/`; this file re-exports the public API.
  */
 

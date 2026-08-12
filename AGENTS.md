@@ -80,6 +80,16 @@
 
 Streaming Telegram (draft/progress/thinking): barrel [`streamingDelivery.js`](server/src/telegram/streamingDelivery.js) → [`streaming/draftChannel.js`](server/src/telegram/streaming/draftChannel.js) + [`streaming/draftAvailability.js`](server/src/telegram/streaming/draftAvailability.js), progress — [`sync/syncProgressChannel.js`](server/src/telegram/sync/syncProgressChannel.js), tree delivery — [`treeBrowseDelivery.js`](server/src/telegram/treeBrowseDelivery.js). API fallback markers — [`apiFallback.js`](server/src/telegram/apiFallback.js).
 
+> **Три яруса доставки прогресса — не наследие, не удалять.** `rich`
+> (`sendRichMessageDraft`, Bot API 10.1) → `text` (`sendMessageDraft`, 9.5) →
+> `edit` (`editMessageText`). Все три метода есть в актуальном Bot API, поэтому
+> соблазн выкинуть нижние ярусы как «legacy» велик и ошибочен: `tryOpenRichDraft`
+> / `tryOpenDraft` возвращают `false` на **любой** ошибке открытия черновика —
+> таймаут, 429, 5xx, — а не только на «метода нет». `edit` ловит плохую минуту у
+> сети, а не старый API. Инвариант закреплён тестом
+> `syncProgressDelivery.test.js` («edit tier still delivers when the draft open
+> fails on a transient network error»).
+
 Быстрая маршрутизация для агентов: [docs/agent-routing.md](docs/agent-routing.md).
 
 ### Telegram module map (server)

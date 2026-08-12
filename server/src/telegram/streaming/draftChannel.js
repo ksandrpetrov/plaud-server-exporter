@@ -1,5 +1,21 @@
 /**
- * Telegram draft API + legacy edit fallback for sync progress.
+ * Доставка прогресса синка тремя ярусами, от лучшего к самому надёжному:
+ *
+ *   rich  — `sendRichMessageDraft` (Bot API 10.1, июнь 2026)
+ *   text  — `sendMessageDraft`     (Bot API 9.5, март 2026)
+ *   edit  — `editMessageText` / `sendMessage`
+ *
+ * **Ни один ярус не мёртвый, и `edit` — не наследие.** Все три метода есть в
+ * актуальном Bot API, так что в норме работает `rich`. Но `tryOpenRichDraft` /
+ * `tryOpenDraft` возвращают `false` на *любой* ошибке открытия черновика, а не
+ * только на «метода нет»: сетевой сбой, 429, 5xx на старте синка — и ярус
+ * опускается. Поэтому `mode` стартует с `"edit"` и поднимается до draft только
+ * после успешного открытия (см. `sync/syncDraftBootstrap.js`).
+ *
+ * Отсюда правило: **не удалять `edit`-ярус на том основании, что «Bot API давно
+ * умеет черновики»**. Он ловит не старый API, а плохую минуту у сети. Убрать
+ * его — значит превратить единичный таймаут в синк вообще без индикации
+ * прогресса.
  */
 
 import { logger } from "../../logger.js";
@@ -11,7 +27,7 @@ import { isDraftUnavailable } from "../apiFallback.js";
 import {
   deleteStaleProgressMessage,
   normalizeProgressPayload,
-  replaceLegacyMessage,
+  replaceEditedMessage,
   shouldPushDraftUpdate,
   stableDraftId,
 } from "./draftAvailability.js";
@@ -20,7 +36,7 @@ export {
   deleteStaleProgressMessage,
   dismissDraftBubbleBestEffort,
   normalizeProgressPayload,
-  replaceLegacyMessage,
+  replaceEditedMessage,
   stableDraftId,
   tryOpenDraft,
   tryOpenRichDraft,
@@ -42,9 +58,9 @@ export function createSyncProgressDelivery({
   nowMs = () => Date.now(),
 }) {
   const seed = nowMs();
-  let mode = /** @type {"rich" | "text" | "legacy"} */ ("legacy");
+  let mode = /** @type {"rich" | "text" | "edit"} */ ("edit");
   let draftId = stableDraftId(chatId, seed);
-  let legacyMessageId = loadingMessageId;
+  let editMessageId = loadingMessageId;
   let lastDraftMs = 0;
   let lastPushed = "";
   let richDraftFailed = false;
@@ -53,7 +69,7 @@ export function createSyncProgressDelivery({
   return {
     draftId,
     isDraftMode() {
-      if (mode === "legacy") return false;
+      if (mode === "edit") return false;
       if (mode === "rich") return !richDraftFailed;
       return !textDraftFailed;
     },
@@ -66,9 +82,9 @@ export function createSyncProgressDelivery({
       mode = "text";
       textDraftFailed = false;
     },
-    setLegacyMessageId(id) {
+    setEditMessageId(id) {
       const mid = Number(id);
-      if (Number.isInteger(mid) && mid > 0) legacyMessageId = mid;
+      if (Number.isInteger(mid) && mid > 0) editMessageId = mid;
     },
 
     async pushProgress(payload) {
@@ -107,8 +123,8 @@ export function createSyncProgressDelivery({
       }
 
       const clipped = clipTelegramText(html);
-      if (textDraftFailed || mode === "legacy") {
-        await pushLegacy(clipped);
+      if (textDraftFailed || mode === "edit") {
+        await pushViaEdit(clipped);
         return;
       }
       if (!shouldPushDraftUpdate(clipped, lastPushed, lastDraftMs, nowMs)) {
@@ -125,12 +141,15 @@ export function createSyncProgressDelivery({
         mode = "text";
       } catch (err) {
         if (isDraftUnavailable(err)) {
-          logger.info("sendMessageDraft unavailable, using legacy delivery", {
-            error: String(err?.message || err),
-          });
+          logger.info(
+            "sendMessageDraft unavailable, falling back to edit delivery",
+            {
+              error: String(err?.message || err),
+            }
+          );
           textDraftFailed = true;
-          mode = "legacy";
-          await pushLegacy(clipped);
+          mode = "edit";
+          await pushViaEdit(clipped);
           return;
         }
         if (err instanceof TelegramError) {
@@ -156,7 +175,7 @@ export function createSyncProgressDelivery({
             await deleteStaleProgressMessage(
               telegram,
               chatId,
-              legacyMessageId,
+              editMessageId,
               mid
             );
             return mid;
@@ -167,10 +186,10 @@ export function createSyncProgressDelivery({
           });
         }
       }
-      return replaceLegacyMessage({
+      return replaceEditedMessage({
         telegram,
         chatId,
-        messageId: legacyMessageId,
+        messageId: editMessageId,
         text: clipped,
         replyMarkup,
         messageEffectId,
@@ -178,18 +197,18 @@ export function createSyncProgressDelivery({
     },
   };
 
-  async function pushLegacy(text) {
-    if (legacyMessageId) {
+  async function pushViaEdit(text) {
+    if (editMessageId) {
       try {
         await telegram.editMessageText({
           chatId,
-          messageId: legacyMessageId,
+          messageId: editMessageId,
           text,
           replyMarkup: null,
         });
         return;
       } catch (err) {
-        logger.debug?.("Legacy progress edit failed", {
+        logger.debug?.("Edit-tier progress update failed", {
           error: String(err?.message || err),
         });
       }
@@ -201,9 +220,9 @@ export function createSyncProgressDelivery({
         replyMarkup: null,
       });
       const mid = Number(result?.message_id);
-      if (Number.isInteger(mid)) legacyMessageId = mid;
+      if (Number.isInteger(mid)) editMessageId = mid;
     } catch (err) {
-      logger.debug?.("Legacy progress send failed", {
+      logger.debug?.("Edit-tier progress send failed", {
         error: String(err?.message || err),
       });
     }
