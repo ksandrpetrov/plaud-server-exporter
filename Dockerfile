@@ -38,7 +38,7 @@ RUN chmod -R a+rX /app/server/src /app/browser-extension/common /app/scripts \
 USER node
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-    CMD curl -f "http://127.0.0.1:${WEBAPP_PORT}/healthz" || exit 1
+    CMD ["sh", "-c", "exec curl -f \"http://127.0.0.1:${WEBAPP_PORT}/healthz\""]
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "server/src/cli/index.js", "bot"]
