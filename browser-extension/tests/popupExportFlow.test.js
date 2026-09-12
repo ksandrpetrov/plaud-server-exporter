@@ -295,3 +295,18 @@ test("initial status timeout and late response leave state unchanged", () => {
   assert.equal(f.ctx.exportActive, false);
   assert.equal(f.intervals.size, 0);
 });
+
+for (const otherTab of [false, true]) {
+  test(`running export without counters keeps polling; otherTab=${otherTab}`, () => {
+    const f = setup();
+    if (otherTab) f.ctx.isPlaudTab = () => false;
+    f.ctx.checkExportStatus();
+    f.messages.shift().cb(null, { success: true, isRunning: true, tabId: 9 });
+    assert.equal(f.ctx.exportActive, true);
+    assert.equal(f.intervals.size, 1);
+    f.tick();
+    f.messages.shift().cb(null, { success: true, isRunning: false });
+    assert.equal(f.ctx.exportActive, false);
+    assert.equal(f.intervals.size, 0);
+  });
+}

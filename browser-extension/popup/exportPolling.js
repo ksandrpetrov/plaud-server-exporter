@@ -153,8 +153,8 @@
                     ctx.exportPollTransientErrors = 0;
                     if (anyResp.exportData) {
                       ctx.updateExportStatus(anyResp.exportData);
-                      ctx.startStatusPolling();
                     }
+                    ctx.startStatusPolling();
                     ctx.updateActivityIndicators();
                   } else {
                     ctx.stopStatusPolling();
@@ -184,8 +184,9 @@
                   ctx.currentExportTabId = ctx.exportActive
                     ? statusTabId
                     : null;
-                  if (ctx.exportActive && response.exportData) {
-                    ctx.updateExportStatus(response.exportData);
+                  if (ctx.exportActive) {
+                    if (response.exportData)
+                      ctx.updateExportStatus(response.exportData);
                     ctx.startStatusPolling();
                   } else {
                     ctx.stopStatusPolling();
