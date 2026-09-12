@@ -30,8 +30,10 @@
     "format": "prettier --write \"**/*.{js,mjs,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{js,mjs,json,md,yml,yaml}\"",
     "lint:markdown": "markdownlint-cli2",
-    "check": "npm run lint && npm run lint:extension && npm run typecheck && npm run format:check && npm run lint:markdown && npm run verify && npm run verify:extension && npm test && npm run test:extension && node scripts/smoke_container.mjs",
-    "prepare": "simple-git-hooks || true"
+    "check": "npm run lint && npm run lint:extension && npm run typecheck && npm run format:check && npm run lint:markdown && npm run verify && npm run verify:extension && npm test && npm run test:extension && node scripts/smoke_container.mjs && npm run test:infra",
+    "prepare": "simple-git-hooks || true",
+    "test:infra": "bash scripts/ci-deploy-remote.test.sh && bash scripts/ci-deploy-systemd-remote.test.sh",
+    "test:browser": "node scripts/popup-browser-smoke.mjs"
   },
   "simple-git-hooks": {
     "pre-commit": "npx lint-staged"

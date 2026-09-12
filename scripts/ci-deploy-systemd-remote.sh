@@ -54,7 +54,9 @@ echo "==> Preflight + deploy (resolve repo path on host)"
 remote \
   env DEPLOY_REPO_DIR="${DEPLOY_REPO_DIR}" SYSTEMD_UNIT="${SYSTEMD_UNIT}" GIT_REF="${GIT_REF}" \
   GITHUB_REPOSITORY="${GITHUB_REPOSITORY}" GIT_FETCH_TOKEN="${GIT_FETCH_TOKEN}" \
-  bash -s <<'REMOTE_SCRIPT'
+  bash -s < <(
+cat "$(dirname "$0")/resolve-systemd-checkout.sh"
+cat <<'REMOTE_SCRIPT'
 set -euo pipefail
 
 UNIT="${SYSTEMD_UNIT:-plaud-exporter.service}"
@@ -73,70 +75,8 @@ if [[ -n "$UNIT_LOAD_STATE" && "$UNIT_LOAD_STATE" != "not-found" ]]; then
   fi
 fi
 
-CANDIDATES=()
-if [[ -n "$REQUESTED" ]]; then
-  CANDIDATES+=("$REQUESTED")
-fi
-CANDIDATES+=(
-  "/srv/plaud-exporter"
-  "/opt/plaud-server-exporter"
-  "/home/plaud/plaud-server-exporter"
-)
-
-case "$UNIT_WORKDIR" in
-  /srv/* | /opt/* | /home/*)
-    CANDIDATES+=("$UNIT_WORKDIR")
-    ;;
-esac
-
-# Recover installations that were moved outside the historical fixed paths.
-# Only directories with the protected environment file and Plaud-specific
-# repository/state markers are considered; discovered paths are not logged.
-AUTO_CANDIDATES=()
-while IFS= read -r env_file; do
-  dir="${env_file%/.env}"
-  if grep -Eq '"name"[[:space:]]*:[[:space:]]*"plaud-server-exporter"' "$dir/package.json" 2>/dev/null ||
-    [[ -f "$dir/server/.data/session.json" || -f "$dir/server/.data/owner-chat.json" ]]; then
-    AUTO_CANDIDATES+=("$dir")
-  fi
-done < <(find /srv /opt /home -mindepth 2 -maxdepth 6 -type f -name .env -print 2>/dev/null | sort -u)
-AUTO_DISCOVERED="${#AUTO_CANDIDATES[@]}"
-if [[ "$AUTO_DISCOVERED" -eq 1 ]]; then
-  CANDIDATES+=("${AUTO_CANDIDATES[0]}")
-fi
-
-REPO=""
-for dir in "${CANDIDATES[@]}"; do
-  [[ -n "$dir" && -d "$dir/.git" && -f "$dir/.env" ]] || continue
-  REPO="$dir"
-  break
-done
-
-BOOTSTRAP_GIT=false
-if [[ -z "$REPO" && "$UNIT_EXISTS" == "true" && -n "$UNIT_WORKDIR" ]]; then
-  # The service unit is the authoritative fallback after an incomplete/manual
-  # migration that left the application files and state but removed .git.
-  case "$UNIT_WORKDIR" in
-    /srv/* | /opt/* | /home/*)
-      if [[ -d "$UNIT_WORKDIR" && -f "$UNIT_WORKDIR/.env" ]]; then
-        REPO="$UNIT_WORKDIR"
-        BOOTSTRAP_GIT=true
-      fi
-      ;;
-  esac
-fi
-
-if [[ -z "$REPO" ]]; then
-  # A previous partial migration could remove the unit and .git while leaving
-  # the application state intact. Recover only a known/requested candidate that
-  # still has its protected environment file.
-  for dir in "${CANDIDATES[@]}"; do
-    [[ -n "$dir" && -d "$dir" && -f "$dir/.env" ]] || continue
-    REPO="$dir"
-    BOOTSTRAP_GIT=true
-    break
-  done
-fi
+# Resolve without mutating service or checkout; failure leaves both untouched.
+resolve_systemd_checkout "$REQUESTED" "$UNIT_WORKDIR" || true
 
 if [[ -z "$REPO" ]]; then
   echo "ci-deploy-systemd-remote: no deployable Plaud checkout found (unit_state=${UNIT_LOAD_STATE:-unknown}, auto_discovered=$AUTO_DISCOVERED)." >&2
@@ -260,5 +200,6 @@ systemctl status "$UNIT" --no-pager -l || true
 journalctl -u "$UNIT" -n 40 --no-pager || true
 exit 1
 REMOTE_SCRIPT
+)
 
 echo "Deploy finished (systemd) @ origin/${GIT_REF}"

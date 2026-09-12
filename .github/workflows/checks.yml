@@ -58,6 +58,14 @@ jobs:
         if: inputs.node-version == '24.x'
         run: npm run test:coverage
 
+      - name: Install browser for offline popup smoke
+        if: inputs.node-version == '24.x'
+        run: npx playwright install --with-deps chromium
+
+      - name: Offline popup browser smoke
+        if: inputs.node-version == '24.x'
+        run: npm run test:browser
+
       - name: Upload coverage artifact
         if: inputs.node-version == '24.x'
         uses: actions/upload-artifact@v7

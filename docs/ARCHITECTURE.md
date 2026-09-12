@@ -318,3 +318,17 @@ helpers. Подробности каждого шага — в истории gi
 - [`docs/getting-started.md`](./getting-started.md) — установка и первый запуск.
 - [`docs/server-deploy.md`](./server-deploy.md) — продакшен на VPS (systemd или Docker).
 - [`deploy/README.md`](../deploy/README.md) — Docker, Ansible, rolling deploy из CI.
+
+## Границы модулей после переработки
+
+Popup export инициализируется через `popupExportUi.js`: `exportView.js` отображает
+состояние, `exportPolling.js` владеет опросом и отменой ожиданий, `exportActions.js`
+связывает действия и runtime-сообщения. Их classic scripts загружаются перед
+инициализацией popup; расширять существующий слой предпочтительнее добавления
+нового глобального контроллера.
+
+`plaudBrowserSession.js` сохраняет публичный фасад. `plaudSessionReader.js`
+интерпретирует один снимок storage без DOM, `plaudSessionStorage.js` читает браузерное
+хранилище и выполняет ограниченный по времени handshake. Снимки токенов не кешируются
+между вызовами. Серверный `util/fetchWithTimeout.js` держит таймаут до завершения
+переданного обработчика response, включая чтение тела.

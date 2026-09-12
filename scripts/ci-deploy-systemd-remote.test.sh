@@ -40,11 +40,6 @@ if ! grep -q 'npm install --workspaces' "$SCRIPT"; then
   exit 1
 fi
 
-if ! grep -q '/opt/plaud-server-exporter' "$SCRIPT"; then
-  echo "ci-deploy-systemd-remote.test: missing alternate repo path probe" >&2
-  exit 1
-fi
-
 if ! grep -q 'refusing deploy because.*\.env is missing' "$SCRIPT"; then
   echo "ci-deploy-systemd-remote.test: missing state-preserving .env guard" >&2
   exit 1
@@ -60,19 +55,21 @@ if ! grep -q 'deployed commit mismatch' "$SCRIPT" || ! grep -q '/healthz' "$SCRI
   exit 1
 fi
 
-if ! grep -q 'UNIT_EXISTS=false' "$SCRIPT" || ! grep -q 'previous partial migration could remove the unit' "$SCRIPT"; then
-  echo "ci-deploy-systemd-remote.test: missing deleted-unit recovery path" >&2
-  exit 1
-fi
-
-if ! grep -q 'property=LoadState' "$SCRIPT" || ! grep -q 'AUTO_DISCOVERED' "$SCRIPT"; then
-  echo "ci-deploy-systemd-remote.test: missing loaded-unit or safe checkout discovery" >&2
-  exit 1
-fi
-
-if ! grep -q 'find /srv /opt /home' "$SCRIPT" || ! grep -q 'plaud-server-exporter' "$SCRIPT"; then
-  echo "ci-deploy-systemd-remote.test: checkout discovery is not restricted to Plaud markers" >&2
-  exit 1
-fi
-
+bash "$ROOT/scripts/resolve-systemd-checkout.test.sh"
+# Verify the actual SSH payload contains the helper, without contacting a host.
+fixture="$(mktemp -d)"
+trap 'rm -rf "$fixture"' EXIT
+cat > "$fixture/ssh" <<'FAKE_SSH'
+#!/usr/bin/env bash
+cat > "$PAYLOAD_PATH"
+FAKE_SSH
+chmod +x "$fixture/ssh"
+env -i PATH="$fixture:$PATH" PAYLOAD_PATH="$fixture/payload.sh" \
+  DEPLOY_HOST=fixture.invalid DEPLOY_USER=fixture \
+  bash "$SCRIPT" > /dev/null
+bash -n "$fixture/payload.sh"
+grep -q '^resolve_systemd_checkout()' "$fixture/payload.sh"
+selector_line="$(grep -n '^resolve_systemd_checkout "' "$fixture/payload.sh" | cut -d: -f1)"
+mutation_line="$(grep -n 'sudo systemctl stop' "$fixture/payload.sh" | head -1 | cut -d: -f1)"
+[[ "$selector_line" -lt "$mutation_line" ]]
 echo "ci-deploy-systemd-remote.test: OK"
