@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "../util/fetchWithTimeout.js";
 /**
  * HTTP transport for the internal Plaud API.
  *
@@ -38,16 +39,6 @@ function sleepMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchWithTimeout(url, init, timeoutMs) {
-  const controller = new AbortController();
-  const tid = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(tid);
-  }
-}
-
 function normalizeApiBase(rawBase) {
   const parsed =
     typeof rawBase === "object" && rawBase ? rawBase.domain : rawBase;
@@ -68,12 +59,20 @@ async function fetchPlaudApiOnce(session, path, options = {}) {
   const { retryDomainSwitch = true, headers = {}, method = "GET" } = options;
   const url = new URL(path, session.apiBase);
   let response;
+  let payload;
   try {
-    response = await fetchWithTimeout(
+    ({ response, payload } = await fetchWithTimeout(
       url.toString(),
       { method, headers: buildPlaudHeaders(session, headers) },
-      config.apiTimeoutMs
-    );
+      config.apiTimeoutMs,
+      async (response) => {
+        const payload = await response.json().catch((error) => {
+          if (error?.name === "AbortError") throw error;
+          return null;
+        });
+        return { response, payload };
+      }
+    ));
   } catch (error) {
     if (error?.name === "AbortError") {
       throw new Error(`Plaud API timeout (${config.apiTimeoutMs} ms)`, {
@@ -82,8 +81,6 @@ async function fetchPlaudApiOnce(session, path, options = {}) {
     }
     throw error;
   }
-
-  const payload = await response.json().catch(() => null);
 
   if (
     retryDomainSwitch &&
@@ -167,21 +164,18 @@ export async function fetchUrlTextWithRetries(url) {
   for (let attempt = 0; attempt < max; attempt++) {
     if (attempt > 0) await sleepMs(Math.min(8000, 500 * 2 ** (attempt - 1)));
     try {
-      const response = await fetchWithTimeout(url, {}, config.apiTimeoutMs);
-      if (!response.ok) {
-        const err = new Error(
-          `HTTP ${response.status} when fetching summary body`
-        );
-        if (
-          ![429, 502, 503, 504].includes(response.status) ||
-          attempt >= max - 1
-        ) {
-          throw err;
+      return await fetchWithTimeout(
+        url,
+        {},
+        config.apiTimeoutMs,
+        async (response) => {
+          if (!response.ok)
+            throw new Error(
+              `HTTP ${response.status} when fetching summary body`
+            );
+          return response.text();
         }
-        lastError = err;
-        continue;
-      }
-      return await response.text();
+      );
     } catch (error) {
       lastError = error;
       if (!shouldRetryFetchAttempt(error) || attempt >= max - 1) throw error;

@@ -125,3 +125,17 @@ bash scripts/docker-smoke-image.sh plaud-exporter:smoke   # build + smoke run
   root entrypoints, `background/`, `content/`, `features/`, `popup/` и `common/`.
 
 См. [AGENTS.md](../AGENTS.md) для карты репозитория и команд.
+
+## Offline browser smoke и рефакторинг
+
+`npm run test:browser` запускает настоящий Chromium с локальным popup и подменой
+Chrome API; внешние запросы запрещены. Первый локальный запуск требует
+`npx playwright install chromium`. CI запускает smoke на Node 24 после установки
+браузера. Он проверяет старт, прогресс, остановку, ошибку и повторную загрузку UI.
+
+`npm run check` также запускает `npm run test:infra`: проверки порядка деплоя и
+поведенческие тесты выбора checkout. Для popup export lifecycle действует отдельный
+coverage scope (70% строк / 60% ветвей / 75% функций). Новые модули чтения сессии
+и HTTP входят в обязательный список LCOV.
+
+Основания изменений и границы проверки: [maintenance-audit.md](maintenance-audit.md).

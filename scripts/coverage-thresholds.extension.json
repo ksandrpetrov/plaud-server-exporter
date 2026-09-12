@@ -10,7 +10,18 @@
     "features/audioExport/extensionExportAll.js",
     "features/audioExport/extensionSmartSync.js",
     "features/audioExport/extensionSyncExecutor.js",
-    "features/audioExport/plaudBrowserSession.js"
+    "features/audioExport/plaudBrowserSession.js",
+    "features/audioExport/plaudSessionReader.js",
+    "features/audioExport/plaudSessionStorage.js",
+    "features/audioExport/plaudBrowserApi.js",
+    "features/audioExport/plaudMediaFetch.js",
+    "features/audioExport/plaudFetchRetry.js",
+    "popup/popupExportUi.js",
+    "popup/exportView.js",
+    "popup/exportPolling.js",
+    "popup/exportActions.js",
+    "popup/exportStatusPolling.js",
+    "popup/exportForegroundFlow.js"
   ],
   "scopes": [
     {
@@ -33,11 +44,30 @@
         "features/audioExport/extensionExportAll.js",
         "features/audioExport/extensionSmartSync.js",
         "features/audioExport/extensionSyncExecutor.js",
-        "features/audioExport/plaudBrowserSession.js"
+        "features/audioExport/plaudBrowserSession.js",
+        "features/audioExport/plaudSessionReader.js",
+        "features/audioExport/plaudSessionStorage.js",
+        "features/audioExport/plaudBrowserApi.js",
+        "features/audioExport/plaudMediaFetch.js",
+        "features/audioExport/plaudFetchRetry.js"
       ],
       "lines": 75,
       "branches": 65,
       "functions": 70
+    },
+    {
+      "name": "popup export lifecycle",
+      "include": [
+        "popup/popupExportUi.js",
+        "popup/exportView.js",
+        "popup/exportPolling.js",
+        "popup/exportActions.js",
+        "popup/exportStatusPolling.js",
+        "popup/exportForegroundFlow.js"
+      ],
+      "lines": 70,
+      "branches": 60,
+      "functions": 75
     }
   ]
 }

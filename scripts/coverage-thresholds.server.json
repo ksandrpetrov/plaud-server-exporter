@@ -2,5 +2,13 @@
   "include": "src/",
   "lines": 85,
   "branches": 65,
-  "functions": 80
+  "functions": 80,
+  "requiredFiles": [
+    "src/sync/syncRunner.js",
+    "src/util/atomicJson.js",
+    "src/util/fetchWithTimeout.js",
+    "src/plaud/httpTransport.js",
+    "src/plaud/officialPlaudApi.js",
+    "src/telegram/handlers/dispatch.js"
+  ]
 }

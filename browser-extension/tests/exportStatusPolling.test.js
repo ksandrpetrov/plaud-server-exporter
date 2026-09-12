@@ -37,7 +37,7 @@ test("resolveExportStatusTabId prefers active export tab", () => {
   );
 });
 
-test("createExportStatusFinalizer dedupes and fires timeout", () => {
+test("createExportStatusFinalizer deduplicates successful responses", () => {
   let calls = 0;
   const timers = [];
   const finalizer = PP.createExportStatusFinalizer({
@@ -61,4 +61,47 @@ test("createExportStatusFinalizer dedupes and fires timeout", () => {
 test("shouldStopExportPollingAfterErrors stops after threshold", () => {
   assert.equal(PP.shouldStopExportPollingAfterErrors(3), false);
   assert.equal(PP.shouldStopExportPollingAfterErrors(4), true);
+});
+
+test("finalizer times out exactly once and ignores a late response", () => {
+  let fire;
+  let cleared = 0;
+  const results = [];
+  const finalizer = PP.createExportStatusFinalizer({
+    setTimer(fn) {
+      fire = fn;
+      return 1;
+    },
+    clearTimer() {
+      cleared++;
+    },
+    onFinalize(error, response) {
+      results.push({ error, response });
+    },
+  });
+  fire();
+  finalizer.finalize(null, { success: true });
+  assert.equal(results.length, 1);
+  assert.match(results[0].error.message, /timeout/);
+  assert.equal(results[0].response, null);
+  assert.equal(cleared, 1);
+});
+
+test("cancelling finalizer suppresses both timer and response", () => {
+  let fire;
+  let calls = 0;
+  const finalizer = PP.createExportStatusFinalizer({
+    setTimer(fn) {
+      fire = fn;
+      return 1;
+    },
+    clearTimer() {},
+    onFinalize() {
+      calls++;
+    },
+  });
+  finalizer.cancel();
+  fire();
+  finalizer.finalize(null, { success: true });
+  assert.equal(calls, 0);
 });

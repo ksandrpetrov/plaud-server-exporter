@@ -20,7 +20,14 @@
  * (mode 0o600, atomic rename).
  */
 
-import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  readFile,
+  rename,
+  writeFile,
+  rm,
+} from "node:fs/promises";
 import { dirname } from "node:path";
 import { logger } from "../logger.js";
 
@@ -36,7 +43,7 @@ function tempPathFor(path) {
 
 /**
  * Atomically write a JSON file at `path`. Creates the parent directory if
- * missing, writes to a unique temp file, then renames over `path`. Sets mode
+ * missing, creates a private temp file, then renames over `path`. Reapplies
  * `0o600` afterwards (`docs/security.md`); pass `mode: null` to skip the
  * chmod for files that intentionally need a different mode.
  *
@@ -47,19 +54,34 @@ function tempPathFor(path) {
  */
 export async function writeJsonAtomic(path, value, options = {}) {
   const { mode = 0o600, indent = 2 } = options;
-  await mkdir(dirname(path), { recursive: true });
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
 
   const payload = `${JSON.stringify(value, null, indent)}\n`;
   const tmp = tempPathFor(path);
-  await writeFile(tmp, payload, "utf8");
-  await rename(tmp, path);
+  try {
+    await writeFile(tmp, payload, {
+      encoding: "utf8",
+      mode: mode ?? undefined,
+      flag: "wx",
+    });
+    await rename(tmp, path);
+  } catch (error) {
+    if (error?.code !== "EEXIST") {
+      await rm(tmp, { force: true }).catch((cleanupError) => {
+        logger.warn("Failed to clean temporary JSON file", {
+          error: String(cleanupError?.message || cleanupError),
+        });
+      });
+    }
+    throw error;
+  }
 
   if (mode != null) {
     try {
       await chmod(path, mode);
     } catch {
       // chmod is best-effort: Windows + some FUSE mounts refuse it and the
-      // file is still in place with whatever umask gave us.
+      // file still has its creation mode, possibly restricted further by umask.
     }
   }
 }

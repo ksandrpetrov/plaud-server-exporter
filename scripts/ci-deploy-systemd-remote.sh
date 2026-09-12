@@ -54,7 +54,9 @@ echo "==> Preflight + deploy (resolve repo path on host)"
 remote \
   env DEPLOY_REPO_DIR="${DEPLOY_REPO_DIR}" SYSTEMD_UNIT="${SYSTEMD_UNIT}" GIT_REF="${GIT_REF}" \
   GITHUB_REPOSITORY="${GITHUB_REPOSITORY}" GIT_FETCH_TOKEN="${GIT_FETCH_TOKEN}" \
-  bash -s <<'REMOTE_SCRIPT'
+  bash -s < <(
+cat "$(dirname "$0")/resolve-systemd-checkout.sh"
+cat <<'REMOTE_SCRIPT'
 set -euo pipefail
 
 UNIT="${SYSTEMD_UNIT:-plaud-exporter.service}"
@@ -63,67 +65,21 @@ REQUESTED="${DEPLOY_REPO_DIR:-}"
 
 UNIT_EXISTS=false
 UNIT_WAS_ACTIVE=false
-if systemctl list-unit-files "$UNIT" &>/dev/null; then
+UNIT_WORKDIR=""
+UNIT_LOAD_STATE="$(systemctl show "$UNIT" --property=LoadState --value 2>/dev/null || true)"
+if [[ -n "$UNIT_LOAD_STATE" && "$UNIT_LOAD_STATE" != "not-found" ]]; then
   UNIT_EXISTS=true
+  UNIT_WORKDIR="$(systemctl show "$UNIT" --property=WorkingDirectory --value 2>/dev/null || true)"
   if systemctl is-active --quiet "$UNIT"; then
     UNIT_WAS_ACTIVE=true
   fi
 fi
 
-CANDIDATES=()
-if [[ -n "$REQUESTED" ]]; then
-  CANDIDATES+=("$REQUESTED")
-fi
-CANDIDATES+=(
-  "/srv/plaud-exporter"
-  "/opt/plaud-server-exporter"
-  "/home/plaud/plaud-server-exporter"
-)
-
-REPO=""
-for dir in "${CANDIDATES[@]}"; do
-  [[ -n "$dir" && -d "$dir/.git" ]] || continue
-  REPO="$dir"
-  break
-done
-
-BOOTSTRAP_GIT=false
-if [[ -z "$REPO" && "$UNIT_EXISTS" == "true" ]]; then
-  # The service unit is the authoritative fallback after an incomplete/manual
-  # migration that left the application files and state but removed .git.
-  UNIT_WORKDIR="$(systemctl show "$UNIT" --property=WorkingDirectory --value)"
-  case "$UNIT_WORKDIR" in
-    /srv/plaud-exporter | /opt/plaud-server-exporter | /home/plaud/plaud-server-exporter)
-      if [[ -d "$UNIT_WORKDIR" ]]; then
-        REPO="$UNIT_WORKDIR"
-        BOOTSTRAP_GIT=true
-      fi
-      ;;
-  esac
-fi
-
-if [[ -z "$REPO" && "$UNIT_EXISTS" == "true" && -n "$REQUESTED" && -d "$REQUESTED" ]]; then
-  UNIT_WORKDIR="$(systemctl show "$UNIT" --property=WorkingDirectory --value)"
-  if [[ "$UNIT_WORKDIR" == "$REQUESTED" ]]; then
-    REPO="$REQUESTED"
-    BOOTSTRAP_GIT=true
-  fi
-fi
+# Resolve without mutating service or checkout; failure leaves both untouched.
+resolve_systemd_checkout "$REQUESTED" "$UNIT_WORKDIR" || true
 
 if [[ -z "$REPO" ]]; then
-  # A previous partial migration could remove the unit and .git while leaving
-  # the application state intact. Recover only a known/requested candidate that
-  # still has its protected environment file.
-  for dir in "${CANDIDATES[@]}"; do
-    [[ -n "$dir" && -d "$dir" && -f "$dir/.env" ]] || continue
-    REPO="$dir"
-    BOOTSTRAP_GIT=true
-    break
-  done
-fi
-
-if [[ -z "$REPO" ]]; then
-  echo "ci-deploy-systemd-remote: no repository or allowed systemd workdir found. Tried: ${CANDIDATES[*]}" >&2
+  echo "ci-deploy-systemd-remote: no deployable Plaud checkout found (unit_state=${UNIT_LOAD_STATE:-unknown}, auto_discovered=$AUTO_DISCOVERED)." >&2
   if [[ -f /opt/plaud-exporter/docker-compose.yml ]]; then
     echo "ci-deploy-systemd-remote: /opt/plaud-exporter has Docker — set PRODUCTION_DOCKER_DEPLOY=true in GitHub Variables." >&2
   fi
@@ -244,5 +200,6 @@ systemctl status "$UNIT" --no-pager -l || true
 journalctl -u "$UNIT" -n 40 --no-pager || true
 exit 1
 REMOTE_SCRIPT
+)
 
 echo "Deploy finished (systemd) @ origin/${GIT_REF}"

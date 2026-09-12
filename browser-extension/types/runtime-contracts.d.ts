@@ -512,6 +512,9 @@ interface PopupNamespace {
   initMessaging?(context: PopupContext): void;
   initStats?(context: PopupContext): void;
   initSync?(context: PopupContext): void;
+  initExportView?(context: PopupContext): void;
+  initExportPolling?(context: PopupContext): void;
+  initExportActions?(context: PopupContext): void;
   initExport?(context: PopupContext): void;
   initTabs?(context: PopupContext): void;
   applyExportControlStates?(context: PopupContext): void;

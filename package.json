@@ -30,18 +30,20 @@
     "format": "prettier --write \"**/*.{js,mjs,json,md,yml,yaml}\"",
     "format:check": "prettier --check \"**/*.{js,mjs,json,md,yml,yaml}\"",
     "lint:markdown": "markdownlint-cli2",
-    "check": "npm run lint && npm run lint:extension && npm run typecheck && npm run format:check && npm run lint:markdown && npm run verify && npm run verify:extension && npm test && npm run test:extension && node scripts/smoke_container.mjs",
-    "prepare": "simple-git-hooks || true"
+    "check": "npm run lint && npm run lint:extension && npm run typecheck && npm run format:check && npm run lint:markdown && npm run verify && npm run verify:extension && npm test && npm run test:extension && node scripts/smoke_container.mjs && npm run test:infra",
+    "prepare": "simple-git-hooks || true",
+    "test:infra": "bash scripts/ci-deploy-remote.test.sh && bash scripts/ci-deploy-systemd-remote.test.sh",
+    "test:browser": "node scripts/popup-browser-smoke.mjs"
   },
   "simple-git-hooks": {
     "pre-commit": "npx lint-staged"
   },
   "devDependencies": {
     "eslint-config-prettier": "^10.1.8",
-    "lint-staged": "^17.2.0",
+    "lint-staged": "^17.4.1",
     "markdownlint-cli2": "^0.23.1",
     "prettier": "^3.9.6",
-    "simple-git-hooks": "^2.13.1",
+    "simple-git-hooks": "^2.14.0",
     "typescript": "^7.0.2"
   },
   "_overrides_note": "js-yaml: markdownlint-cli2 pins 5.2.1, which is covered by GHSA-pm4m-ph32-ghv5 (high, DoS via exponential flow-collection parsing). Floor is 5.2.2; the caret lets Dependabot keep moving. Drop this once markdownlint-cli2 itself requires >=5.2.2.",

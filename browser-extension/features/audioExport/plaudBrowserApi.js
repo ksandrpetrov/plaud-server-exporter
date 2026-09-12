@@ -13,13 +13,11 @@ import {
   runPlaudRecordingFanout,
 } from "../../common/plaudRecordings.js";
 import { buildPlaudHeaders, normalizeApiBase } from "./plaudBrowserSession.js";
-import { shouldRetryPlaudFetchAttempt } from "./plaudFetchRetry.js";
+import { withPlaudRetries } from "./plaudFetchRetry.js";
 
 export const PLAUD_API_PAGE_LIMIT = 100;
 export const PLAUD_API_MAX_FILES = 5000;
 export const PLAUD_FETCH_TIMEOUT_MS = 45000;
-
-const PLAUD_FETCH_MAX_RETRIES = 3;
 
 function isPlaudExportDebugEnabled() {
   try {
@@ -76,15 +74,17 @@ export function describePayloadShape(payload) {
   return { ...shape, dataType: data == null ? "null" : typeof data };
 }
 
-function sleepMs(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-export async function fetchWithTimeout(url, init, timeoutMs) {
+export async function fetchWithTimeout(
+  url,
+  init,
+  timeoutMs,
+  consume = async (response) => response
+) {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...init, signal: controller.signal });
+    const response = await fetch(url, { ...init, signal: controller.signal });
+    return await consume(response);
   } finally {
     clearTimeout(tid);
   }
@@ -94,15 +94,30 @@ async function fetchPlaudApiOnce(session, path, options = {}) {
   const { retryDomainSwitch = true, headers = {}, method = "GET" } = options;
   const url = new URL(path, session.apiBase);
   let response;
+  let payload;
   try {
-    response = await fetchWithTimeout(
+    ({ response, payload } = await fetchWithTimeout(
       url.toString(),
       {
         method,
         headers: buildPlaudHeaders(session, headers),
       },
-      PLAUD_FETCH_TIMEOUT_MS
-    );
+      PLAUD_FETCH_TIMEOUT_MS,
+      async (response) => {
+        let payload;
+        try {
+          payload = await response.json();
+        } catch (error) {
+          if (error?.name === "AbortError") throw error;
+          if (response.ok)
+            throw new Error("API Plaud вернул некорректный JSON", {
+              cause: error,
+            });
+          payload = null;
+        }
+        return { response, payload };
+      }
+    ));
   } catch (error) {
     if (error?.name === "AbortError") {
       throw new Error(
@@ -112,7 +127,6 @@ async function fetchPlaudApiOnce(session, path, options = {}) {
     }
     throw error;
   }
-  const payload = await response.json().catch(() => null);
 
   if (
     retryDomainSwitch &&
@@ -140,83 +154,28 @@ async function fetchPlaudApiOnce(session, path, options = {}) {
 }
 
 export async function fetchPlaudApi(session, path, options = {}) {
-  let lastError;
-  for (let attempt = 0; attempt < PLAUD_FETCH_MAX_RETRIES; attempt++) {
-    if (attempt > 0) {
-      await sleepMs(Math.min(8000, 500 * 2 ** (attempt - 1)));
-    }
-    try {
-      return await fetchPlaudApiOnce(session, path, options);
-    } catch (error) {
-      lastError = error;
-      const m = String(error?.message || "");
-      const httpMatch = m.match(/HTTP\s+(\d+)/i);
-      const statusNum = httpMatch ? Number(httpMatch[1]) : NaN;
-      if (!shouldRetryPlaudFetchAttempt(error, statusNum)) {
-        throw error;
-      }
-      if (attempt >= PLAUD_FETCH_MAX_RETRIES - 1) {
-        throw error;
-      }
-    }
-  }
-  throw lastError;
+  return withPlaudRetries(() => fetchPlaudApiOnce(session, path, options));
 }
 
 export async function fetchUrlTextWithRetries(url) {
-  let lastError;
-  for (let attempt = 0; attempt < PLAUD_FETCH_MAX_RETRIES; attempt++) {
-    if (attempt > 0) {
-      await sleepMs(Math.min(8000, 500 * 2 ** (attempt - 1)));
-    }
-    try {
-      plaudExportDebug("summary:data-link:fetch:start", {
-        attempt: attempt + 1,
-        url: redactUrlForLog(url),
-      });
-      const response = await fetchWithTimeout(url, {}, PLAUD_FETCH_TIMEOUT_MS);
-      plaudExportDebug("summary:data-link:fetch:response", {
-        attempt: attempt + 1,
-        status: response.status,
-        ok: response.ok,
-        url: redactUrlForLog(url),
-      });
-      if (!response.ok) {
-        const err = new Error(
-          `Не удалось загрузить саммари: HTTP ${response.status}`
-        );
-        if (
-          ![429, 502, 503, 504].includes(response.status) ||
-          attempt >= PLAUD_FETCH_MAX_RETRIES - 1
-        ) {
-          throw err;
-        }
-        lastError = err;
-        continue;
+  return withPlaudRetries(async (attempt) => {
+    plaudExportDebug("summary:data-link:fetch:start", {
+      attempt: attempt + 1,
+      url: redactUrlForLog(url),
+    });
+    return fetchWithTimeout(
+      url,
+      {},
+      PLAUD_FETCH_TIMEOUT_MS,
+      async (response) => {
+        if (!response.ok)
+          throw new Error(
+            `Не удалось загрузить саммари: HTTP ${response.status}`
+          );
+        return response.text();
       }
-      const text = await response.text();
-      plaudExportDebug("summary:data-link:fetch:done", {
-        attempt: attempt + 1,
-        chars: text.length,
-        url: redactUrlForLog(url),
-      });
-      return text;
-    } catch (error) {
-      lastError = error;
-      plaudExportDebug("summary:data-link:fetch:error", {
-        attempt: attempt + 1,
-        message: error?.message || String(error),
-        url: redactUrlForLog(url),
-      });
-      if (!shouldRetryPlaudFetchAttempt(error, NaN)) {
-        throw error;
-      }
-      if (attempt >= PLAUD_FETCH_MAX_RETRIES - 1) {
-        throw error;
-      }
-    }
-  }
-  throw lastError;
+    );
+  });
 }
 
 async function fetchPlaudFiletagListWithAuth(session, authHeader) {
