@@ -63,8 +63,11 @@ REQUESTED="${DEPLOY_REPO_DIR:-}"
 
 UNIT_EXISTS=false
 UNIT_WAS_ACTIVE=false
-if systemctl list-unit-files "$UNIT" &>/dev/null; then
+UNIT_WORKDIR=""
+UNIT_LOAD_STATE="$(systemctl show "$UNIT" --property=LoadState --value 2>/dev/null || true)"
+if [[ -n "$UNIT_LOAD_STATE" && "$UNIT_LOAD_STATE" != "not-found" ]]; then
   UNIT_EXISTS=true
+  UNIT_WORKDIR="$(systemctl show "$UNIT" --property=WorkingDirectory --value 2>/dev/null || true)"
   if systemctl is-active --quiet "$UNIT"; then
     UNIT_WAS_ACTIVE=true
   fi
@@ -80,34 +83,47 @@ CANDIDATES+=(
   "/home/plaud/plaud-server-exporter"
 )
 
+case "$UNIT_WORKDIR" in
+  /srv/* | /opt/* | /home/*)
+    CANDIDATES+=("$UNIT_WORKDIR")
+    ;;
+esac
+
+# Recover installations that were moved outside the historical fixed paths.
+# Only directories with the protected environment file and Plaud-specific
+# repository/state markers are considered; discovered paths are not logged.
+AUTO_CANDIDATES=()
+while IFS= read -r env_file; do
+  dir="${env_file%/.env}"
+  if grep -Eq '"name"[[:space:]]*:[[:space:]]*"plaud-server-exporter"' "$dir/package.json" 2>/dev/null ||
+    [[ -f "$dir/server/.data/session.json" || -f "$dir/server/.data/owner-chat.json" ]]; then
+    AUTO_CANDIDATES+=("$dir")
+  fi
+done < <(find /srv /opt /home -mindepth 2 -maxdepth 6 -type f -name .env -print 2>/dev/null | sort -u)
+AUTO_DISCOVERED="${#AUTO_CANDIDATES[@]}"
+if [[ "$AUTO_DISCOVERED" -eq 1 ]]; then
+  CANDIDATES+=("${AUTO_CANDIDATES[0]}")
+fi
+
 REPO=""
 for dir in "${CANDIDATES[@]}"; do
-  [[ -n "$dir" && -d "$dir/.git" ]] || continue
+  [[ -n "$dir" && -d "$dir/.git" && -f "$dir/.env" ]] || continue
   REPO="$dir"
   break
 done
 
 BOOTSTRAP_GIT=false
-if [[ -z "$REPO" && "$UNIT_EXISTS" == "true" ]]; then
+if [[ -z "$REPO" && "$UNIT_EXISTS" == "true" && -n "$UNIT_WORKDIR" ]]; then
   # The service unit is the authoritative fallback after an incomplete/manual
   # migration that left the application files and state but removed .git.
-  UNIT_WORKDIR="$(systemctl show "$UNIT" --property=WorkingDirectory --value)"
   case "$UNIT_WORKDIR" in
-    /srv/plaud-exporter | /opt/plaud-server-exporter | /home/plaud/plaud-server-exporter)
-      if [[ -d "$UNIT_WORKDIR" ]]; then
+    /srv/* | /opt/* | /home/*)
+      if [[ -d "$UNIT_WORKDIR" && -f "$UNIT_WORKDIR/.env" ]]; then
         REPO="$UNIT_WORKDIR"
         BOOTSTRAP_GIT=true
       fi
       ;;
   esac
-fi
-
-if [[ -z "$REPO" && "$UNIT_EXISTS" == "true" && -n "$REQUESTED" && -d "$REQUESTED" ]]; then
-  UNIT_WORKDIR="$(systemctl show "$UNIT" --property=WorkingDirectory --value)"
-  if [[ "$UNIT_WORKDIR" == "$REQUESTED" ]]; then
-    REPO="$REQUESTED"
-    BOOTSTRAP_GIT=true
-  fi
 fi
 
 if [[ -z "$REPO" ]]; then
@@ -123,7 +139,7 @@ if [[ -z "$REPO" ]]; then
 fi
 
 if [[ -z "$REPO" ]]; then
-  echo "ci-deploy-systemd-remote: no repository or allowed systemd workdir found. Tried: ${CANDIDATES[*]}" >&2
+  echo "ci-deploy-systemd-remote: no deployable Plaud checkout found (unit_state=${UNIT_LOAD_STATE:-unknown}, auto_discovered=$AUTO_DISCOVERED)." >&2
   if [[ -f /opt/plaud-exporter/docker-compose.yml ]]; then
     echo "ci-deploy-systemd-remote: /opt/plaud-exporter has Docker — set PRODUCTION_DOCKER_DEPLOY=true in GitHub Variables." >&2
   fi
