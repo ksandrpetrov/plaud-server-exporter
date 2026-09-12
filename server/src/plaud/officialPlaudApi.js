@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "../util/fetchWithTimeout.js";
 /**
  * Official Plaud Developer API client (`platform.plaud.ai/developer/api`).
  * Used when session.apiMode === "official" (OAuth auth).
@@ -42,16 +43,6 @@ function sleepMs(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchWithTimeout(url, init, timeoutMs) {
-  const controller = new AbortController();
-  const tid = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(tid);
-  }
-}
-
 /**
  * @param {Record<string, any>} session
  * @param {string} path
@@ -66,7 +57,7 @@ async function fetchOfficialPlaudApi(session, path, options = {}) {
   for (let attempt = 0; attempt < max; attempt++) {
     if (attempt > 0) await sleepMs(Math.min(8000, 500 * 2 ** (attempt - 1)));
     try {
-      const response = await fetchWithTimeout(
+      return await fetchWithTimeout(
         url,
         {
           method,
@@ -77,21 +68,22 @@ async function fetchOfficialPlaudApi(session, path, options = {}) {
             ...headers,
           },
         },
-        config.apiTimeoutMs
+        config.apiTimeoutMs,
+        async (response) => {
+          if (response.status === 401 || response.status === 403) {
+            throw new PlaudAuthError(
+              `Plaud official API auth failed (HTTP ${response.status}).`,
+              response.status
+            );
+          }
+
+          if (!response.ok) {
+            throw new Error(`Plaud official API HTTP ${response.status}`);
+          }
+
+          return await response.json();
+        }
       );
-
-      if (response.status === 401 || response.status === 403) {
-        throw new PlaudAuthError(
-          `Plaud official API auth failed (HTTP ${response.status}).`,
-          response.status
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(`Plaud official API HTTP ${response.status}`);
-      }
-
-      return await response.json();
     } catch (error) {
       lastError = error;
       if (error instanceof PlaudAuthError) throw error;
