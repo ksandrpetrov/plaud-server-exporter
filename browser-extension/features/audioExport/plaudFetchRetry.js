@@ -38,3 +38,15 @@ export function shouldRetryPlaudFetchAttempt(error, httpStatusFromMessage) {
   }
   return false;
 }
+
+/** Retry only transient failures; auth and payload errors fail immediately. */
+export async function withPlaudRetries(operation) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await operation(attempt);
+    } catch (error) {
+      if (attempt >= 2 || !shouldRetryPlaudFetchAttempt(error)) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
+}

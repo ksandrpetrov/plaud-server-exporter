@@ -22,6 +22,8 @@ const CLASSIC_SCRIPT_FILES = [
   "popup/popupSyncUi.js",
   "popup/popupStatsUi.js",
   "popup/popupExportUi.js",
+  "popup/exportActions.js",
+  "popup/exportPolling.js",
   "content.js",
 ];
 
