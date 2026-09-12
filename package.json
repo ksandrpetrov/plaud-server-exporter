@@ -38,10 +38,10 @@
   },
   "devDependencies": {
     "eslint-config-prettier": "^10.1.8",
-    "lint-staged": "^17.2.0",
+    "lint-staged": "^17.4.1",
     "markdownlint-cli2": "^0.23.1",
     "prettier": "^3.9.6",
-    "simple-git-hooks": "^2.13.1",
+    "simple-git-hooks": "^2.14.0",
     "typescript": "^7.0.2"
   },
   "_overrides_note": "js-yaml: markdownlint-cli2 pins 5.2.1, which is covered by GHSA-pm4m-ph32-ghv5 (high, DoS via exponential flow-collection parsing). Floor is 5.2.2; the caret lets Dependabot keep moving. Drop this once markdownlint-cli2 itself requires >=5.2.2.",
